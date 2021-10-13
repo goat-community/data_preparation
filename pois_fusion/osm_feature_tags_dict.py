@@ -196,3 +196,37 @@ OSM_tags = {
     'water_point', 'fuel']
 
 }
+
+
+# collection of all landuse types grouped by features
+
+OSM_landuse_types = {
+
+    'water'       : ['basin','reservoir','salt_pond','waters'],
+
+    'agriculture' : ['allotments','aquaculture','fallow','farmland','farmyard','greenhouse_horticulture',
+                     'orchard','pasture','plant_nursery','plantation','vineyard'],
+
+    'nature'      : ['forest','grass','meadow','green_area'],
+
+    'leisure'     : ['garden','national_park','nature_reserve','park','village_green','recreation_ground','leisure'],
+
+    'cemetery'    : ['cemetery','grave_yard'],
+
+    'residential' : ['residential','garages'],
+
+    'commercial'  : ['commercial','retail'],
+
+    'community'   : ['school','university','hospital','college','churchyard','religious','community'],
+    
+
+
+
+
+
+
+
+
+
+}
+

@@ -1,3 +1,5 @@
+#%%
+
 from pyrosm import get_data, OSM
 from osm_feature_tags_dict import OSM_tags
 import yaml
@@ -23,22 +25,22 @@ class PyrOSM_Filter:
 
 # Function for collection data from OSM dbf and conversion to GeoJSON
 # Could be extended with varios type of searches and filters
-def osm2gjson(type='pois'):
+def osm2gjson(type):
     if type == 'pois':
-        #import data from pois_coll_conf.yaml
-        with open(os.path.join('pois_fusion' , 'pyrosm_coll_conf.yaml')) as m:
+        #import data from pyrosm_coll_conf.yaml
+        with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
             config = yaml.safe_load(m)
 
         var = config['VARIABLES_SET']
 
         # get region name desired pois types from yaml settings
-        pbf_data = var['region_pbf']
-        pois = var['pois']['pois']
-        typ = var['pois']['filter_types']['features']
+        pbf_data     = var['region_pbf']
+        pois         = var['pois']['pois']
+        typ          = var['pois']['filter_types']['features']
         tags2columns = var['pois']['tags2columns']
 
         # Get defined data from Geofabrik
-        fp = get_data(pbf_data)
+        fp  = get_data(pbf_data)
         osm = OSM(fp)
 
         # Create filter class with given parameters and create filter with class method          
@@ -49,10 +51,14 @@ def osm2gjson(type='pois'):
         pois = osm.get_data_by_custom_criteria(custom_filter=custom_filter.filter, tags_as_columns=custom_filter.tags_as_columns, keep_ways=False)
 
         # Write geopandas dataframe to geojson file
-        pois.to_file(os.path.join("pois_fusion" ,"osm_pois.geojson"), driver="GeoJSON")
+        pois.to_file(os.path.join(sys.path[0] ,"osm_pois.geojson"), driver="GeoJSON")
+
+   
+
 
 # tests
 
-osm2gjson()
+osm2gjson('pois')
 #osm2gjson('pois')
 
+# %%

@@ -3,7 +3,7 @@
 VARIABLES_SET : 
   # variables for Pyrosm
   # region to download - could be "Bayern"
-  region_pbf : "Mittelfranken"
+  region_pbf : "Muenchen"
 
   pois :
     # set of pois to collect in OSm data base
@@ -13,14 +13,25 @@ VARIABLES_SET :
 
     # set of pois to be downloaded 
     pois : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
-    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
-    "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 
-    "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
-    "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", "outdoor_fitness_station", "sport_club", "bench", 
-    "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", "water_park", "park", "forest", "heath_scrub", "lake", "river",
-     "pitch", "track", "sport_centre", "fitness_centre", "sport_hall"]
+            "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
+            "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 
+            "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
+            "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", "outdoor_fitness_station", "sport_club", "bench", 
+            "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", "water_park", "park", "forest", "heath_scrub", "lake", "river",
+            "pitch", "track", "sport_centre", "fitness_centre", "sport_hall"]
 
     tags2columns : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
-    "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
+                    "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
     # ["addr:city", "addr:country", "addr:full", "addr:housenumber", "addr:housename", "addr:postcode", "addr:place", "addr:street",
     #"email", "name", "opening_hours", "operator", "phone", "ref", "url", "website"]
+    
+  landuse :
+    # set of landuse types to collect in OSM data base
+    # features for filter types
+    filter_types :
+      features: []
+
+    # set of landuse types to be downloaded
+    landuse : []
+
+    tags2columns : []
