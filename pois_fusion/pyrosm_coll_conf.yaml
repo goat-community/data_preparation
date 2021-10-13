@@ -12,7 +12,7 @@ VARIABLES_SET :
       features : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "highway", "landuse"]
 
     # set of pois to be downloaded 
-    pois : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
+    tags : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
     "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
     "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 
     "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
@@ -24,3 +24,8 @@ VARIABLES_SET :
     "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
     # ["addr:city", "addr:country", "addr:full", "addr:housenumber", "addr:housename", "addr:postcode", "addr:place", "addr:street",
     #"email", "name", "opening_hours", "operator", "phone", "ref", "url", "website"]
+
+    # define which geometry types should be collected from OSM
+    points: True
+    polygons: True
+    lines: False
