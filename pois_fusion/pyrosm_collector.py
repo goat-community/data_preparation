@@ -28,12 +28,12 @@ class PyrOSM_Filter:
         self.f_line = line      
 
 # Function for collection data from OSM dbf and conversion to GeoJSON
-# Could be extended with varios type of searches and filters
-def osm2gjson(type):
-    if type == 'pois':
-        #import data from pyrosm_coll_conf.yaml
-        with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
-            config = yaml.safe_load(m)
+# Could be extended with varios type of searches and filters 
+# type='pois', driver='PandasDF' default variables driver could be 
+def osm_collect(type='pois', driver='PandasDF'):
+    #import data from pois_coll_conf.yaml
+    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
+        config = yaml.safe_load(m)
 
     var = config['VARIABLES_SET']
 
@@ -58,12 +58,15 @@ def osm2gjson(type):
     pois = osm.get_data_by_custom_criteria(custom_filter=custom_filter.filter, tags_as_columns=custom_filter.tags_as_columns, keep_ways=custom_filter.f_line, 
     keep_relations=custom_filter.f_polygon, keep_nodes=custom_filter.f_point)
 
-    # Write geopandas dataframe to geojson file
-    pois.to_file(os.path.join(sys.path[0] , type+".geojson"), driver="GeoJSON")
+    # Return type if driver -> 'GeoJSON' write geojson file if driver -> 'PandasDF' return PandasDF
+    if driver == 'PandasDF':
+        return pois
+    else:
+        pois.to_file(os.path.join(sys.path[0] , type+".geojson"), driver=driver)
+
 
 # tests
-
-osm2gjson('pois')
-#osm2gjson('pois')
+#osm_collect()
+#osm_collect(driver='GeoJSON')
 
 # %%

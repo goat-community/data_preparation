@@ -12,13 +12,13 @@ VARIABLES_SET :
       features : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "highway", "landuse"]
 
     # set of pois to be downloaded 
-    pois : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
-            "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
-            "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 
-            "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
-            "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", "outdoor_fitness_station", "sport_club", "bench", 
-            "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", "water_park", "park", "forest", "heath_scrub", "lake", "river",
-            "pitch", "track", "sport_centre", "fitness_centre", "sport_hall"]
+    tags : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
+    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
+    "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 
+    "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
+    "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", "outdoor_fitness_station", "sport_club", "bench", 
+    "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", "water_park", "park", "forest", "heath_scrub", "lake", "river",
+     "pitch", "track", "sport_centre", "fitness_centre", "sport_hall", "fitness", "fitness_station"]
 
     tags2columns : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
                     "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
