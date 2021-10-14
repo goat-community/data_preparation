@@ -18,7 +18,7 @@ VARIABLES_SET :
     "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
     "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", "outdoor_fitness_station", "sport_club", "bench", 
     "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", "water_park", "park", "forest", "heath_scrub", "lake", "river",
-     "pitch", "track", "sport_centre", "fitness_centre", "sport_hall"]
+     "pitch", "track", "sport_centre", "fitness_centre", "sport_hall", "fitness", "fitness_station"]
 
     tags2columns : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
     "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
