@@ -200,33 +200,77 @@ OSM_tags = {
 
 # collection of all landuse types grouped by features
 
-OSM_landuse_types = {
+# OSM_landuse_types = {
 
-    'water'       : ['basin','reservoir','salt_pond','waters'],
+#     'water'          : ['basin','reservoir','salt_pond','waters'],
 
-    'agriculture' : ['allotments','aquaculture','fallow','farmland','farmyard','greenhouse_horticulture',
-                     'orchard','pasture','plant_nursery','plantation','vineyard'],
+#     'agriculture'    : ['allotments','aquaculture','fallow','farmland','farmyard','greenhouse_horticulture',
+#                         'orchard','pasture','plant_nursery','plantation','vineyard'],
 
-    'nature'      : ['forest','grass','meadow','green_area'],
+#     'nature'         : ['forest','grass','meadow','green_area'],
 
-    'leisure'     : ['garden','national_park','nature_reserve','park','village_green','recreation_ground','leisure'],
+#     'leisure'        : ['garden','national_park','nature_reserve','park','village_green','recreation_ground','leisure'],
 
-    'cemetery'    : ['cemetery','grave_yard'],
+#     'cemetery'       : ['cemetery','grave_yard'],
 
-    'residential' : ['residential','garages'],
+#     'residential'    : ['residential','garages'],
 
-    'commercial'  : ['commercial','retail'],
+#     'commercial'     : ['commercial','retail'],
 
-    'community'   : ['school','university','hospital','college','churchyard','religious','community'],
-    
+#     'community'      : ['school','university','hospital','college','churchyard','religious','community'],
+
+#     'industrial'     : ['industrial','landfill','quarry'],
+
+#     'transportation' : ['highway','parking','railway'],
+
+#     'military'       : ['military']
+# }
 
 
+# tags landuse
+landuse_tags = {
 
+    'landuse' : [ 'construction', 'education', 'industrial',   
+      'flowerbed',   'brownfield',  'depot',   'greenfield', 
+       'port',   
+       'winter_sports', 'user defined']
+    }
 
+# sorted wie SQL
 
-
+landuse_tags_sorted = { 
+        'water'            : ['basin (also in water)', 'reservoir (also in man_made and water)', 'salt_pond'],
+        'agriculture'      : ['allotments (also in place)', 'aquaculture', 'farmland', 'farmyard', 'greenhouse_horticulture', 'orchard', 'plant_nursery', 'vineyard'],
+        'nature'           : ['forest', 'grass', 'meadow'],
+        'leisure'          : ['village_green', 'recreation_ground',],
+        'cemetery'         : ['cemetery'],
+        'residential'      : ['residential (also in buildings and highways)', 'garages (also in buildings)'],
+        'commercial'       : ['commercial (also in buildings)', 'retail (also in buildings)'],
+        'community'        : ['religious (also in buildings)'],
+        'industrial'       : ['industrial (also in buildings)', 'landfill', 'quarry'],
+        'transportation'   : ['railway (also own group and in route tags)'],
+        'military'         : ['military (also in building)']
 
 
 
 }
 
+# fehlt im Vergleich zu SQL
+# sollen am Ende alle Tags irgendwo eingordnet sein/ verwendet worden sein
+
+landuse_tags_missing = {
+        'water'            : ['waters'],
+        'agriculture'      : ['fallow', 'pasture', 'plantation'],
+        'nature'           : ['green_area'],
+        'leisure'          : ['garden is in leisure tags', 'national_park is in boundary tags', 'nature_reserve is in leisure tags', 'park is in leisure tags', 'leisure'],
+        'cemetery'         : ['grave_yard is in amenity tags'],
+        'residential'      : [],
+        'commercial'       : [],
+        'community'        : ['school in amenity and building tags', 'university in amenity and building tags', 'hospital in amenity and building tags' , 'college in amenity and building tags',
+                              'churchyard'],
+        'industrial'       : [],
+        'transportation'   : ['highway (own group)', 'parking, bicycle_parking, motorcycle_parking, parking_entrance, parking_space in amenity tags und parking nochmal in building tags']
+
+
+
+}

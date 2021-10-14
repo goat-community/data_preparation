@@ -35,3 +35,8 @@ VARIABLES_SET :
     landuse : []
 
     tags2columns : []
+
+    # define which geometry types should be collected from OSM
+    points: True
+    polygons: True
+    lines: False
