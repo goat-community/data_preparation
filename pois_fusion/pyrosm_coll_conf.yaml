@@ -9,10 +9,14 @@ VARIABLES_SET :
     # set of pois to collect in OSm data base
     # features for filter types
     tags: 
+      # filter - categories to search values inside 
+      # if you need all elemnts of category please leave "query_values" empty
+      # additional - tags which in addition to filter categories will be converted 
+      # in columns in result Pandas DataFrame
       filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "highway", "landuse"]
       additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
     "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
-    # set of pois to be downloaded 
+    # set of pois to be search for and downloaded
     query_values : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
     "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
     "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 

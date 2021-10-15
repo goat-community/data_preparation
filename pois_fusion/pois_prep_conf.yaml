@@ -1,0 +1,59 @@
+# VARIABLES_SET -> set for data preparation 2nd step
+
+VARIABLES_SET : 
+
+  bank: 
+    sparkasse: ["kreissparkasse", "sparkasse", "stadtsparkasse"]
+    raiffeisenbank: ["raiffeisenbank", "vr bank", "vr-bank", "volksbank", "volks", "Münchner"]
+    hypovereinsbank: ["hypo vereinsbank", "hypovereinsbank"]
+
+  chemist: 
+    dm: ["dm"]
+    rossmann": ["rossmann"]
+  
+  nursery: ["krippe", "kinderkrippe", "kita"]
+
+  fast_food: 
+    mcdonalds: ["mcdonald"]
+  
+  health_food: 
+    vitalia": ["vitalia"]
+    reformhaus: ["reformhaus"]
+    
+  hypermarket": 
+    hit: ["hit"]
+    real: ["real"]
+    v-markt: ["v-markt"]
+    kaufland: ["kaufland"]
+    marktkauf: ["marktkauf"]
+  
+  supermarket: 
+    rewe: ["rewe", "rewe city"]
+    edeka: ["e center", "edeka"]
+    
+  discount_gym: 
+    fitx: ["fitx"]
+    mcfit: ["mcfit"]
+    fitstar: ["fitstar","fit-star", "fit star"]
+    cleverfit: ["cleverfit" ,"clever fit"]
+    jumpersfitness: ["jumpersfitness" ,"jumpers fitness"]
+  
+  discount_supermarket: 
+    aldi: ["aldi"]
+    lidl: ["lidl"]
+    netto: ["netto"]
+    norma: ["norma"]
+    penny: ["penny"]
+    
+  no_end_consumer_store: 
+    metro": ["metro"]
+    hamberger": ["hamberger"]
+    
+  community_sport_centre: ["bezirkssportanlage"]
+
+  operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
+    
+  sport:
+    sport_var_disc : ["table_tennis"]
+    leisure_var_add : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
+    leisure_var_disc : ["fitness_station"]
