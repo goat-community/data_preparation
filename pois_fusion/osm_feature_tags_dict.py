@@ -38,10 +38,10 @@ OSM_tags = {
     'building' :  ['apartments', 'bungalow', 'cabin', 'detached', 'dormitory', 'farm', 'ger', 'hotel', 'house', 
     'houseboat', 'residential', 'semidetached_house', 'static_caravan', 'terrace', 'commercial', 'industrial', 
     'kiosk', 'office', 'retail', 'supermarket', 'warehouse', 'cathedral', 'chapel', 'church', 'monastery', 
-    'mosque', '	presbytery', 'religious', 'shrine', 'synagogue', 'temple', 'bakehouse', 'civic', 'fire_station', 
-    'government', 'hospital', 'public', 'toilets', 'train_station', 'transportation', 'kindergarten', '	school', 
+    'mosque', 'presbytery', 'religious', 'shrine', 'synagogue', 'temple', 'bakehouse', 'civic', 'fire_station', 
+    'government', 'hospital', 'public', 'toilets', 'train_station', 'transportation', 'kindergarten', 'school', 
     'university', 'college', 'barn', 'conservatory', 'cowshed', 'farm_auxiliary', 'greenhouse', 'slurry_tank', 
-    'stable', 'sty', 'grandstand', 'pavilion', 'riding_hall', 'sports_hall', 'stadium', 'hangar', '	hut', 'shed', 
+    'stable', 'sty', 'grandstand', 'pavilion', 'riding_hall', 'sports_hall', 'stadium', 'hangar', 'hut', 'shed', 
     'carport', 'garage', 'garages', 'parking', 'digester', 'service', 'transformer_tower', 'water_tower', 
     'military', 'bunker', 'bridge', 'construction', 'container', 'tent', 'gatehouse', 'roof', 'ruins', 
     'tree_house', 'yes', 'user defined'],
@@ -70,9 +70,13 @@ OSM_tags = {
     'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'living_street', 'service', 
     'pedestrian', 'track', 'bus_guideway', 'escape', 'raceway', 'road', 'busway', 'footway', 'bridleway', 'steps', 
     'corridor', 'path', 'cycleway', 'proposed', 'construction', 'bus_stop', 'crossing', 'elevator', 'emergency_bay', 
-    'emergency_access_point', 'give_way', 'milestone', 'mini_roundabout', '	motorway_junction', 'passing_place', 
+    'emergency_access_point', 'give_way', 'phone', 'milestone', 'mini_roundabout', 'motorway_junction', 'passing_place', 
     'platform', 'rest_area', 'speed_camera', 'street_lamp', 'services', 'stop', 'traffic_mirror', 'traffic_signals', 
     'trailhead', 'turning_circle', 'turning_loop', 'toll_gantry'],
+
+    'healthcare' : ['alternative', 'audiologist', 'birthing_center', 'blood_bank', 'blood_donation', 'counselling',
+    'dialysis', 'hospice', 'laboratory', 'midwife', 'nurse', 'occupational_therapist', 'optometrist', 'physiotherapist',
+    'podiatrist', 'psychotherapist', 'rehabilitation', 'sample_collection', 'speech_therapist', 'vaccination_centre'],
 
     'cycleway' :  ['lane', 'opposite', 'opposite_lane', 'track', 'opposite_track', 'share_busway', 
     'opposite_share_busway', 'shared_lane', 'lane'],
@@ -324,49 +328,86 @@ OSM_tags_sorted_for_filtering = {
                                     'monastery', 'place_of_worship',
                                     ],
     'amenity_buildings'         :  ['bar', 'cafe', 'fast_food', 'ice_cream', 'pub', 'restaurant', 
-                                    'college', 'driving_school', 'kindergarten', 'language_school', 'library', 'toy_library', 'music_school',
-                                    'school', 'university', 'vehicle_inspection', 
+                                    'driving_school', 'language_school', 'library', 'toy_library', 'music_school',
+                                    'vehicle_inspection', 
                                     'bank', 'clinic', 'dentist', 'doctors',
-                                    'hospital', 'nursing_home', 'pharmacy', 'social_facility', 'veterinary','arts_centre', 'brothel', 'casino',
+                                    'nursing_home', 'pharmacy', 'social_facility', 'veterinary','arts_centre', 'brothel', 'casino',
                                     'cinema', 'community_centre', 'conference_centre', 'events_venue',
                                     'nightclub', 'social_centre', 'stripclub', 'studio',
-                                    'theatre','courthouse', 'fire_station', 'police', 'post_depot', 'post_office', 
+                                    'theatre','courthouse', 'police', 'post_depot', 'post_office', 
                                     'townhall',
                                     'childcare', 'crematorium', 'funeral_hall', 
-                                    'monastery', 'place_of_worship',
                                     ],
     'amenity_street_network'    :  [],
     
     #
-    'barrier'                   :  ['cable_barrier', 'city_wall', 'ditch', 'fence', 'guard_rail', 'handrail', 'hedge', 'kerb', 
-                                    'retaining_wall', 'wall', 'block', 'bollard', 'border_control', 'bump_gate', 'bus_trap', 'cattle_grid', 
-                                    'chain', 'cycle_barrier', 'debris', 'entrance', 'full-height_turnstile', 'gate', 'hampshire_gate', 
+    'barrier'                   :  [('cable_barrier',) 'city_wall', 'ditch', 'fence', ('guard_rail',) ('handrail',) ('hedge',) ('kerb',) 
+                                    ('retaining_wall',) ('wall',) ('block',) ('bollard',) ('border_control',) ('bump_gate',) ('bus_trap',) ('cattle_grid',) 
+                                    ('chain',) ('cycle_barrier',) ('debris',) ('entrance',) 'full-height_turnstile', 'gate', 'hampshire_gate', 
                                     'height_restrictor', 'horse_stile', 'jersey_barrier', 'kissing_gate', 'lift_gate', 'log', 'motorcycle_barrier', 
                                     'rope', 'sally_port', 'spikes', 'stile', 'sump_buster', 'swing_gate', 'toll_booth', 'turnstile', 'yes'],
 
-    'barrier_pois'              :   []
+    'barrier_pois'              :   [],
 
-    'barrier_landuse'           :   []
+    'barrier_landuse'           :   [],
 
-    'barrier_buildings'         :   []
+    'barrier_buildings'         :   [],
 
-    'barrier_street_network'    :   []
+    'barrier_street_network'    :   ['city_wall', 'ditch', 'fence', 
+                                     (stop half way through as most of them only make sense if complete)  
+                                     ],
 
     #
-    'boundary'                  :  ['aboriginal_lands', 'administrative', 'hazard', 'maritime', 'marker', 'national_park', 
-                                    'political', 'postal_code', 'protected_area', 'special_economic_zone', 'user defined'],
+    'boundary'                  :  [('aboriginal_lands',) ('administrative',) ('hazard',) ('maritime',) ('marker',) 'national_park', 
+                                    ('political',) ('postal_code',) 'protected_area', ('special_economic_zone',) ('user defined')],
 
-    'building'                  :  ['apartments', 'bungalow', 'cabin', 'detached', 'dormitory', 'farm', 'ger', 'hotel', 'house', 
-                                    'houseboat', 'residential', 'semidetached_house', 'static_caravan', 'terrace', 'commercial', 'industrial', 
+    'boundary_pois'             :   [],
+
+    'boundary_landuse'          :   ['national_park', 'protected_area'],
+
+    'boundary_buildings'        :   [],
+
+    'boundary_street_network'   :   [],
+
+
+    'building'                  :  ['apartments', ('bungalow',) ('cabin',) 'detached', 'dormitory', 'farm', ('ger',) 'hotel', 'house', 
+                                    ('houseboat',) 'residential', 'semidetached_house', ('static_caravan'), 'terrace', 'commercial', 'industrial', 
                                     'kiosk', 'office', 'retail', 'supermarket', 'warehouse', 'cathedral', 'chapel', 'church', 'monastery', 
-                                    'mosque', '	presbytery', 'religious', 'shrine', 'synagogue', 'temple', 'bakehouse', 'civic', 'fire_station', 
-                                    'government', 'hospital', 'public', 'toilets', 'train_station', 'transportation', 'kindergarten', '	school', 
-                                    'university', 'college', 'barn', 'conservatory', 'cowshed', 'farm_auxiliary', 'greenhouse', 'slurry_tank', 
-                                    'stable', 'sty', 'grandstand', 'pavilion', 'riding_hall', 'sports_hall', 'stadium', 'hangar', '	hut', 'shed', 
-                                    'carport', 'garage', 'garages', 'parking', 'digester', 'service', 'transformer_tower', 'water_tower', 
-                                    'military', 'bunker', 'bridge', 'construction', 'container', 'tent', 'gatehouse', 'roof', 'ruins', 
-                                    'tree_house', 'yes', 'user defined'],
+                                    'mosque', 'presbytery', 'religious', 'shrine', 'synagogue', 'temple', ('bakehouse',) 'civic', 'fire_station', 
+                                    'government', 'hospital', 'public', 'toilets', 'train_station', 'transportation', 'kindergarten', 'school', 
+                                    'university', 'college', 'barn', ('conservatory',) 'cowshed', 'farm_auxiliary', 'greenhouse', 'slurry_tank', 
+                                    'stable', 'sty', 'grandstand', 'pavilion', 'riding_hall', 'sports_hall', 'stadium', 'hangar', ('hut',) ('shed',) 
+                                    'carport', 'garage', 'garages', 'parking', 'digester', ('service' new type needed,) ('transformer_tower',) ('water_tower', )
+                                    'military', 'bunker', 'bridge', 'construction', ('container',) ('tent',) ('gatehouse',) ('roof',) ('ruins', )
+                                    ('tree_house',) ('yes',) ('user defined')],
 
+    'building_pois'             :   ['hotel', 'kiosk', 'supermarket', 'hospital', 'toilets', 'train_station'],
+
+    'building_landuse'          :  ['apartments', 'detached', 'dormitory', 'farm', 'hotel', 'house', 
+                                    'residential', 'semidetached_house', 'terrace', 'commercial', 'industrial',
+                                    'kiosk', 'office', 'retail', 'supermarket', 'warehouse', 'cathedral', 'chapel', 'church', 'monastery',
+                                    'mosque', 'presbytery', 'religious', 'shrine', 'synagogue', 'temple', 'civic', 'fire_station', 
+                                    'government', 'hospital', 'public', 'toilets', 'train_station', 'transportation', 'kindergarten', 'school',
+                                    'university', 'college', 'barn', 'cowshed', 'farm_auxiliary', 'greenhouse', 'slurry_tank',
+                                    'stable', 'sty', 'grandstand', 'pavilion', 'riding_hall', 'sports_hall', 'stadium', 'hangar',
+                                    'carport', 'garage', 'garages', 'parking', 'digester',
+                                    'military', 'bunker', 'construction'
+                                     ],
+
+    'building_buildings'        :  ['apartments', 'detached', 'dormitory', 'farm', 'hotel', 'house', 
+                                    'residential', 'semidetached_house', 'terrace', 'commercial', 'industrial',
+                                    'kiosk', 'office', 'retail', 'supermarket', 'warehouse', 'cathedral', 'chapel', 'church', 'monastery',
+                                    'mosque', 'presbytery', 'religious', 'shrine', 'synagogue', 'temple', 'civic', 'fire_station', 
+                                    'government', 'hospital', 'public', 'toilets', 'train_station', 'transportation', 'kindergarten', 'school',
+                                    'university', 'college', 'barn', 'cowshed', 'farm_auxiliary', 'greenhouse', 'slurry_tank',
+                                    'stable', 'sty', 'grandstand', 'pavilion', 'riding_hall', 'sports_hall', 'stadium', 'hangar',
+                                    'carport', 'garage', 'garages', 'parking', 'digester',
+                                    'military', 'bunker'
+                                    ],
+
+    'building_street_network'   :   ['bridge'],
+
+    #
     'craft'                     :  ['agricultural_engines', 'atelier', 'bakery', 'basket_maker', 'beekeeper', 'blacksmith', 
                                     'boatbuilder', 'bookbinder', 'brewery', 'builder', 'cabinet_maker', 'car_painter', 'carpenter', 'carpet_layer', 
                                     'caterer', 'chimney_sweeper', 'cleaning', 'clockmaker', 'confectionery', 'cooper', 'dental_technician', 
@@ -379,22 +420,103 @@ OSM_tags_sorted_for_filtering = {
                                     'signmaker', 'stand_builder', 'stonemason', 'stove_fitter', 'sun_protection', 'tailor', 'tiler', 'tinsmith', 
                                     'toolmaker', 'turner', 'upholsterer', 'watchmaker', 'water_well_drilling', 'window_construction', 'winery'],
 
-    'emergency'                 :  ['ambulance_station', 'defibrillator', 'landing_site', 'emergency_ward_entrance', 
-                                    'dry_riser_inlet', 'fire_alarm_box', 'fire_extinguisher', 'fire_hose', 'fire_hydrant', 'water_tank', 
-                                    'suction_point', 'lifeguard', 'lifeguard_base', 'lifeguard_tower', 'lifeguard_platform', 'life_ring', 
-                                    'assembly_point', 'phone', 'siren', 'drinking_water'],
+    'craft_pois'                :   [],
 
+    'craft_landuse'             :   [(all of them) 'agricultural_engines', 'atelier', 'bakery', 'basket_maker', 'beekeeper', 'blacksmith', 
+                                    'boatbuilder', 'bookbinder', 'brewery', 'builder', 'cabinet_maker', 'car_painter', 'carpenter', 'carpet_layer', 
+                                    'caterer', 'chimney_sweeper', 'cleaning', 'clockmaker', 'confectionery', 'cooper', 'dental_technician', 
+                                    'distillery', 'door_construction', 'dressmaker', 'electronics_repair', 'embroiderer', 'electrician', 
+                                    'engraver', 'floorer', 'gardener', 'glaziery', 'goldsmith', 'grinding_mill', 'handicraft', 'hvac', 
+                                    'insulation', 'interior_work', 'jeweller', 'joiner', 'key_cutter', 'locksmith', 'metal_construction', 'mint', 
+                                    'musical_instrument', 'oil_mill', 'optician', 'organ_builder', 'painter', 'parquet_layer', 'paver', 
+                                    'photographer', 'photographic_laboratory', 'piano_tuner', 'plasterer', 'plumber', 'pottery', 'printer', 
+                                    'printmaker', 'rigger', 'roofer', 'saddler', 'sailmaker', 'sawmill', 'scaffolder', 'sculptor', 'shoemaker', 
+                                    'signmaker', 'stand_builder', 'stonemason', 'stove_fitter', 'sun_protection', 'tailor', 'tiler', 'tinsmith', 
+                                    'toolmaker', 'turner', 'upholsterer', 'watchmaker', 'water_well_drilling', 'window_construction', 'winery'],
+
+    'craft_buildings'           :   [(all of them) 'agricultural_engines', 'atelier', 'bakery', 'basket_maker', 'beekeeper', 'blacksmith', 
+                                    'boatbuilder', 'bookbinder', 'brewery', 'builder', 'cabinet_maker', 'car_painter', 'carpenter', 'carpet_layer', 
+                                    'caterer', 'chimney_sweeper', 'cleaning', 'clockmaker', 'confectionery', 'cooper', 'dental_technician', 
+                                    'distillery', 'door_construction', 'dressmaker', 'electronics_repair', 'embroiderer', 'electrician', 
+                                    'engraver', 'floorer', 'gardener', 'glaziery', 'goldsmith', 'grinding_mill', 'handicraft', 'hvac', 
+                                    'insulation', 'interior_work', 'jeweller', 'joiner', 'key_cutter', 'locksmith', 'metal_construction', 'mint', 
+                                    'musical_instrument', 'oil_mill', 'optician', 'organ_builder', 'painter', 'parquet_layer', 'paver', 
+                                    'photographer', 'photographic_laboratory', 'piano_tuner', 'plasterer', 'plumber', 'pottery', 'printer', 
+                                    'printmaker', 'rigger', 'roofer', 'saddler', 'sailmaker', 'sawmill', 'scaffolder', 'sculptor', 'shoemaker', 
+                                    'signmaker', 'stand_builder', 'stonemason', 'stove_fitter', 'sun_protection', 'tailor', 'tiler', 'tinsmith', 
+                                    'toolmaker', 'turner', 'upholsterer', 'watchmaker', 'water_well_drilling', 'window_construction', 'winery'],
+
+    'craft_street_network'      :   [],
+
+    #
+    'emergency'                 :  ['ambulance_station', ('defibrillator',) ('landing_site',) ('emergency_ward_entrance',)
+                                    ('dry_riser_inlet',) ('fire_alarm_box',) ('fire_extinguisher',) ('fire_hose',) ('fire_hydrant',) ('water_tank',) 
+                                    ('suction_point',) ('lifeguard',) ('lifeguard_base',) ('lifeguard_tower',) ('lifeguard_platform',) ('life_ring',) 
+                                    ('assembly_point',) ('phone',) ('siren',) ('drinking_water')],
+
+    'emergency_pois'            :  [],
+
+    'emergency_landuse'         :  ['ambulance_station'],
+
+    'emergency_buildings'       :  ['ambulance_station'],
+
+    'emergency_street_network'  :   [],
+
+    #
     'geological'                :  ['moraine', 'outcrop', 'palaeontological_site', 'volcanic_caldera_rim', 'volcanic_vent', 
                                     'volcanic_lava_field'],
 
+    'geological_pois'           :  [],
+
+    'geological_landuse'        :  [nature = green area does not make sense],
+
+    'geological_buildings'      :  [],
+
+    'geological_street_network' :  [],
+
+    #
+    'healthcare'                :  ['alternative', 'audiologist', 'birthing_center', 'blood_bank', 'blood_donation', 'counselling',
+                                    'dialysis', 'hospice', 'laboratory', 'midwife', 'nurse', 'occupational_therapist', 'optometrist', 'physiotherapist',
+                                    'podiatrist', 'psychotherapist', 'rehabilitation', 'sample_collection', 'speech_therapist', 'vaccination_centre'],
+
+    'healthcare_pois'           :  [],
+
+    'healthcare_landuse'        :  [(all of them) 'alternative', 'audiologist', 'birthing_center', 'blood_bank', 'blood_donation', 'counselling',
+                                    'dialysis', 'hospice', 'laboratory', 'midwife', 'nurse', 'occupational_therapist', 'optometrist', 'physiotherapist',
+                                    'podiatrist', 'psychotherapist', 'rehabilitation', 'sample_collection', 'speech_therapist', 'vaccination_centre'],
+
+    'healthcare_buildings'      :  [(all of them) 'alternative', 'audiologist', 'birthing_center', 'blood_bank', 'blood_donation', 'counselling',
+                                    'dialysis', 'hospice', 'laboratory', 'midwife', 'nurse', 'occupational_therapist', 'optometrist', 'physiotherapist',
+                                    'podiatrist', 'psychotherapist', 'rehabilitation', 'sample_collection', 'speech_therapist', 'vaccination_centre'],
+
+    'healthcare_street_network' :  [],
+
+    #
     'highway'                   :  ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 
                                     'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'living_street', 'service', 
                                     'pedestrian', 'track', 'bus_guideway', 'escape', 'raceway', 'road', 'busway', 'footway', 'bridleway', 'steps', 
-                                    'corridor', 'path', 'cycleway', 'proposed', 'construction', 'bus_stop', 'crossing', 'elevator', 'emergency_bay', 
-                                    'emergency_access_point', 'give_way', 'milestone', 'mini_roundabout', '	motorway_junction', 'passing_place', 
-                                    'platform', 'rest_area', 'speed_camera', 'street_lamp', 'services', 'stop', 'traffic_mirror', 'traffic_signals', 
-                                    'trailhead', 'turning_circle', 'turning_loop', 'toll_gantry'],
+                                    'corridor', 'path', 'cycleway', ('proposed',) 'construction', 'bus_stop', 'crossing', ('elevator',) 'emergency_bay', 
+                                    ('emergency_access_point',) ('give_way',) ('phone',) ('milestone',) 'mini_roundabout', 'motorway_junction', 'passing_place', 
+                                    'platform', 'rest_area', ('speed_camera',) ('street_lamp',) 'services', ('stop',) ('traffic_mirror',) ('traffic_signals',) 
+                                    ('trailhead',) 'turning_circle', 'turning_loop', ('toll_gantry')],
 
+    'highway_pois'              :  ['bus_stop',],
+
+    'highway_landuse'           :  ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 
+                                    'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'living_street', 'service', 
+                                    'pedestrian', 'track', 'bus_guideway', 'escape', 'raceway', 'road', 'busway', 'footway', 'bridleway', 'steps', 
+                                    'corridor', 'path', 'cycleway','construction','bus_stop','emergency_bay', 'motorway_junction', 'passing_place',
+                                    'platform', 'rest_area', 'services', 
+                                    'turning_circle',],
+
+    'highway_buildings'         :  [],
+
+    'highway_street_network'    :  ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 
+                                    'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'living_street', 'service', 
+                                    'pedestrian', 'track', 'bus_guideway', 'escape', 'raceway', 'road', 'busway', 'footway', 'bridleway', 'steps', 
+                                    'corridor', 'path', 'cycleway', 'bus_stop', 'crossing', 'motorway_junction', 'platform', 'turning_circle',],
+
+    #
     'cycleway'                  :  ['lane', 'opposite', 'opposite_lane', 'track', 'opposite_track', 'share_busway', 
                                     'opposite_share_busway', 'shared_lane', 'lane'],
 
