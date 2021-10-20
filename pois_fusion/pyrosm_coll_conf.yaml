@@ -5,26 +5,7 @@ VARIABLES_SET :
   # region to download - could be "Bayern"
   region_pbf : "Muenchen"
 
-  pois :
-<<<<<<< HEAD
-    # set of pois to collect from OSM database
-    # features for filter types 
-    tags: 
-      filter     : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "highway", "landuse"]
-      additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
-                    "railway", "religion", "opening_hours", "ref", "wheelchair"]
-    # set of pois to be downloaded 
-    query_values : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
-                    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
-                    "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", 
-                    "convenience", "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", 
-                    "organic", "marketplace", "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", 
-                    "outdoor_fitness_station", "sport_club", "bench", "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", 
-                    "water_park", "park", "forest", "heath_scrub", "lake", "river", "pitch", "track", "sport_centre", "fitness_centre", "sport_hall", "fitness", 
-                    "fitness_station"]
-    # ["addr:city", "addr:country", "addr:full", "addr:housenumber", "addr:housename", "addr:postcode", "addr:place", "addr:street",
-    #"email", "name", "opening_hours", "operator", "phone", "ref", "url", "website"]
-=======
+pois :
     # set of pois to collect in OSm data base
     # features for filter types
     tags: 
@@ -32,23 +13,25 @@ VARIABLES_SET :
       # if you need all elemnts of category please leave "query_values" empty
       # additional - tags which in addition to filter categories will be converted 
       # in columns in result Pandas DataFrame
-      filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "highway", "landuse"]
+      ## !!!! AWARE - SOME columns not existed in some 
+      filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "landuse", "natural"] # Exclude highway
       additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
     "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
     # set of pois to be search for and downloaded
-    query_values : ["bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", 
-    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "tram_station", "subway_station", "railway_station", 
-    "taxi", "hairdresser", "atm", "bank", "dentist","doctors", "pharmacy", "post_box", "post_office", "fuel","bakery", "butcher", "clothes", "convenience", 
-    "general", "fashion", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", "health_food","chemist", "organic", "marketplace", 
-    "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "gym", "yoga", "outdoor_fitness_station", "sport_club", "bench", 
-    "bus_stop", "tram_stop", "subway_entrance", "rail_station", "community_sports_center", "water_park", "park", "forest", "heath_scrub", "lake", "river",
-     "pitch", "track", "sport_centre", "fitness_centre", "sport_hall", "fitness", "fitness_station"]
->>>>>>> 055b75d89334b9a4a8b800bce4a0e246edd6b7c7
+    query_values : [ "clothes", "convenience", "general", "fashion",  "fuel", "post_office","bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", 
+    "taxi", "hairdresser", "atm", "bank", "dentist", "doctors", "pharmacy","post_box", "health_food", "chemist", "marketplace", "bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library",
+    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", 
+    "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "yoga", "fitness_station", "bench", 
+     "tram_stop", "subway_entrance", "water_park", "park", "forest", "heath", "scrub", "lake", "river",
+     "pitch", "sports_centre", "fitness_centre", "sports_hall", "fitness", "fitness_station", "recreation_ground"]
+    # Not in the list "sport_club", "community_sports_center", "outdoor_fitness_station", "organic", "tram_station", "subway_station", "railway_station", "rail_station"
+    # Strange behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
     # define which geometry types should be collected from OSM
+    # Weird behavior - lines <> polygons, smtms polygons can be filter out with lines switched off
     points: True
     polygons: True
-    lines: False
+    lines: True
     
   landuse :
     # set of landuse types to collect from OSM data base
