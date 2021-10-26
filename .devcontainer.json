@@ -1,0 +1,23 @@
+// See https://aka.ms/vscode-remote/containers for the
+// documentation about the devcontainer.json format
+{
+    "name": "Data Preparation DevContainer",
+    "dockerComposeFile": [
+        "docker-compose.yml"
+    ],
+    "service": "db",
+    "workspaceFolder": "/app",
+    "shutdownAction": "none",
+    // Add the IDs of extensions you want installed when the container is created.
+    "extensions": [
+		"ms-python.python",
+		"ms-python.vscode-pylance"
+	],
+    "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.formatting.provider":"black",
+        "python.formatting.blackPath":"/opt/venv/bin/black",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true
+    }
+}
