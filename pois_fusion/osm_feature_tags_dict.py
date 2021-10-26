@@ -8,7 +8,6 @@ OSM_tags = {
     'aeroway' :  ['aerodrome', 'apron', 'gate', 'hangar', 'helipad', 'heliport', 'navigationaid', 'runway', 
     'spaceport', 'taxiway', 'terminal', 'windsock'],
 
-    
     'amenity' :  ['bar', 'biergarten', 'cafe', 'fast_food', 'food_court', 'ice_cream', 'pub', 'restaurant', 
     'college', 'driving_school', 'kindergarten', 'language_school', 'library', 'toy_library', '	music_school', 
     'school', 'university', 'kick-scooter_rental', 'bicycle_parking', 'bicycle_repair_station', 'bicycle_rental', 
@@ -97,7 +96,7 @@ OSM_tags = {
     'leisure' :  ['adult_gaming_centre', 'amusement_arcade', 'beach_resort', 'bandstand', 'bird_hide', 
     'common', 'dance', 'disc_golf_course', 'dog_park', 'escape_game', 'firepit', 'fishing', 'fitness_centre', 
     'fitness_station', 'garden', 'hackerspace', 'hackerspace', 'ice_rink', 'marina', 'miniature_golf', 
-    'nature_reserve', 'park', 'picnic_table', 'pitch', 'playground', 'slipway', 'sports_centre', 'stadium', 
+    'nature_reserve', 'park', 'picnic_table', 'pitch', 'playground', 'slipway', 'sports_centre', 'sports_hall', 'stadium', 
     'summer_camp', 'swimming_area', 'swimming_pool', 'track', 'water_park'],
 
     'man_made' :  ['adit', 'beacon', 'breakwater', 'bridge', 'bunker_silo', 'carpet_hanger', 'chimney', 
@@ -189,7 +188,6 @@ OSM_tags = {
 
     'water' :  ['river', 'oxbow', 'canal', 'ditch', 'lock', 'fish_pass', 'lake', 'reservoir', 'pond', 'basin', 
     'lagoon', 'stream_pool', 'reflecting_pool', 'moat', 'wastewater'],
-
 
     'waterway' :  ['river', 'riverbank', 'stream', 'tidal_channel', 'canal', 'drain', 'ditch', 'pressurised', 
     'fairway', 'dock', 'boatyard', 'dam', 'weir', 'waterfall', 'lock_gate', 'soakhole', 'turning_point', 
