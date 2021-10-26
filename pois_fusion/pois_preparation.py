@@ -237,8 +237,4 @@ for i in df.index:
 print(df)
 print(df.columns)
 print("Preparation took %s seconds ---" % (time.time() - start_time))
-<<<<<<< HEAD
-df2geojson(df)
-=======
 df2geojson(df, "result_test")
->>>>>>> 408f8e9195bcb7f610f7bce9f655fa4c3f822d1a
