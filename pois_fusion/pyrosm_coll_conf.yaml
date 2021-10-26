@@ -2,8 +2,8 @@
 
 VARIABLES_SET : 
   # variables for Pyrosm
-  # region to download - could be "Bayern"
-  region_pbf : "Mittelfranken"
+  # region to download - could be "Mittelfranken"
+  region_pbf : "Bayern"
 
   pois :
     # set of pois to collect in OSm data base

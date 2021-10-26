@@ -35,7 +35,7 @@ def gdf_conversion(gdf, name, return_type='PandasDF'):
     if return_type == 'PandasDF':
         return gdf
     else:
-        print("Writing down the geojson file %s" % (name + ".geojson"))
+        print("Writing down the geojson file %s ......" % (name + ".geojson"))
         start_time = time.time()
         gdf.to_file(os.path.join(sys.path[0],"data", name + ".geojson"), driver=return_type)
         print("Writing file %s seconds ---" % (time.time() - start_time))
@@ -112,6 +112,6 @@ def osm_collect_buildings(name='buildings', driver='PandasDF'):
 # osm_collect_filter(type='pois', driver='GeoJSON')
 # osm_collect_filter(name='bus_stops', driver='GeoJSON')
 
-osm_collect_buildings(driver='GeoJSON')
+# osm_collect_buildings(driver='GeoJSON')
  
 # %%
