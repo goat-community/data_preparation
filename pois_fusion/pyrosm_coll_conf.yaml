@@ -14,13 +14,13 @@ VARIABLES_SET :
       # additional - tags which in addition to filter categories will be converted 
       # in columns in result Pandas DataFrame
       ## !!!! AWARE - SOME columns not existed in some 
-      filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "landuse", "natural"] # Exclude highway
+      filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "landuse", "natural", "public_transport"] # Exclude highway
       additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
-    "railway", "religion", "opening_hours", "ref", "wheelchair", "amenity", "shop"]
+    "railway", "religion", "opening_hours", "ref", "wheelchair", "subway"]
     # set of pois to be search for and downloaded
     query_values : [ "clothes", "convenience", "general", "fashion",  "fuel", "post_office","bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", 
     "taxi", "hairdresser", "atm", "bank", "dentist", "doctors", "pharmacy","post_box", "health_food", "chemist", "marketplace", "bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library",
-    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", 
+    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "station", "stop_position", "platform",
     "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "yoga", "fitness_station", "bench", 
      "tram_stop", "subway_entrance", "water_park", "park", "forest", "heath", "scrub", "lake", "river",
      "pitch", "sports_centre", "fitness_centre", "sports_hall", "fitness", "fitness_station", "recreation_ground"]
@@ -29,6 +29,21 @@ VARIABLES_SET :
 
     # define which geometry types should be collected from OSM
     # Weird behavior - lines <> polygons, smtms polygons can be filter out with lines switched off
+    # keep all switched on
     points: True
     polygons: True
     lines: True
+
+  bus_stops :
+    # bus stops work separately due to the bug
+    tags: 
+      filter : ["highway"] # Exclude highway
+      additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
+    "railway", "religion", "opening_hours", "ref", "wheelchair"]
+    # set of pois to be search for and downloaded
+    query_values : [ "bus_stop"]
+    # define which geometry types should be collected from OSM
+    points: True
+    polygons: True
+    lines: True
+  
