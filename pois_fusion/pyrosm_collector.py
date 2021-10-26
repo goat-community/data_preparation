@@ -1,10 +1,11 @@
 from pyrosm import get_data, OSM
 from osm_feature_tags_dict import OSM_tags
 import yaml
-import geopandas
+import geopandas as gpd
 import os
-import pandas
+import pandas as pd
 import sys
+import time
 
 # pyrosm filter class. Input for it: type of search 'pois'(currently only pois), tags from config , dictionary of osm tags
 # variables of class are 'filter' - list of feature:tags which are relevant to scrap and 'tags_as_columns'- list of tags which will be 
@@ -17,7 +18,7 @@ class PyrOSM_Filter:
         else:
             for t in query_values:
                 if t not in [x for v in new_osm_dict.values() for x in v]:
-                    print(t + ' is not in osm_feature_tag_dict.py for ''pois'' type of filter! Check OSM documentation and dict file.'+ '\n')
+                    print(t + ' is not in selected categories of osm_feature_tag_dict.py for ''pois'' type of filter! \n Check OSM documentation, dict file and filter settings.'+ '\n')
             for key, val in new_osm_dict.items():
                 val = [t for t in query_values if t in val]
                 new_osm_dict[key] = val
@@ -28,10 +29,24 @@ class PyrOSM_Filter:
         self.f_polygon = polygon
         self.f_line = line      
 
+def gdf_conversion(gdf, name, return_type='PandasDF'):
+    if return_type == 'PandasDF':
+        return gdf
+    else:
+        print("Writing down the geojson file %s" % (name + ".geojson"))
+        start_time = time.time()
+        gdf.to_file(os.path.join(sys.path[0] , name + ".geojson"), driver=return_type)
+        print("Writing file %s seconds ---" % (time.time() - start_time))
+        return print("GeoJSON was written.") 
+
+
 # Function for collection data from OSM dbf and conversion to GeoJSON
 # Could be extended with varios type of searches and filters 
-# type='pois', driver='PandasDF' default variables driver could be 
-def osm_collect(type='pois', driver='PandasDF'):
+# name='pois', driver='PandasDF' default variables driver could be 
+def osm_collect_filter(name='pois', driver='PandasDF',update=False):
+    # Timer
+    print("Collection and filtering %s started..." % name)
+    start_time = time.time()
     #import data from pois_coll_conf.yaml
     with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
         config = yaml.safe_load(m)
@@ -40,15 +55,15 @@ def osm_collect(type='pois', driver='PandasDF'):
 
     # get region name desired pois types from yaml settings
     pbf_data = var['region_pbf']
-    query_values = var[type]['query_values']
-    filter = var[type]['tags']['filter']
-    additional = var[type]['tags']['additional']
-    point = var[type]['points']
-    polygon = var[type]['polygons']
-    line = var[type]['lines']
+    query_values = var[name]['query_values']
+    filter = var[name]['tags']['filter']
+    additional = var[name]['tags']['additional']
+    point = var[name]['points']
+    polygon = var[name]['polygons']
+    line = var[name]['lines']
 
     # Get defined data from Geofabrik
-    fp = get_data(pbf_data)
+    fp = get_data(pbf_data, update=update)
     osm = OSM(fp)
 
     # Create filter class with given parameters and create filter with class method          
@@ -59,15 +74,13 @@ def osm_collect(type='pois', driver='PandasDF'):
     df = osm.get_data_by_custom_criteria(custom_filter=custom_filter.filter, tags_as_columns=custom_filter.columns, keep_ways=custom_filter.f_line, 
     keep_relations=custom_filter.f_polygon, keep_nodes=custom_filter.f_point)
 
+    print("Collection and filtering took %s seconds ---" % (time.time() - start_time))
+
     # Return type if driver -> 'GeoJSON' write geojson file if driver -> 'PandasDF' return PandasDF
-    if driver == 'PandasDF':
-        return df
-    else:
-        df.to_file(os.path.join(sys.path[0] , type + ".geojson"), driver=driver)
+    return gdf_conversion(df, name ,driver)
 
 
-# tests
-#print(osm_collect())
-
-#osm_collect(driver='GeoJSON')
-
+# # Tests
+# osm_collect_filter(type='pois', driver='GeoJSON')
+osm_collect_filter(name='bus_stops', driver='GeoJSON')
+ 
