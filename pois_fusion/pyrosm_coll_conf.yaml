@@ -32,3 +32,13 @@ VARIABLES_SET :
     points: True
     polygons: True
     lines: True
+
+
+  buildings :
+    tags: 
+      filter : []
+      additional : []
+    query_values : []
+    points: False
+    polygons: True
+    lines: False
