@@ -1,5 +1,5 @@
 #%%
-from pygeos import GEOSException 
+from pygeos import GEOSException
 from pyrosm import get_data, OSM
 from osm_feature_tags_dict import OSM_tags
 import yaml
@@ -29,6 +29,17 @@ class PyrOSM_Filter:
         self.f_point = point
         self.f_polygon = polygon
         self.f_line = line      
+
+def gdf_conversion(gdf, name, return_type='PandasDF'):
+    if return_type == 'PandasDF':
+        return gdf
+    else:
+        print("Writing down the geojson file %s ......" % (name + ".geojson"))
+        start_time = time.time()
+        gdf.to_file(os.path.join(sys.path[0],"data", name + ".geojson"), driver=return_type)
+        print("Writing file %s seconds ---" % (time.time() - start_time))
+        return print("GeoJSON was written.") 
+
 
 # Function for collection data from OSM dbf and conversion to GeoJSON
 # Could be extended with varios type of searches and filters 
@@ -73,4 +84,36 @@ def osm_collect(type, driver):
 
 osm_collect('landuse', 'PandasDF').to_file(os.path.join(os.path.join(os.path.abspath(os.getcwd()), "data") , "landuse.geojson"), driver="GeoJSON")
 
+def osm_collect_buildings(name='buildings', driver='PandasDF'):
+    #import data from pois_coll_conf.yaml
+    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
+        config = yaml.safe_load(m)
+
+    var = config['VARIABLES_SET']
+
+    # get region name desired pois types from yaml settings
+    pbf_data = var['region_pbf']
+    # query_values = var[name]['query_values']
+    # filter = var[name]['tags']['filter']
+    # additional = var[name]['tags']['additional']
+    # point = var[name]['points']
+    # polygon = var[name]['polygons']
+    # line = var[name]['lines']
+
+    # Get defined data from Geofabrik
+    fp = get_data(pbf_data)
+    osm = OSM(fp)
+
+    buildings = osm.get_buildings()
+
+    return gdf_conversion(buildings, name, return_type=driver)
+
+
+
+# # Tests
+# osm_collect_filter(type='pois', driver='GeoJSON')
+# osm_collect_filter(name='bus_stops', driver='GeoJSON')
+
+# osm_collect_buildings(driver='GeoJSON')
+ 
 # %%
