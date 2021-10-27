@@ -8,7 +8,7 @@ import geojson
 import sys
 from pandas.core.accessor import PandasDelegate
 import yaml
-#from pyrosm_collector import osm_collect
+from pyrosm_collector import osm_collect
 
 # Fuction saves prepared DFrame to GeoJSON
 # Need to add some variables in properties
@@ -33,12 +33,12 @@ def poi_return_search_condition(name, var_dict):
                 pass
 
 # POIs preparation from geojson imported from OSM 
-filename = "pois.geojson"
-file = open(os.path.join("pois_fusion", filename), encoding="utf-8")
-df = gp.read_file(file)
+# filename = "pois.geojson"
+# file = open(os.path.join("pois_fusion", filename), encoding="utf-8")
+# df = gp.read_file(file)
 
 # Start with OSM data collection -- skip GeoJSON file step 
-# df = osm_collect()
+df = osm_collect()
 
 # Timer start
 print("Converstion started...")
@@ -127,7 +127,7 @@ for i in df.index:
         else: 
             df.iat[i,i_tags] = [{"sport": df.iat[i,i_sport], "leisure": df.iat[i,i_leisure]}]
     
-    # Gyms anddiscount gyms -> Fitness centers
+    # Gyms and discount gyms -> Fitness centers
     if (df.iat[i,i_leisure] == "fitness_centre" or (df.iat[i,i_leisure] == "sport_centre" and df.iat[i,i_sport] == "fitness")) and (
         df.iat[i,i_sport] in ["multi", "fitness"] or not df.iat[i,i_sport]) and 'yoga' not in df.iat[i,i_name].lower():
         operator = poi_return_search_condition(df.iat[i,i_name].lower(), discount_gym_var)
@@ -238,3 +238,5 @@ print(df)
 print(df.columns)
 print("Preparation took %s seconds ---" % (time.time() - start_time))
 df2geojson(df, "result_test")
+
+# %%
