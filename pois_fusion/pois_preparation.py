@@ -1,16 +1,16 @@
+
 import geopandas as gp
 import os
 import pandas as pd
 import time
-import geojson
 import sys
 from pandas.core.accessor import PandasDelegate
 import yaml
 import ast
 import numpy as np
+from pyrosm_collector import osm_collect_filter, gdf_conversion
 # Solutuion for bug in pyrosm (functions)
 from bus_stop_preparation_merge import bus_stop_conversion, join_osm_pois_n_busstops
-from pyrosm_collector import osm_collect_filter, gdf_conversion
 
 
 def poi_return_search_condition(name, var_dict):
@@ -53,11 +53,8 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     # variables for preparation
     # !!! Some columns could be not in the list 
     # REVISE it (probabaly check columns - if value from config is not there - create column)
-    i_geom_idx = df.columns.get_loc("geom")
-    i_orig_geom = df.columns.get_loc("origin_geometry")
     i_amenity = df.columns.get_loc("amenity")
     i_shop = df.columns.get_loc("shop")
-    i_tourism = df.columns.get_loc("tourism")
     i_name = df.columns.get_loc("name")
     i_leisure = df.columns.get_loc("leisure")
     i_sport = df.columns.get_loc("sport")
@@ -113,7 +110,6 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     df['amenity'] = np.where((df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None), df['tourism'], df['amenity'])
     df['amenity'] = np.where((df['tourism'] != None) & (df['amenity'] == ''), df['tourism'], df['amenity'])
 
-
     # Sport pois
     # df['amenity'] = np.where((df['sport'] != None) | (df['leisure'].isin(leisure_var_add)) & (~df['leisure'].isin(leisure_var_disc)) & (~df['sport'].isin(sport_var_disc)), "sport", "")
 
@@ -126,12 +122,9 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
         # Sport pois from leisure and sport features
         if df_row[i_sport] or df_row[i_leisure] in leisure_var_add and df_row[i_leisure] not in leisure_var_disc and df_row[i_sport] not in sport_var_disc:
             df.iat[i,i_amenity] = "sport"
-            df.iat[i,i_tags]["sport"] = df_row[i_sport]
-            df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
             continue
 
-
-        # Gyms anddiscount gyms -> Fitness centers
+        # Gyms and discount gyms -> Fitness centers
         if (df_row[i_leisure] == "fitness_centre" or (df_row[i_leisure] == "sport_centre" and df_row[i_sport] == "fitness")) and (
             df_row[i_sport] in ["multi", "fitness"] or not df_row[i_sport]) and 'yoga' not in df_row[i_name].lower():
             operator = poi_return_search_condition(df_row[i_name].lower(), discount_gym_var)
@@ -140,17 +133,13 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
                 df.iat[i,i_amenity] = "discount_gym"
             else:
                 df.iat[i,i_amenity] = "gym"
-            df.iat[i,i_tags]["sport"] = df_row[i_sport]
-            df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
             continue
 
 
         # Yoga centers check None change here
         if (df_row[i_sport] == "yoga" or "yoga" in df_row[i_name] or "Yoga" in df_row[i_name]) and not df_row[i_shop]:
             df.iat[i,i_amenity] = "yoga"
-            df.iat[i,i_tags]["sport"] = df_row[i_sport]
-            df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
-            continue
+            continue    
         
         ##================================================================================================================##
             
@@ -207,6 +196,8 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
             df.iat[i,i_amenity] = "rail_station"
             continue
 
+    # # # Convert DataFrame back to GeoDataFrame (important for saving geojson)
+    df = gp.GeoDataFrame(df, geometry='geom')
 
     # Filter subway entrances 
     df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
@@ -225,8 +216,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     df["name"] = df['id'].map(df_snames.set_index('id_1')['name_2'])
 
     
-    # Convert DataFrame back to GeoDataFrame (important for saving geojson)
-    df = gp.GeoDataFrame(df, geometry='geom')
+ 
 
 
     # Timer finish
@@ -234,25 +224,20 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     print(df)
     print(df.columns)
 
+
     return gdf_conversion(df,result_filename,return_type)
 
 
 # Tests
 # 1 - Direct collection and preparation
 df = join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")))
-pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_preparation_result')
+pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_OB_preparation_result')
 
 # pois_preparation(dataframe=df, return_type="geojson",result_filename='test')
 
 # 2 - Preparation from geoJSON
 # join_osm_pois_n_busstops(osm_collect("pois"),bus_stop_conversion(osm_collect("bus_stops")),return_type="geojson")
 # pois_preparation(filename="pois",return_type="GeoJSON")
-
-
-
-
-
-
 
 
 
@@ -288,4 +273,3 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_prepa
         #     continue
         
         ##================================================================================================================##
-
