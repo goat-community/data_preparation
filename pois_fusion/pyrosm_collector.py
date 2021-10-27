@@ -7,6 +7,7 @@ import geopandas
 import os
 import pandas
 import sys
+import time
 
 # pyrosm filter class. Input for it: type of search 'pois'(currently only pois), tags from config , dictionary of osm tags
 # variables of class are 'filter' - list of feature:tags which are relevant to scrap and 'tags_as_columns'- list of tags which will be 
@@ -44,7 +45,7 @@ def gdf_conversion(gdf, name, return_type='PandasDF'):
 # Function for collection data from OSM dbf and conversion to GeoJSON
 # Could be extended with varios type of searches and filters 
 # type='pois', driver='PandasDF' default variables driver could be 
-def osm_collect(type, driver):
+def osm_collect_filter(type, driver):
     #import data from pois_coll_conf.yaml
     with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
         config = yaml.safe_load(m)
@@ -79,11 +80,12 @@ def osm_collect(type, driver):
         df.to_file(os.path.join(sys.path[0] , type + ".geojson"), driver=driver)
 
 
+#%%
 # tests
-#print(osm_collect())
 
-osm_collect('landuse', 'PandasDF').to_file(os.path.join(os.path.join(os.path.abspath(os.getcwd()), "data") , "landuse.geojson"), driver="GeoJSON")
+#%%
 
+#buildings
 def osm_collect_buildings(name='buildings', driver='PandasDF'):
     #import data from pois_coll_conf.yaml
     with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:

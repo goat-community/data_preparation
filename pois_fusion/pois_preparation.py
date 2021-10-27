@@ -247,7 +247,7 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_prepa
 # pois_preparation(dataframe=df, return_type="geojson",result_filename='test')
 
 # 2 - Preparation from geoJSON
-# join_osm_pois_n_busstops(osm_collect("pois"),bus_stop_conversion(osm_collect("bus_stops")),return_type="geojson")
+# join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")),return_type="geojson")
 # pois_preparation(filename="pois",return_type="GeoJSON")
 
 
@@ -291,3 +291,5 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_prepa
         
         ##================================================================================================================##
 
+
+# %%
