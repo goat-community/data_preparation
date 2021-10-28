@@ -39,7 +39,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     start_time = time.time()
 
     df = df.drop(columns={"lat", "lon", "version", "timestamp", "changeset"})
-    df = df.rename(columns={"geometry": "geom", "id ":"osm_id", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
+    df = df.rename(columns={"geometry": "geom", "id":"osm_id", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
     #df = df.assign(poi_type = None)
 
     # Replace None values with empty strings in "name" column and dict in "tags" column
@@ -209,26 +209,26 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
             df.iat[i,i_amenity] = "rail_station"
             continue
 
-
-    # Filter subway entrances 
-    df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
-    df_sub_stations = df_sub_stations[["name","geom", "id"]]
-    df_sub_stations = df_sub_stations.to_crs(31468)
-
-    df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
-    df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
-    df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
-    df_sub_stations = df_sub_stations.to_crs(4326)  
-
-    df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection')    
-
-    df_snames = df_snames[["name_2", "id_1"]]
-
-    df["name"] = df['id'].map(df_snames.set_index('id_1')['name_2'])
-
-    
     # Convert DataFrame back to GeoDataFrame (important for saving geojson)
     df = gp.GeoDataFrame(df, geometry='geom')
+
+    df = df.reset_index(drop=True)
+
+    # # Filter subway entrances 
+    # df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
+    # df_sub_stations = df_sub_stations[["name","geom", "osm_id"]]
+    # df_sub_stations = df_sub_stations.to_crs(31468)
+
+    # df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
+    # df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
+    # df_sub_entrance = df_sub_entrance[["name","geom", "osm_id"]]
+    # df_sub_stations = df_sub_stations.to_crs(4326)  
+
+    # df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection')    
+
+    # df_snames = df_snames[["name_2", "osm_id_1"]]
+
+    # df["name"] = df['osm_id'].map(df_snames.set_index('osm_id_1')['name_2'])
 
 
     # Timer finish
@@ -247,7 +247,7 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_prepa
 # pois_preparation(dataframe=df, return_type="geojson",result_filename='test')
 
 # 2 - Preparation from geoJSON
-# join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")),return_type="geojson")
+# join_osm_pois_n_busstops(osm_collect("pois"),bus_stop_conversion(osm_collect("bus_stops")),return_type="geojson")
 # pois_preparation(filename="pois",return_type="GeoJSON")
 
 
@@ -290,6 +290,4 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_prepa
         #     continue
         
         ##================================================================================================================##
-
-
 # %%
