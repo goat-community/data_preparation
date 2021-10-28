@@ -232,7 +232,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
 # Tests
 # 1 - Direct collection and preparation
 df = join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")))
-pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_OB_preparation_result')
+#pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_OB_preparation_result')
 
 # pois_preparation(dataframe=df, return_type="geojson",result_filename='test')
 
