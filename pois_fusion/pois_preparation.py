@@ -1,3 +1,4 @@
+#%%
 
 import geopandas as gp
 import os
@@ -21,12 +22,26 @@ def poi_return_search_condition(name, var_dict):
             else:
                 pass
 
+    # Convert polygons to points and set origin geometry for all elements
+def osm_obj2points(df, geom_column = "geom"):
+    df.at[df[geom_column].geom_type == "Point", 'origin_geometry'] = 'point'
+
+    df.at[df[geom_column].geom_type == "MultiPolygon", 'origin_geometry'] = 'polygon'
+    df.at[df[geom_column].geom_type == "MultiPolygon", 'geom'] = df['geom'].centroid
+    df.at[df[geom_column].geom_type == "Polygon", 'origin_geometry'] = 'polygon'
+    df.at[df[geom_column].geom_type == "Polygon", 'geom'] = df['geom'].centroid
+
+    df.at[df[geom_column].geom_type == "LineString", 'origin_geometry'] = 'line'
+    df.at[df[geom_column].geom_type == "MultiLineString", 'origin_geometry'] = 'line'
+
+    return df
+
 def pois_preparation(dataframe=None,filename=None, return_type="df",result_filename="pois_preparation_result"):
     # (2 Options) POIs preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
         df = dataframe
     elif filename:
-        file = open(os.path.join(os.path.abspath(os.getcwd()), 'data', filename + ".geojson"), encoding="utf-8")
+        file = open(os.path.join(sys.path[0], 'data', filename + ".geojson"), encoding="utf-8")
         df = gp.read_file(file)
     else:
         print("Incorrect 'datatype' value!") 
@@ -54,6 +69,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     # !!! Some columns could be not in the list 
     # REVISE it (probabaly check columns - if value from config is not there - create column)
     i_amenity = df.columns.get_loc("amenity")
+    i_tourism = df.columns.get_loc("tourism")
     i_shop = df.columns.get_loc("shop")
     i_name = df.columns.get_loc("name")
     i_leisure = df.columns.get_loc("leisure")
@@ -87,38 +103,27 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     community_sport_centre_var = var["community_sport_centre"]
 
     # Convert polygons to points and set origin geometry for all elements
-    df.at[df['geom'].geom_type == "Point", 'origin_geometry'] = 'point'
-
-    df.at[df['geom'].geom_type == "MultiPolygon", 'origin_geometry'] = 'polygon'
-    df.at[df['geom'].geom_type == "MultiPolygon", 'geom'] = df['geom'].centroid
-    df.at[df['geom'].geom_type == "Polygon", 'origin_geometry'] = 'polygon'
-    df.at[df['geom'].geom_type == "Polygon", 'geom'] = df['geom'].centroid
-
-    df.at[df['geom'].geom_type == "LineString", 'origin_geometry'] = 'line'
-    df.at[df['geom'].geom_type == "MultiLineString", 'origin_geometry'] = 'line'
+    df = osm_obj2points(df)
 
     # remove lines from df
     df = df[df.origin_geometry != 'line']
 
-    # Playgrounds
+    df = df.reset_index(drop=True)
+
+    # # Playgrounds
     df['amenity'] = np.where((df['leisure'] == 'playground') & (df['leisure'] != df['amenity']) & (df['amenity']), df['leisure'], df['amenity'])
-    df['amenity'] = np.where((df['leisure'] == 'playground') & (df['amenity'] == None), df['leisure'], df['amenity'])
+    df['amenity'] = np.where((df['leisure'] == 'playground') & (df['amenity'] == ''), df['leisure'], df['amenity'])
 
-    # Tourism pois
-    temp_df = df.loc[(df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None)]
-    df = pd.concat([df,temp_df],sort=False).reset_index(drop=True)
-    df['amenity'] = np.where((df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None), df['tourism'], df['amenity'])
-    df['amenity'] = np.where((df['tourism'] != None) & (df['amenity'] == ''), df['tourism'], df['amenity'])
-
-    # Sport pois
-    # df['amenity'] = np.where((df['sport'] != None) | (df['leisure'].isin(leisure_var_add)) & (~df['leisure'].isin(leisure_var_disc)) & (~df['sport'].isin(sport_var_disc)), "sport", "")
-
-    # Gyms discounts
-    # rewrite next loop
-    
     # Iterate through the rows
     for i in df.index:
         df_row = df.iloc[i]
+
+        if df_row[i_tourism] and df_row[i_amenity] != "" and df_row[i_tourism] != df_row[i_amenity]:
+            df_row["amenity"] = df_row["tourism"]
+            df = df.append(df_row)
+        elif df_row[i_tourism] and df_row[i_amenity] == "":
+            df.iat[i,i_amenity] = df.iat[i,i_tourism]
+        
         # Sport pois from leisure and sport features
         if df_row[i_sport] or df_row[i_leisure] in leisure_var_add and df_row[i_leisure] not in leisure_var_disc and df_row[i_sport] not in sport_var_disc:
             df.iat[i,i_amenity] = "sport"
@@ -135,12 +140,11 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
                 df.iat[i,i_amenity] = "gym"
             continue
 
-
         # Yoga centers check None change here
         if (df_row[i_sport] == "yoga" or "yoga" in df_row[i_name] or "Yoga" in df_row[i_name]) and not df_row[i_shop]:
             df.iat[i,i_amenity] = "yoga"
             continue    
-        
+
         ##================================================================================================================##
             
         # Recclasify shops. Define convenience and clothes, others assign to amenity. If not rewrite amenity with shop value
@@ -195,9 +199,12 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
         elif df_row[i_railway] == "stop" and df_row[i_tags] and ("train","yes") in df_row[i_tags].items():
             df.iat[i,i_amenity] = "rail_station"
             continue
+        
+    df = df.reset_index(drop=True)
 
     # # # Convert DataFrame back to GeoDataFrame (important for saving geojson)
     df = gp.GeoDataFrame(df, geometry='geom')
+    df.crs = "EPSG:4326"
 
     # Filter subway entrances 
     df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
@@ -213,12 +220,10 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
 
     df_snames = df_snames[["name_2", "id_1"]]
 
-    df["name"] = df['id'].map(df_snames.set_index('id_1')['name_2'])
-
+    df = df.merge(df_snames, left_on='id', right_on='id_1', how='left')
+    df.loc[(df.id == df.id_1), 'name'] = df.name_2
     
  
-
-
     # Timer finish
     print("Preparation took %s seconds ---" % (time.time() - start_time))  
     print(df)
@@ -231,15 +236,15 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
 # Tests
 # 1 - Direct collection and preparation
 df = join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")))
-pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_OB_preparation_result')
+pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_MF_prepared')
 
 # pois_preparation(dataframe=df, return_type="geojson",result_filename='test')
 
 # 2 - Preparation from geoJSON
-# join_osm_pois_n_busstops(osm_collect("pois"),bus_stop_conversion(osm_collect("bus_stops")),return_type="geojson")
-# pois_preparation(filename="pois",return_type="GeoJSON")
+# join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")),return_type="GeoJSON")
+# pois_preparation(filename="pois_upd",return_type="GeoJSON")
 
-
+#%%
 
 
 
@@ -255,6 +260,21 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_OB_pr
     #         df.iat[i,i_orig_geom] = "point"
     #     else:
     #         df.iat[i,i_orig_geom] = "line"
+
+    # Alternatives 
+    
+    # Tourism pois
+    # temp_df = df.loc[(df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None)]
+    # df = pd.concat([df,temp_df],sort=False).reset_index(drop=True)
+    # df['amenity'] = np.where((df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None), df['tourism'], df['amenity'])
+    # df['amenity'] = np.where((df['tourism'] != None) & (df['amenity'] == ''), df['tourism'], df['amenity'])
+
+    # Sport pois
+    # df['amenity'] = np.where((df['sport'] != None) | (df['leisure'].isin(leisure_var_add)) & (~df['leisure'].isin(leisure_var_disc)) & (~df['sport'].isin(sport_var_disc)), "sport", df['amenity'])
+
+    # Gyms discounts
+    # rewrite next loop
+
 
         # POIs preparation 
         # Playgrouds pois
@@ -273,3 +293,5 @@ pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_OB_pr
         #     continue
         
         ##================================================================================================================##
+
+# %%

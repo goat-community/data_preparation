@@ -22,9 +22,9 @@ def join_osm_pois_n_busstops(df_pois, df_stops,return_type="df"):
     print("Merging process of pois and bus_stops has been started...")
     df = pd.concat([df_pois,df_stops],sort=False).reset_index(drop=True)
     print("Merging process of pois and bus_stops took %s seconds ---" % (time.time() - start_time))
-    if return_type == "geojson":
+    if return_type == "GeoJSON":
         print("Writing pois.geojson...")
-        df.to_file(os.path.join(sys.path[0] , "pois.geojson"), driver="GeoJSON")
+        df.to_file(os.path.join(sys.path[0], "data" , "pois_upd.geojson"), driver="GeoJSON")
     else:
         return df
 
