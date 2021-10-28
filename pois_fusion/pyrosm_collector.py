@@ -35,8 +35,9 @@ def gdf_conversion(gdf, name, return_type='PandasDF'):
     if return_type == 'PandasDF':
         return gdf
     else:
-        print("Writing down the geojson file %s ......" % (name + ".geojson"))
+        print("Writing down the geojson file %s ..." % (name + ".geojson"))
         start_time = time.time()
+        gdf = gpd.GeoDataFrame(gdf, geometry='geom')
         gdf.to_file(os.path.join(sys.path[0],"data", name + ".geojson"), driver=return_type)
         print("Writing file %s seconds ---" % (time.time() - start_time))
         return print("GeoJSON was written.") 
@@ -45,6 +46,7 @@ def gdf_conversion(gdf, name, return_type='PandasDF'):
 # Function for collection data from OSM dbf and conversion to GeoJSON
 # Could be extended with varios type of searches and filters 
 # name='pois', driver='PandasDF' default variables driver could be 
+# use 'update' parameter to download fresh data from OSM 
 def osm_collect_filter(name='pois', driver='PandasDF',update=False):
     # Timer
     print("Collection and filtering %s started..." % name)
@@ -78,8 +80,10 @@ def osm_collect_filter(name='pois', driver='PandasDF',update=False):
 
     print("Collection and filtering took %s seconds ---" % (time.time() - start_time))
 
+    return_name = name + '_' + pbf_data
+
     # Return type if driver -> 'GeoJSON' write geojson file if driver -> 'PandasDF' return PandasDF
-    return gdf_conversion(df, name ,driver)
+    return gdf_conversion(df, return_name ,driver)
 
 
 def osm_collect_buildings(name='buildings', driver='PandasDF'):
@@ -109,7 +113,7 @@ def osm_collect_buildings(name='buildings', driver='PandasDF'):
 
 
 # # Tests
-# osm_collect_filter(type='pois', driver='GeoJSON')
+# osm_collect_filter(name='pois', driver='GeoJSON')
 # osm_collect_filter(name='bus_stops', driver='GeoJSON')
 
 # osm_collect_buildings(driver='GeoJSON')

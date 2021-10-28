@@ -15,8 +15,7 @@ VARIABLES_SET :
       # in columns in result Pandas DataFrame
       ## !!!! AWARE - SOME columns not existed in some 
       filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport", "water", "landuse", "natural", "public_transport"] # Exclude highway
-      additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "public_transport", 
-    "railway", "religion", "opening_hours", "ref", "wheelchair", "subway"]
+      additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "religion", "opening_hours", "ref", "wheelchair", "subway"]
     # set of pois to be search for and downloaded
     query_values : [ "clothes", "convenience", "general", "fashion",  "fuel", "post_office","bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", 
     "taxi", "hairdresser", "atm", "bank", "dentist", "doctors", "pharmacy","post_box", "health_food", "chemist", "marketplace", "bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library",
