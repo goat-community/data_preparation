@@ -37,7 +37,7 @@ def gdf_conversion(gdf, name, return_type='PandasDF'):
     else:
         print("Writing down the geojson file %s ..." % (name + ".geojson"))
         start_time = time.time()
-        gdf = gpd.GeoDataFrame(gdf, geometry='geom')
+
         gdf.to_file(os.path.join(sys.path[0],"data", name + ".geojson"), driver=return_type)
         print("Writing file %s seconds ---" % (time.time() - start_time))
         return print("GeoJSON was written.") 

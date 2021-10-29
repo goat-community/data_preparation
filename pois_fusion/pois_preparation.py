@@ -17,7 +17,7 @@ from bus_stop_preparation_merge import bus_stop_conversion, join_osm_pois_n_buss
 def poi_return_search_condition(name, var_dict):
     for key,value in var_dict.items():
         for v in value:
-            if name in v and name != '': 
+            if (name in v  or v in name) and name != '': 
                 return key
             else:
                 pass
@@ -149,40 +149,50 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
             
         # Recclasify shops. Define convenience and clothes, others assign to amenity. If not rewrite amenity with shop value
         if df_row[i_shop] == "grocery":
-            df.iat[i,i_amenity] = "convenience"
-            df.iat[i,i_shop] = None
-            continue
+            if df_row[i_organic] == "only":
+                df.iat[i,i_amenity] = "organic"
+                continue
+            elif df_row[i_origin]:
+                df.iat[i,i_amenity] = "international_hypermarket"
+                continue
+            else:
+                df.iat[i,i_amenity] = "convenience"
+                df.iat[i,i_shop] = None
+                continue
+
         elif df_row[i_shop] == "fashion":
             df.iat[i,i_amenity] = "clothes"
             df.iat[i,i_shop] = None
             continue
-        elif df_row[i_shop]:
-            df.iat[i,i_amenity] = df.iat[i,i_shop]
-            continue
-        
         # Supermarkets recclassification
-        if df_row[i_amenity] == "supermarket":
+        elif df_row[i_shop] == "supermarket":
             operator = [poi_return_search_condition(df_row[i_name].lower(), health_food_var),
                         poi_return_search_condition(df_row[i_name].lower(), hypermarket_var),
                         poi_return_search_condition(df_row[i_name].lower(), no_end_consumer_store_var),
                         poi_return_search_condition(df_row[i_name].lower(), discount_supermarket_var)]
-            for op in operator:
-                if op:
-                    df.iat[i,i_operator] = op
-                    o_ind = operator.index(op)
-                    df.iat[i,i_amenity] = [cat for i, cat  in enumerate(["health_food", "hypermarket","no_end_consumer_store", "discount_supermarket"]) if i == o_ind][0]
-                    continue   
-        
-        # Organic as amenity for shops and supermarkets
-        if df_row[i_organic] == "only" and (df_row[i_amenity] == "supermarket" or df_row[i_amenity] == "convenience"):
-            df.iat[i,i_amenity] = "organic"
+            if any(operator):
+                for op in operator:
+                    if op:
+                        df.iat[i,i_operator] = op
+                        o_ind = operator.index(op)
+                        df.iat[i,i_amenity] = [cat for i, cat  in enumerate(["health_food", "hypermarket","no_end_consumer_store", "discount_supermarket"]) if i == o_ind][0]
+                        continue
+                    else:
+                        pass
+            else:
+                if df_row[i_organic] == "only":
+                    df.iat[i,i_amenity] = "organic"
+                    continue
+                elif df_row[i_origin]:
+                    df.iat[i,i_amenity] = "international_hypermarket"
+                    continue 
+                else:
+                    df.iat[i,i_amenity] = "supermarket"
+                    continue
+        elif df_row[i_shop]:
+            df.iat[i,i_amenity] = df.iat[i,i_shop]
             continue
-
-        # International supermarkets
-        if df_row[i_origin] and (df_row[i_amenity] == "supermarket" or df_row[i_amenity] == "convenience"):
-            df.iat[i,i_amenity] = "international_hypermarket"
-            continue
-        
+         
         # Transport stops
         if df_row[i_highway] == "bus_stop" and df_row[i_name] != '':
             df.iat[i,i_amenity] = "bus_stop"
@@ -202,6 +212,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
         
     df = df.reset_index(drop=True)
 
+    print(df)
     # # # Convert DataFrame back to GeoDataFrame (important for saving geojson)
     df = gp.GeoDataFrame(df, geometry='geom')
     df.crs = "EPSG:4326"
@@ -216,33 +227,35 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
     df_sub_stations = df_sub_stations.to_crs(4326)  
 
-    df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection')    
+    print(df_sub_entrance)
+    print(df_sub_stations)
+    try:
+        df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection') 
+        df_snames = df_snames[["name_2", "id_1"]]
+        df = (df_snames.set_index('id_1').rename(columns = {'name_2':'name'}).combine_first(df.set_index('id')))
+    except:
+        print("No subway stations for given area.")
 
-    df_snames = df_snames[["name_2", "id_1"]]
 
-    df = df.merge(df_snames, left_on='id', right_on='id_1', how='left')
-    df.loc[(df.id == df.id_1), 'name'] = df.name_2
     
  
     # Timer finish
-    print("Preparation took %s seconds ---" % (time.time() - start_time))  
-    print(df)
-    print(df.columns)
-
+    print("Preparation took %s seconds ---" % (time.time() - start_time)) 
+    df = gp.GeoDataFrame(df, geometry='geom')
 
     return gdf_conversion(df,result_filename,return_type)
 
 
 # Tests
 # 1 - Direct collection and preparation
-df = join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")))
-pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_MF_prepared')
+# df = join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")))
+# pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_MF_prepared')
 
-# pois_preparation(dataframe=df, return_type="geojson",result_filename='test')
+# pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='test')
 
 # 2 - Preparation from geoJSON
-# join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")),return_type="GeoJSON")
-# pois_preparation(filename="pois_upd",return_type="GeoJSON")
+# join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")),return_type="GeoJSON", return_filename='pois_merged')
+pois_preparation(filename="pois_merged",return_type="GeoJSON", result_filename="pois_from_geojson_test")
 
 #%%
 

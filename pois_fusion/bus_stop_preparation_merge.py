@@ -17,14 +17,14 @@ def bus_stop_conversion(df):
     print("Conversion bus stops took %s seconds ---" % (time.time() - start_time))
     return df
 
-def join_osm_pois_n_busstops(df_pois, df_stops,return_type="df"):
+def join_osm_pois_n_busstops(df_pois, df_stops,return_type="df", return_filename = 'pois_merged'):
     start_time = time.time()
     print("Merging process of pois and bus_stops has been started...")
     df = pd.concat([df_pois,df_stops],sort=False).reset_index(drop=True)
     print("Merging process of pois and bus_stops took %s seconds ---" % (time.time() - start_time))
     if return_type == "GeoJSON":
-        print("Writing pois.geojson...")
-        df.to_file(os.path.join(sys.path[0], "data" , "pois_upd.geojson"), driver="GeoJSON")
+        print("Writing %s.geojson..." % return_filename)
+        df.to_file(os.path.join(sys.path[0], "data" , return_filename + ".geojson"), driver="GeoJSON")
     else:
         return df
 
