@@ -136,7 +136,7 @@ OSM_tags = {
 
     'railway' :  ['abandoned', 'construction', 'disused', '	funicular', 'light_rail', 'miniature', 'monorail', 
     'narrow_gauge', 'preserved', 'rail', 'subway', 'tram', 'halt', 'platform', 'station', 'subway_entrance', 
-    'tram_stop', 'buffer_stop', 'derail', 'crossing', 'level_crossing', 'signal', 
+    'tram_stop', 'buffer_stop', 'derail', 'crossing', 'level_crossing', 'signal', "stop",
     'switch', 'railway_crossing', 'turntable', 'roundhouse', 'traverser', 'wash', 'user defined'],
 
     'route' :  ['bicycle', 'bus', 'canoe', 'detour', 'ferry', 'foot', 'hiking', 'horse', 'inline_skates', 
