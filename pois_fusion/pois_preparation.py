@@ -1,16 +1,16 @@
 #%%
 
-import geopandas as gp
 import os
-import pandas as pd
 import time
 import sys
-from pandas.core.accessor import PandasDelegate
 import yaml
 import ast
 import numpy as np
+import pandas as pd
+import geopandas as gp
+from pandas.core.accessor import PandasDelegate
 from pyrosm_collector import osm_collect_filter, gdf_conversion
-# Solutuion for bug in pyrosm (functions)
+# Solutuion for the bug in pyrosm (functions)
 from bus_stop_preparation_merge import bus_stop_conversion, join_osm_pois_n_busstops
 
 
@@ -24,6 +24,8 @@ def poi_return_search_condition(name, var_dict):
 
     # Convert polygons to points and set origin geometry for all elements
 def osm_obj2points(df, geom_column = "geom"):
+    #df = df.set_crs(31468)
+
     df.at[df[geom_column].geom_type == "Point", 'origin_geometry'] = 'point'
 
     df.at[df[geom_column].geom_type == "MultiPolygon", 'origin_geometry'] = 'polygon'
@@ -34,9 +36,11 @@ def osm_obj2points(df, geom_column = "geom"):
     df.at[df[geom_column].geom_type == "LineString", 'origin_geometry'] = 'line'
     df.at[df[geom_column].geom_type == "MultiLineString", 'origin_geometry'] = 'line'
 
+    #df = df.set_crs(4326)
+
     return df
 
-def pois_preparation(dataframe=None,filename=None, return_type="df",result_filename="pois_preparation_result"):
+def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result_name="pois_preparation_result"):
     # (2 Options) POIs preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
         df = dataframe
@@ -53,7 +57,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
 
     df = df.drop(columns={"lat", "lon", "version", "timestamp", "changeset"})
     df = df.rename(columns={"geometry": "geom", "id ":"osm_id", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
-    #df = df.assign(poi_type = None)
+    df = df.assign(source = "osm")
 
     # Replace None values with empty strings in "name" column and dict in "tags" column
     # To be able to search within the values
@@ -68,6 +72,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     # variables for preparation
     # !!! Some columns could be not in the list 
     # REVISE it (probabaly check columns - if value from config is not there - create column)
+
     i_amenity = df.columns.get_loc("amenity")
     i_tourism = df.columns.get_loc("tourism")
     i_shop = df.columns.get_loc("shop")
@@ -75,15 +80,21 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     i_leisure = df.columns.get_loc("leisure")
     i_sport = df.columns.get_loc("sport")
     i_organic = df.columns.get_loc("organic")
-    i_origin = df.columns.get_loc("origin")
     i_operator = df.columns.get_loc("operator")
     i_highway = df.columns.get_loc("highway")
     i_public_transport = df.columns.get_loc("public_transport")
     i_railway = df.columns.get_loc("railway")
     i_tags = df.columns.get_loc("tags")
 
+    # Depending on zone "origin" can be not presented
+    try:
+        i_origin = df.columns.get_loc("origin")
+    except:
+        df = df.assign(origin = None)
+        i_origin = df.columns.get_loc("origin")
+
     # This section getting var from conf file (variables container)
-    with open(os.path.join(sys.path[0] , 'pois_prep_conf.yaml')) as m:
+    with open(os.path.join(sys.path[0] , 'pois_prep_conf.yaml'), encoding="utf-8") as m:
             config = yaml.safe_load(m)
 
     var = config['VARIABLES_SET']
@@ -100,7 +111,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     # Related to Discount Gyms
     discount_gym_var = var["discount_gym"]
     # Related to Community Sport Centre
-    community_sport_centre_var = var["community_sport_centre"]
+    # community_sport_centre_var = var["community_sport_centre"]
 
     # Convert polygons to points and set origin geometry for all elements
     df = osm_obj2points(df)
@@ -125,8 +136,11 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
             df.iat[i,i_amenity] = df.iat[i,i_tourism]
         
         # Sport pois from leisure and sport features
+        # !!!!!!!!!!!!!Add sport and leisure into tags
         if df_row[i_sport] or df_row[i_leisure] in leisure_var_add and df_row[i_leisure] not in leisure_var_disc and df_row[i_sport] not in sport_var_disc:
             df.iat[i,i_amenity] = "sport"
+
+            
             continue
 
         # Gyms and discount gyms -> Fitness centers
@@ -212,24 +226,21 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
         
     df = df.reset_index(drop=True)
 
-    print(df)
     # # # Convert DataFrame back to GeoDataFrame (important for saving geojson)
     df = gp.GeoDataFrame(df, geometry='geom')
     df.crs = "EPSG:4326"
 
-    # Filter subway entrances 
-    df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
-    df_sub_stations = df_sub_stations[["name","geom", "id"]]
-    df_sub_stations = df_sub_stations.to_crs(31468)
+    # Filter subway entrances
+    try: 
+        df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
+        df_sub_stations = df_sub_stations[["name","geom", "id"]]
+        df_sub_stations = df_sub_stations.to_crs(31468)
+        df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
+        df_sub_stations = df_sub_stations.to_crs(4326) 
 
-    df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
-    df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
-    df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
-    df_sub_stations = df_sub_stations.to_crs(4326)  
-
-    print(df_sub_entrance)
-    print(df_sub_stations)
-    try:
+        df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
+        df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
+ 
         df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection') 
         df_snames = df_snames[["name_2", "id_1"]]
         df = (df_snames.set_index('id_1').rename(columns = {'name_2':'name'}).combine_first(df.set_index('id')))
@@ -242,22 +253,37 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     # Timer finish
     print("Preparation took %s seconds ---" % (time.time() - start_time)) 
     df = gp.GeoDataFrame(df, geometry='geom')
+    
+    if filename and not result_name:
+        result_name = filename + "prepared"
+    
 
-    return gdf_conversion(df,result_filename,return_type)
+    return gdf_conversion(df,result_name,return_type)
 
 
 # Tests
 # 1 - Direct collection and preparation
-# df = join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")))
-# pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='pois_MF_prepared')
+# pois_collection = osm_collect_filter("pois")
+# pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter("bus_stops")[0]))
+# pois_preparation(dataframe=pois_bus_collection[0], return_type="GeoJSON",result_filename=pois_bus_collection[1])
 
 # pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='test')
 
-# 2 - Preparation from geoJSON
-# join_osm_pois_n_busstops(osm_collect_filter("pois"),bus_stop_conversion(osm_collect_filter("bus_stops")),return_type="GeoJSON", return_filename='pois_merged')
-pois_preparation(filename="pois_merged",return_type="GeoJSON", result_filename="pois_from_geojson_test")
+# # 2 - Preparation from geoJSON
+# join_osm_pois_n_busstops(osm_collect_filter("pois")[0],bus_stop_conversion(osm_collect_filter("bus_stops")[0]),return_type="GeoJSON", return_filename='pois_merged')
+# pois_preparation(filename="pois_merged",return_type="GeoJSON", result_name="pois_from_geojson_test")
 
 #%%
+
+
+
+
+
+
+
+
+
+
 
 
 
