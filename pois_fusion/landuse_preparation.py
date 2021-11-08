@@ -106,9 +106,6 @@ def landuse_preparation(dataframe=None,filename=None, return_type="df",result_fi
 
 #tests 
 
-
-
-
 #osm_collect_filter('landuse', 'PandasDF', update = True).to_file(os.path.join(os.path.join(os.path.abspath(os.getcwd()), "data") , "landuse.geojson"), driver="GeoJSON")
 
 # dataframe = None
@@ -116,13 +113,9 @@ def landuse_preparation(dataframe=None,filename=None, return_type="df",result_fi
 # dataframe = osm_collect_filter('landuse', 'PandasDF', update = True)
 
 
-#landuse_preparation(filename="landuse", return_type="PandasDF",result_filename='landuse_preparation_result')
+landuse_preparation(filename="landuse", return_type="GeoJSON",result_filename='landuse_preparation_result')
 
 #landuse_preparation(filename=landuse.geojson)
-
-# %%
-
-# %%
 
 # checking data to analyse wrong classifications
 # df.loc[(df['landuse_simplified']=='water') & (df['natural'].isin(['basin','reservoir','salt_pond','waters', 'swimming_pool', 'water']))]
