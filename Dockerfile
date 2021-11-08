@@ -65,4 +65,4 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-RUN chmod a+x *.sh
+# RUN chmod a+x *.sh

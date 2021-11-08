@@ -1,16 +1,16 @@
-# VARIABLES_SET -> set for data vusion variables
+# VARIABLES_SET -> set for data fusion variables
 
 VARIABLES_SET : 
   # variables for Pyrosm
-  # region to download - could be "Mittelfranken"
-  region_pbf : "Mittelfranken"
+  # region to download - could be "Bayern"
+  region_pbf : "Muenchen"
 
   pois :
     # set of pois to collect in OSm data base
     # features for filter types
     tags: 
       # filter - categories to search values inside 
-      # if you need all elemnts of category please leave "query_values" empty
+      # if you need all elements of category please leave "query_values" empty
       # additional - tags which in addition to filter categories will be converted 
       # in columns in result Pandas DataFrame
       ## !!!! AWARE - SOME columns not existed in some 
@@ -37,6 +37,66 @@ VARIABLES_SET :
     polygons: True
     lines: True
 
+  landuse :
+    # set of landuse types to collect from OSM data base
+    # features for filter types
+    tags:
+      filter      : ["landuse", "amenity", "leisure", "natural"]
+      additional  : ["tourism", "name"]
+
+    # set of landuse types to be downloaded
+    query_values : ["basin", "reservoir", "salt_pond", "water", "waters", "allotments", "aquaculture", "farmland", "farmyard", "greenhouse_horticulture",  
+                    "plant_nursery", "vineyard", "forest", "grass", "meadow", "village_green", "recreation_ground", "cemetery", "residential", "garages",
+                    "commercial", "retail", "religious", "industrial", "landfill", "quarry", "railway", "highway", "military", "garden", "national_park", 
+                    "nature_reserve", "park", "grave_yard", "orchard", "fallow", "plantation", 
+                     
+                    "parking", "school", "hospital", 
+
+                    "adult_gaming_centre", "amusement_arcade", "beach_resort", "bandstand", "dance", "dog_park", "escape_game", "fitness_centre",
+                    "garden", "horse_riding", "marina", "miniature_golf", "nature_reserve", "park", "pitch", "playground", "sports_centre", "stadium",
+                    "swimming_pool", "track", "water_park", "leisure",
+
+                    "water", "scrub", "wood", "wetland", "grassland", "heath"]
+
+
+
+    # define which geometry types should be collected from OSM
+    points    : false
+    polygons  : True
+    lines     : True
+
+  buildings :
+    # set of building types to collect in OSM data base
+    # features for filter types
+    tags:
+      filter: []
+      additional: []
+
+    # set of building types to be downloaded
+    query_values : []
+
+    # define which geometry types should be collected from OSM
+    points: false
+    polygons: True
+    lines: true
+
+  street_network :
+    # set of landuse types to collect in OSM data base
+    # features for filter types
+    tags:
+      filter: []
+      additional: []
+
+    # set of landuse types to be downloaded
+    query_values : []
+
+    # define which geometry types should be collected from OSM
+    points: true
+    polygons: false
+    lines: False
+
+
+
   bus_stops :
     # bus stops work separately due to the bug
     tags: 
@@ -49,12 +109,3 @@ VARIABLES_SET :
     points: True
     polygons: True
     lines: True
-
-  buildings :
-    tags: 
-      filter : []
-      additional : []
-    query_values : []
-    points: False
-    polygons: True
-    lines: False

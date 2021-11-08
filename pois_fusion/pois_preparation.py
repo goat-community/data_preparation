@@ -56,10 +56,11 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
     start_time = time.time()
 
     df = df.drop(columns={"lat", "lon", "version", "timestamp", "changeset"})
+
     df = df.rename(columns={"geometry": "geom", "id ":"osm_id", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
     df = df.assign(source = "osm")
 
-    # Replace None values with empty strings in "name" column and dict in "tags" column
+    # Replace None values with empty strings in "name" and "amenity" column and dict in "tags" column
     # To be able to search within the values
     df["name"] = df["name"].fillna(value="")
     df["amenity"] = df["amenity"].fillna(value="")
@@ -230,6 +231,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
     df = gp.GeoDataFrame(df, geometry='geom')
     df.crs = "EPSG:4326"
 
+
     # Filter subway entrances
     try: 
         df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
@@ -237,6 +239,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
         df_sub_stations = df_sub_stations.to_crs(31468)
         df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
         df_sub_stations = df_sub_stations.to_crs(4326) 
+
 
         df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
         df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
@@ -332,5 +335,4 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
         #     continue
         
         ##================================================================================================================##
-
 # %%
