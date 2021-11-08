@@ -55,7 +55,7 @@ def pois_preparation(dataframe=None,filename=None, return_type="df",result_filen
     df = df.rename(columns={"geometry": "geom", "id":"osm_id", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
     #df = df.assign(poi_type = None)
 
-    # Replace None values with empty strings in "name" column and dict in "tags" column
+    # Replace None values with empty strings in "name" and "amenity" column and dict in "tags" column
     # To be able to search within the values
     df["name"] = df["name"].fillna(value="")
     df["amenity"] = df["amenity"].fillna(value="")

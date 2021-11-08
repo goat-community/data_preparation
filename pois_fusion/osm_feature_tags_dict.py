@@ -97,7 +97,7 @@ OSM_tags = {
     'greenhouse_horticulture', 'landfill', 'military', 'plant_nursery', 'port', 'quarry', 'railway', 
     'recreation_ground', 'religious', 'village_green', 'winter_sports', 'user defined', 
     'water', 'fallow', 'pasture', 'plantation', 'green_area', 'leisure', 'churchyard', 'highway', 'garden',
-    'national_park', 'nature_reserve', 'park', 'grave_yard'],
+    'national_park', 'nature_reserve', 'park', 'grave_yard', 'waters'],
 
     'leisure' :  ['adult_gaming_centre', 'amusement_arcade', 'beach_resort', 'bandstand', 'bird_hide', 
     'common', 'dance', 'disc_golf_course', 'dog_park', 'escape_game', 'firepit', 'fishing', 'fitness_centre', 
@@ -213,7 +213,7 @@ landuse_tags_not_used_in_SQL = {
 
 landuse_simplified = { 
         'water'            : ['basin (also in water)', 'reservoir (also in man_made and water)', 'salt_pond', 'water'],
-        'agriculture'      : ['allotments (also in place)', 'aquaculture', 'farmland', 'farmyard', 'greenhouse_horticulture', 'orchard', 'plant_nursery', 'vineyard'],
+        'agriculture'      : ['allotments (also in place)', 'aquaculture', 'farmland', 'fallow', 'farmyard', 'greenhouse_horticulture', 'orchard', 'plant_nursery', 'vineyard', 'plantation'],
         'nature'           : ['forest', 'grass', 'meadow'],
         'leisure'          : ['village_green', 'recreation_ground', 'garden (also in leisure tags)', 'national_park (also in boundary tags)', 
                               'nature_reserve (also in leisure tags)', 'park (also in leisure tags)'],
@@ -572,7 +572,7 @@ OSM_tags_sorted_for_landuse_classified_or_buildings_or_pois = {
                                     'greenhouse_horticulture', 'landfill', 'military', 'plant_nursery', 'port', 'quarry', 'railway', 
                                     'recreation_ground', 'religious', 'village_green', 'winter_sports', ('user defined'), 
                                     'water', 'fallow', 'pasture', 'plantation', 'green_area', 'churchyard', 'highway', 'garden',
-                                    'national_park', 'nature_reserve', 'park', 'grave_yard'],
+                                    'national_park', 'nature_reserve', 'park', 'grave_yard', 'waters'],
     
     'landuse_pois'              :  ['forest'],
 
@@ -581,7 +581,8 @@ OSM_tags_sorted_for_landuse_classified_or_buildings_or_pois = {
                                     'reservoir', 'salt_pond', 'brownfield', 'cemetery', 'depot', 'garages', 'grass', 'greenfield', 
                                     'greenhouse_horticulture', 'landfill', 'military', 'plant_nursery', 'port', 'quarry',  
                                     'recreation_ground', 'religious', 'village_green', 'winter_sports',
-                                    'water', 'fallow', 'pasture', 'plantation', 'green_area', 'churchyard', 'highway'],
+                                    'water', 'fallow', 'pasture', 'plantation', 'green_area', 'churchyard', 'highway', 'garden',
+                                    'national_park', 'nature_reserve', 'park', 'grave_yard', 'waters'],
 
     'landuse_buildings'         :  [],
 

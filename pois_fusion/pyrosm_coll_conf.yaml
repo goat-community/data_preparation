@@ -41,10 +41,10 @@ VARIABLES_SET :
       additional  : ["tourism", "name"]
 
     # set of landuse types to be downloaded
-    query_values : ["basin", "reservoir", "salt_pond", "water", "allotments", "aquaculture", "farmland", "farmyard", "greenhouse_horticulture", "orchard", 
+    query_values : ["basin", "reservoir", "salt_pond", "water", "waters", "allotments", "aquaculture", "farmland", "farmyard", "greenhouse_horticulture",  
                     "plant_nursery", "vineyard", "forest", "grass", "meadow", "village_green", "recreation_ground", "cemetery", "residential", "garages",
                     "commercial", "retail", "religious", "industrial", "landfill", "quarry", "railway", "highway", "military", "garden", "national_park", 
-                    "nature_reserve", "park", "grave_yard", 
+                    "nature_reserve", "park", "grave_yard", "orchard", "fallow", "plantation", 
                      
                     "parking", "school", "hospital", 
 
@@ -54,30 +54,12 @@ VARIABLES_SET :
 
                     "water", "scrub", "wood", "wetland", "grassland", "heath"]
 
+
+
     # define which geometry types should be collected from OSM
     points    : false
     polygons  : True
     lines     : True
-
-
-  test :
-    # set of building types to collect in OSM data base
-    # features for filter types
-    tags:
-      filter: ["tourism"]
-      additional: []
-
-    # set of building types to be downloaded
-    query_values : []
-
-    # define which geometry types should be collected from OSM
-    points: false
-    polygons: True
-    lines: true
-
-
-
-
 
   buildings :
     # set of building types to collect in OSM data base
