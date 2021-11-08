@@ -1,13 +1,14 @@
 #%%
-from pygeos import GEOSException
-from pyrosm import get_data, OSM
-from osm_feature_tags_dict import OSM_tags
+
 import yaml
-import geopandas as gpd
 import os
-import pandas as pd
 import sys
 import time
+from pygeos import GEOSException
+from pyrosm import get_data, OSM
+import geopandas as gpd
+import pandas as pd
+from osm_feature_tags_dict import OSM_tags
 
 # pyrosm filter class. Input for it: type of search 'pois'(currently only pois), tags from config , dictionary of osm tags
 # variables of class are 'filter' - list of feature:tags which are relevant to scrap and 'tags_as_columns'- list of tags which will be 
@@ -33,7 +34,7 @@ class PyrOSM_Filter:
 
 def gdf_conversion(gdf, name, return_type='PandasDF'):
     if return_type == 'PandasDF':
-        return gdf
+        return gdf, name
     else:
         print("Writing down the geojson file %s ..." % (name + ".geojson"))
         start_time = time.time()
@@ -47,18 +48,23 @@ def gdf_conversion(gdf, name, return_type='PandasDF'):
 # Could be extended with varios type of searches and filters 
 # name='pois', driver='PandasDF' default variables driver could be 
 # use 'update' parameter to download fresh data from OSM 
-def osm_collect_filter(name='pois', driver='PandasDF',update=False):
+def osm_collect_filter(name='pois', pbf_region=None, driver='PandasDF',update=False):
     # Timer
     print("Collection and filtering %s started..." % name)
     start_time = time.time()
     #import data from pois_coll_conf.yaml
-    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
+    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml'), encoding="utf-8") as m:
         config = yaml.safe_load(m)
 
     var = config['VARIABLES_SET']
 
     # get region name desired pois types from yaml settings
-    pbf_data = var['region_pbf']
+    if pbf_region:
+        pbf_data = pbf_region
+    else:
+        pbf_data = var['region_pbf']
+
+
     query_values = var[name]['query_values']
     filter = var[name]['tags']['filter']
     additional = var[name]['tags']['additional']
@@ -88,7 +94,7 @@ def osm_collect_filter(name='pois', driver='PandasDF',update=False):
 
 def osm_collect_buildings(name='buildings', driver='PandasDF'):
     #import data from pois_coll_conf.yaml
-    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml')) as m:
+    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml'), encoding="utf-8") as m:
         config = yaml.safe_load(m)
 
     var = config['VARIABLES_SET']
@@ -113,7 +119,7 @@ def osm_collect_buildings(name='buildings', driver='PandasDF'):
 
 
 # # Tests
-# osm_collect_filter(name='pois', driver='GeoJSON')
+osm_collect_filter(name='pois')
 # osm_collect_filter(name='bus_stops', driver='GeoJSON')
 
 # osm_collect_buildings(driver='GeoJSON')
