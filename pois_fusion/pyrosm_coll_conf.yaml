@@ -3,109 +3,109 @@
 VARIABLES_SET : 
   # variables for Pyrosm
   # region to download - could be "Bayern"
-  region_pbf : "Muenchen"
+  region_pbf : "Mittelfranken"
 
-  pois :
-    # set of pois to collect in OSm data base
-    # features for filter types
-    tags: 
-      # filter - categories to search values inside 
-      # if you need all elements of category please leave "query_values" empty
-      # additional - tags which in addition to filter categories will be converted 
-      # in columns in result Pandas DataFrame
-      ## !!!! AWARE - SOME columns not existed in some 
-      filter : ["amenity", "shop", "tourism", "railway", "leisure", "sport"] # Exclude highway
-      additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "religion", "opening_hours", "ref", "wheelchair"]
-    # set of pois to be search for and downloaded
-    query_values : [ "clothes", "convenience", "general", "fashion",  "fuel", "post_office","bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", "supermarket", 
-    "taxi", "hairdresser", "atm", "bank", "dentist", "doctors", "pharmacy","post_box", "health_food", "chemist", "marketplace", "bar", "biergarten", "cafe", "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library",
-    "nightclub", "recycling","car_sharing", "bicycle_rental", "charging_station", "bus_station", "station",  "platform",
-    "hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery", "playground", "yoga", "fitness_station", "bench", "stop",
-     "tram_stop", "subway_entrance", "water_park", 
-     "pitch", "sports_centre", "fitness_centre", "sports_hall", "fitness", "fitness_station"]
-    # Not in the list "sport_club", "community_sports_center", "outdoor_fitness_station", "organic", "tram_station", "subway_station", "railway_station", "rail_station"
-    # Bug behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 
+  landuse:
+    collection:
+        # add all tags in a list associated to their osm feature that should be collected from geofabrik 
+        # if you are not sure add feature not_sure: ["tag1", "tag2"] then a dict with all tags (value) and their assosicated feature (key) and one key 
+        # "not a valid osm tag/ missing in our list" with values that where not found will be returned and the collection breaks
+        # -> if you need a certain tag add it manually to osm_featutre_tags_dict.py
+        # PyrOSM recommends to use True instead of the tags list if you want all entries of the specific feature, but their backend dict is incomplete and has 
+        # typos -> not use it -> build own solution add "all"
+        # a list of the most used tags and their associated feature can be seen in osm_feature_tags_dict.py or https://wiki.openstreetmap.org/wiki/Map_features,
+        # https://taginfo.openstreetmap.org/keys/tourism#values  
+        # the resulting dataformat e.g. pandas geodataframe will have a column for every feature and one for every entry in additional_columns (should be OSM
+        # features as well)
 
-    # Excluded
-    # Categories: "water", "landuse", "natural"
-    # Tags: "forest", "heath", "scrub", "lake", "river", "recreation_ground, "park"
-    
-    # define which geometry types should be collected from OSM
-    #  behavior - lines <> polygons, smtms polygons can be filter out with lines switched off
-    # keep all switched on
-    points: True
-    polygons: True
-    lines: True
+      osm_tags:
+        landuse: ["basin", "reservoir", "salt_pond", "water", "waters", "allotments", "aquaculture", "farmland", "farmyard", "greenhouse_horticulture",  
+                  "plant_nursery", "vineyard", "forest", "grass", "meadow", "village_green", "recreation_ground", "cemetery", "residential", "garages",
+                  "commercial", "retail", "religious", "industrial", "landfill", "quarry", "railway", "highway", "military", "garden", "national_park", 
+                  "nature_reserve", "park", "grave_yard", "orchard", "fallow", "plantation"] 
+        amenity: ["parking", "school", "hospital"]
+        leisure: ["adult_gaming_centre", "amusement_arcade", "beach_resort", "bandstand", "dance", "dog_park", "escape_game", "fitness_centre",
+                  "garden", "horse_riding", "marina", "miniature_golf", "nature_reserve", "park", "pitch", "playground", "sports_centre", "stadium",
+                  "swimming_pool", "track", "water_park", "leisure"]
+        natural: ["water", "scrub", "wood", "wetland", "grassland", "heath"]
 
-  landuse :
-    # set of landuse types to collect from OSM data base
-    # features for filter types
-    tags:
-      filter      : ["landuse", "amenity", "leisure", "natural"]
-      additional  : ["tourism", "name"]
+      additional_columns: ["tourism", "name"]
 
-    # set of landuse types to be downloaded
-    query_values : ["basin", "reservoir", "salt_pond", "water", "waters", "allotments", "aquaculture", "farmland", "farmyard", "greenhouse_horticulture",  
-                    "plant_nursery", "vineyard", "forest", "grass", "meadow", "village_green", "recreation_ground", "cemetery", "residential", "garages",
-                    "commercial", "retail", "religious", "industrial", "landfill", "quarry", "railway", "highway", "military", "garden", "national_park", 
-                    "nature_reserve", "park", "grave_yard", "orchard", "fallow", "plantation", 
-                     
-                    "parking", "school", "hospital", 
+          # define which geometry types should be collected from OSM (do not turn off lines -> not all data will be collected)
+      points    : False
+      polygons  : True
+      lines     : True
 
-                    "adult_gaming_centre", "amusement_arcade", "beach_resort", "bandstand", "dance", "dog_park", "escape_game", "fitness_centre",
-                    "garden", "horse_riding", "marina", "miniature_golf", "nature_reserve", "park", "pitch", "playground", "sports_centre", "stadium",
-                    "swimming_pool", "track", "water_park", "leisure",
+    preparation:
+        # put all osm_tags from the collection into a category of landuse_simplified as well -> new column landuse_simplified with grouped tags
+      landuse_simplified : 
+        water          : ["basin","reservoir","salt_pond","waters", "swimming_pool"]
+        agriculture    : ["allotments", "aquaculture", "fallow", "farmland", "farmyard", "greenhouse_horticulture", "orchard", "pasture", "plant_nursery", 
+                          "plantation", "vineyard"]
+        nature         : ["forest","grass","meadow","green_area", "wetland", "scrub", "wood", "grassland", "heath"]
+        leisure        : ["adult_gaming_centre", "amusement_arcade", "beach_resort", "bandstand", "dance", "dog_park", "escape_game", "fitness_centre", 
+                          "garden", "horse_riding", "marina", "miniature_golf", "nature_reserve", "park", "pitch", "playground", "sports_centre", "stadium",  
+                          "track", "water_park", "national_park", "village_green", "recreation_ground"]
+        cemetery       : ["grave_yard"]
+        residential    : ["garages"]
+        commercial     : ["retail"]
+        community      : ["school","university","hospital","college","churchyard","religious"]
+        industrial     : ["landfill","quarry"]
+        transportation : ["highway","parking","railway", "parking"]
+        military       : []
 
-                    "water", "scrub", "wood", "wetland", "grassland", "heath"]
+    fusion: 
+  
+  pois: 
+    collection:
+      osm_tags:
+        amenity : ["fuel", "post_office", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                   "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                   "charging_station", "bus_station", "bench"]
+        shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                   "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+        tourism : ["hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery"]
+        railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+        leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", "fitness_centre"]
+        sport   : ["yoga", "fitness"]
 
+      additional_columns: ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "religion", "opening_hours", "ref", 
+                           "wheelchair"]
+      points    : True
+      polygons  : True
+      lines     : True
+    preparation:
+    fusion:
 
-
-    # define which geometry types should be collected from OSM
-    points    : false
-    polygons  : True
-    lines     : True
-
-  buildings :
-    # set of building types to collect in OSM data base
-    # features for filter types
-    tags:
-      filter: []
-      additional: []
-
-    # set of building types to be downloaded
-    query_values : []
-
-    # define which geometry types should be collected from OSM
-    points: false
-    polygons: True
-    lines: true
-
-  street_network :
-    # set of landuse types to collect in OSM data base
-    # features for filter types
-    tags:
-      filter: []
-      additional: []
-
-    # set of landuse types to be downloaded
-    query_values : []
-
-    # define which geometry types should be collected from OSM
-    points: true
-    polygons: false
-    lines: False
-
-
+  # Excluded
+  # Categories: "water", "landuse", "natural"
+  # Tags: "forest", "heath", "scrub", "lake", "river", "recreation_ground, "park"
+  # Not in the list "sport_club", "community_sports_center", "outdoor_fitness_station", "organic", "tram_station", "subway_station", "railway_station", "rail_station"
+  # Bug behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
   bus_stops :
-    # bus stops work separately due to the bug
-    tags: 
-      filter : ["highway", "public_transport"] # Include highway
-      additional : ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", 
-    "railway", "religion", "opening_hours", "ref", "wheelchair", "subway"]
-    # set of pois to be search for and downloaded
-    query_values : [ "bus_stop", "stop_position", "station"]
-    # define which geometry types should be collected from OSM
-    points: True
-    polygons: True
-    lines: True
+    collection:
+      osm_tags: 
+        highway: ["bus_stop"]
+        public_transport: ["stop_position", "station"]
+
+      additional_columns: ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", 
+                          "railway", "religion", "opening_hours", "ref", "wheelchair", "subway"]
+      points: True
+      polygons: True
+      lines: True
+    preparation:
+    fusion:
+
+  buildings :
+    collection:
+      osm_tags: 
+        buildings: ["all"]
+
+      addtional_columns: []
+      points: True
+      polygons: True
+      lines: True
+    preparation:
+    fusion:
+
