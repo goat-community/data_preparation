@@ -1,0 +1,162 @@
+# VARIABLES_SET 
+VARIABLES_SET : 
+  # variables for Pyrosm collector
+  # region to download - could be "Bayern"
+  region_pbf : "Mittelfranken"
+
+  landuse:
+    collection:
+        # add all tags in a list associated to their osm feature that should be collected from geofabrik 
+        # if you are not sure add feature not_sure: ["tag1", "tag2"] then a dict with all tags (value) and their assosicated feature (key) and one key 
+        # "not a valid osm tag/ missing in our list" with values that where not found will be returned and the collection breaks
+        # -> if you need a certain tag add it manually to osm_featutre_tags_dict.py
+        # PyrOSM recommends to use True instead of the tags list if you want all entries of the specific feature, but their backend dict is incomplete and has 
+        # typos -> not use it -> build own solution add "all"
+        # a list of the most used tags and their associated feature can be seen in osm_feature_tags_dict.py or https://wiki.openstreetmap.org/wiki/Map_features,
+        # https://taginfo.openstreetmap.org/keys/tourism#values  
+        # the resulting dataformat e.g. pandas geodataframe will have a column for every feature and one for every entry in additional_columns (should be OSM
+        # features as well)
+
+      osm_tags:
+        landuse: ["basin", "reservoir", "salt_pond", "water", "waters", "allotments", "aquaculture", "farmland", "farmyard", "greenhouse_horticulture",  
+                  "plant_nursery", "vineyard", "forest", "grass", "meadow", "village_green", "recreation_ground", "cemetery", "residential", "garages",
+                  "commercial", "retail", "religious", "industrial", "landfill", "quarry", "railway", "highway", "military", "garden", "national_park", 
+                  "nature_reserve", "park", "grave_yard", "orchard", "fallow", "plantation"] 
+        amenity: ["parking", "school", "hospital"]
+        leisure: ["adult_gaming_centre", "amusement_arcade", "beach_resort", "bandstand", "dance", "dog_park", "escape_game", "fitness_centre",
+                  "garden", "horse_riding", "marina", "miniature_golf", "nature_reserve", "park", "pitch", "playground", "sports_centre", "stadium",
+                  "swimming_pool", "track", "water_park", "leisure"]
+        natural: ["water", "scrub", "wood", "wetland", "grassland", "heath"]
+
+      additional_columns: ["tourism", "name"]
+
+          # define which geometry types should be collected from OSM (do not turn off lines -> not all data will be collected)
+      points    : False
+      polygons  : True
+      lines     : True
+
+    preparation:
+        # put all osm_tags from the collection into a category of landuse_simplified as well -> new column landuse_simplified with grouped tags
+      landuse_simplified : 
+        water          : ["basin","reservoir","salt_pond","waters", "swimming_pool"]
+        agriculture    : ["allotments", "aquaculture", "fallow", "farmland", "farmyard", "greenhouse_horticulture", "orchard", "pasture", "plant_nursery", 
+                          "plantation", "vineyard"]
+        nature         : ["forest","grass","meadow","green_area", "wetland", "scrub", "wood", "grassland", "heath"]
+        leisure        : ["adult_gaming_centre", "amusement_arcade", "beach_resort", "bandstand", "dance", "dog_park", "escape_game", "fitness_centre", 
+                          "garden", "horse_riding", "marina", "miniature_golf", "nature_reserve", "park", "pitch", "playground", "sports_centre", "stadium",  
+                          "track", "water_park", "national_park", "village_green", "recreation_ground"]
+        cemetery       : ["grave_yard"]
+        residential    : ["garages"]
+        commercial     : ["retail"]
+        community      : ["school","university","hospital","college","churchyard","religious"]
+        industrial     : ["landfill","quarry"]
+        transportation : ["highway","parking","railway", "parking"]
+        military       : []
+
+    fusion: 
+  
+  pois: 
+    collection:
+      osm_tags:
+        amenity : ["fuel", "post_office", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                   "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                   "charging_station", "bus_station", "bench"]
+        shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                   "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+        tourism : ["hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery"]
+        railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+        leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", 'sports_hall', "fitness_centre"]
+        sport   : ["yoga", "fitness"]
+
+      additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                           "opening_hours", "operator", "origin", "organic", "public_transport", "subway"]
+      points    : True
+      polygons  : True
+      lines     : True
+      
+    preparation:
+      bank: 
+        sparkasse       : ["kreissparkasse", "sparkasse", "stadtsparkasse"]
+        raiffeisenbank  : ["raiffeisenbank", "vr bank", "vr-bank", "volksbank", "volks", "Münchner"]
+        hypovereinsbank : ["hypo vereinsbank", "hypovereinsbank"]
+
+      chemist: 
+        dm        : ["dm"]
+        rossmann" : ["rossmann"]
+  
+      nursery : ["krippe", "kinderkrippe", "kita"]
+
+      fast_food: 
+        mcdonalds : ["mcdonald"]
+  
+      health_food: 
+        vitalia"   : ["vitalia"]
+        reformhaus : ["reformhaus"]
+    
+      hypermarket: 
+        hit       : ["hit"]
+        real      : ["real"]
+        v-markt   : ["v-markt"]
+        kaufland  : ["kaufland"]
+        marktkauf : ["marktkauf"]
+  
+      supermarket: 
+        rewe  : ["rewe", "rewe city"]
+        edeka : ["e center", "edeka"]
+    
+      discount_gym: 
+        fitx           : ["fitx"]
+        mcfit          : ["mcfit"]
+        fitstar        : ["fitstar","fit-star", "fit star"]
+        cleverfit      : ["cleverfit" ,"clever fit"]
+        jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
+  
+      discount_supermarket: 
+        aldi  : ["aldi"]
+        lidl  : ["lidl"]
+        netto : ["netto"]
+        norma : ["norma"]
+        penny : ["penny"]
+    
+      no_end_consumer_store: 
+        metro"     : ["metro"]
+        hamberger" : ["hamberger"]
+    
+      community_sport_centre: ["bezirkssportanlage"]
+
+      operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
+    
+      sport:
+        sport_var_disc : ["table_tennis"]
+        leisure_var_add : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
+        leisure_var_disc : ["fitness_station"]
+
+    fusion:
+  
+  # Following config set treat the bug issue
+  # Bug behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 
+  bus_stops :
+    collection:
+      osm_tags: 
+        highway: ["bus_stop"]
+        public_transport: ["stop_position", "station"]
+
+      additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                           "opening_hours", "operator", "origin", "organic", "subway"]
+      points: True
+      polygons: True
+      lines: True
+    preparation:
+    fusion:
+
+  buildings :
+    collection:
+      osm_tags: 
+        buildings: ["all"]
+
+      addtional_columns: []
+      points: True
+      polygons: True
+      lines: True
+    preparation:
+    fusion:
