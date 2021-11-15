@@ -20,13 +20,13 @@ def get_study_area(engine,rs):
     df_area = df_area.filter(['geom'], axis=1)
     return df_area
 
-def buffer_study_areas(list_areas):
+def buffer_study_areas(list_areas, buffer=8300):
     area_union = pd.concat(list_areas,sort=False).reset_index(drop=True)
     area_union["dis_field"] = 1
     area_union = area_union.dissolve(by="dis_field")
     area_union_buffer = area_union
     area_union_buffer = area_union_buffer.to_crs(31468)
-    area_union_buffer["geom"] = area_union_buffer["geom"].buffer(8300)
+    area_union_buffer["geom"] = area_union_buffer["geom"].buffer(buffer)
     area_union_buffer = area_union_buffer.to_crs(4326)
     buffer_serie = area_union_buffer.difference(area_union)
     df_buffer_area = gpd.GeoDataFrame(geometry=buffer_serie)
