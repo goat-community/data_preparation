@@ -97,7 +97,7 @@ def osm_collect_filter(name, pbf_region=None, driver=None, update=False):
     print("Collection and filtering %s started..." % name)
     start_time = time.time()
     #import data from pois_coll_conf.yaml
-    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml'), encoding="utf-8") as m:
+    with open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8") as m:
         config = yaml.safe_load(m)
 
     var = config['VARIABLES_SET']
@@ -160,7 +160,7 @@ def join_osm_pois_n_busstops(df_pois,  df_stops, df_pois_name=None, return_type=
 
 def osm_collect_buildings(name='buildings', driver=None):
     #import data from pois_coll_conf.yaml
-    with open(os.path.join(sys.path[0] , 'pyrosm_coll_conf.yaml'), encoding="utf-8") as m:
+    with open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8") as m:
         config = yaml.safe_load(m)
 
     var = config['VARIABLES_SET']

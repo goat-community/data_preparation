@@ -328,7 +328,7 @@ def landuse_preparation(dataframe=None, filename=None, return_type=None, result_
                 df[i].loc[df[i].isin(custom_filter[i])])
 
         # import landuse_simplified dict from pyrosm_collector.py
-        with open(os.path.join(sys.path[0], 'pyrosm_coll_conf.yaml'), encoding="utf-8") as m:
+        with open(os.path.join(sys.path[0], 'config.yaml'), encoding="utf-8") as m:
             config = yaml.safe_load(m)
         var = config['VARIABLES_SET']
         landuse_simplified_dict = var['landuse']['preparation']['landuse_simplified']
@@ -342,7 +342,7 @@ def landuse_preparation(dataframe=None, filename=None, return_type=None, result_
     if df.loc[~df['landuse_simplified'].isin(list(landuse_simplified_dict.keys()))].empty:
         print("All entries were classified in landuse_simplified")
     else:
-        print("The following tags in the landuse_simplified column need to be added to the landuse_simplified dict in pyrosm_coll_conf.yaml:")
+        print("The following tags in the landuse_simplified column need to be added to the landuse_simplified dict in config.yaml:")
         print(df.loc[~df['landuse_simplified'].isin(
             list(landuse_simplified_dict.keys()))])
 
