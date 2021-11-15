@@ -112,7 +112,7 @@ def osm_collect_filter(name, pbf_region=None, driver=None, update=False):
     return_name = name + '_' + pbf_data
 
     # Return type if driver -> 'GeoJSON' write geojson file if driver -> 'PandasDF' return PandasDF
-    return gdf_conversion(df, return_name ,driver), custom_filter.filter
+    return gdf_conversion(df, return_name ,driver)
 
 
 def osm_collect_buildings(name='buildings', driver='PandasDF'):
