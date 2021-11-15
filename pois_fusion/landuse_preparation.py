@@ -11,11 +11,11 @@ from pandas.core.accessor import PandasDelegate
 import yaml
 import ast
 import numpy as np
-from pyrosm_collector import osm_collect_filter, gdf_conversion
+from pyrosm_collector import osm_collect_filter, gdf_conversion, PyrOSM_Filter
 gp.options.use_pygeos = True
 
 
-def landuse_preparation(dataframe=None, filename=None, return_type=None, result_filename="landuse_preparation_result", custom_filter=None):
+def landuse_preparation(dataframe=None, filename=None, return_type=None, result_filename="landuse_preparation_result"):
     """Beschreibung für eine Funktion kdhwekjhdkj"""
     # (2 Options) landuse preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
@@ -41,6 +41,9 @@ def landuse_preparation(dataframe=None, filename=None, return_type=None, result_
              "osm_id", "origin_geometry", "geom"]]
 
     # Fill landuse_simplified coulmn with values from the other columns
+
+    # needed cause of exceptions like "all"
+    custom_filter = PyrOSM_Filter('landuse').filter
 
     if custom_filter == None:
         print("landuse_simplified can only be generated if the custom_filter of osm_collect_filter is passed")
@@ -83,12 +86,12 @@ def landuse_preparation(dataframe=None, filename=None, return_type=None, result_
 
 # tests
 
-# dataframe        = osm_collect_filter(name='landuse' ,driver=None, update=False)[0][0]
-# name             = osm_collect_filter(name='landuse' ,driver=None, update=False)[0][1]
+# dataframe        = osm_collect_filter(name='landuse' ,driver=None, update=False)[0]
+# name             = osm_collect_filter(name='landuse' ,driver=None, update=False)[0]
 # custom_filter    = osm_collect_filter(name='landuse' ,driver=None, update=False)[1]
-# landuse_prepared = landuse_preparation(dataframe = osm_collect_filter(name='landuse' ,driver=None, update=False)[0][0], return_type=None,result_filename="landuse_preparation_result", custom_filter=osm_collect_filter(name='landuse' ,driver=None, update=False)[1])
+# landuse_prepared = landuse_preparation(dataframe = osm_collect_filter(name='landuse' ,driver=None, update=False)[0], return_type=None,result_filename="landuse_preparation_result")
 
-collection = osm_collect_filter(name='landuse', driver=None, update=False)
+# collection = osm_collect_filter(name='landuse', driver=None, update=False)
 #landuse_prepared = landuse_preparation(
 #    dataframe=collection[0][0], return_type=None, result_filename="landuse_preparation_result", custom_filter=collection[1])
 #geodataframe = landuse_prepared[0]
