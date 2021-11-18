@@ -1,36 +1,13 @@
 #%%
-# fix issue with pyproj
-import pyproj
-pyproj.datadir.set_data_dir('C:\\Users\\phili\\anaconda3\\envs\\Plan4Better_Python_3.9\\Lib\\site-packages\\pyproj\\proj_dir\\share\\proj')
-
 from collection import osm_collect_filter, gdf_conversion, bus_stop_conversion, join_osm_pois_n_busstops
-<<<<<<< HEAD
-from preparation import pois_preparation, landuse_preparation
-=======
 from preparation import landuse_preparation, pois_preparation
->>>>>>> upstream/main
 
 # import paramiko
 import pandas as pd
 import geopandas as gpd
-<<<<<<< HEAD
-
-# from sqlalchemy import create_engine
-# from fusion import geonode_connection, fusion_data_areas_rs_set
-# from credidentials_geonode import db_password, serv_password
-
-# import data.passwords
-
-# db_password = data.passwords.db_password
-# serv_password = data.passwords.serv_password
-
-
-
-=======
 # from sqlalchemy import create_engine
 from fusion import geonode_connection, fusion_data_areas_rs_set
 from credidentials_geonode import db_password, serv_password
->>>>>>> upstream/main
 
 # POIS Collection + Preparation 
 
@@ -53,13 +30,8 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 # df_res = pd.DataFrame()
 
 # for d in data_set:
-<<<<<<< HEAD
-#     pois_collection = osm_collect_filter("pois",d, update=True)[0]
-#     pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter("bus_stops",d)[0][0]),pois_collection[1])
-=======
 #     pois_collection = osm_collect_filter("pois",d, update=True)
 #     pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter("bus_stops",d)[0]),pois_collection[1])
->>>>>>> upstream/main
 
 #     temp_df = pois_preparation(dataframe=pois_bus_collection[0],result_name=pois_bus_collection[1])[0]
 #     if data_set.index(d) == 0:
@@ -76,20 +48,20 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 
 #==============================================================Fusion POIs===========================================================================##
 # ====== Complete replace amenity ======
-table_base = "pois_bayern"
-table_input = "doctors_bavaria"
-rs_set = ["097610000", "095640000", "096630000"]
-amenity_replace = "doctors"
-columns2drop_input = ["id", "ref", "layer", "path"]
-columns2rename = {"category": "amenity", "extras": "tags", "spider": "source"}
-columns2drop_input =[]
+# table_base = "pois_bayern"
+# table_input = "doctors_bavaria"
+# rs_set = ["097610000", "095640000", "096630000"]
+# amenity_replace = "doctors"
+# columns2drop_input = ["id", "ref", "layer", "path"]
+# columns2rename = {"category": "amenity", "extras": "tags", "spider": "source"}
+# columns2drop_input =[]
 
-return_name = "data_fused_test"
-return_type = "GeoJSON"
+# return_name = "data_fused_test"
+# return_type = "GeoJSON"
 
-con = geonode_connection()
-fusion_data_areas_rs_set(con, table_base, rs_set, table_input=table_input, amenity_replace=amenity_replace, columns2rename=columns2rename,
-                               columns2drop_input=columns2drop_input, return_name=return_name, return_type=return_type)
+# con = geonode_connection()
+# fusion_data_areas_rs_set(con, table_base, rs_set, table_input=table_input, amenity_replace=amenity_replace, columns2rename=columns2rename,
+#                                columns2drop_input=columns2drop_input, return_name=return_name, return_type=return_type)
 
 # ====== Complete replace brand ======
 # table_base = "pois_bayern"
@@ -140,7 +112,6 @@ fusion_data_areas_rs_set(con, table_base, rs_set, table_input=table_input, ameni
 
 ##==============================================================TESTS===============================================================================##
 
-<<<<<<< HEAD
 # Landuse Collection + Preparation 
 
 df_res = pd.DataFrame()
@@ -160,10 +131,3 @@ df = gdf_conversion(df_res, "landuse_bayern", return_type=None)[0]
 # engine = create_engine('postgresql://geonode_data:%s@161.97.133.234:5432/' % db_password )
 # df.to_postgis(con=engine, name="landuse_bayern",if_exists='replace')
 # %%
-=======
-
-
-
-
-#%%
->>>>>>> upstream/main
