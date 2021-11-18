@@ -3,7 +3,8 @@ import yaml
 import os
 import sys
 import time
-from pygeos import GEOSException
+
+#from pygeos import GEOSException
 from pyrosm import get_data, OSM
 import geopandas as gpd
 import pandas as pd
