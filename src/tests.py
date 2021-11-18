@@ -1,13 +1,26 @@
 #%%
-from collection import osm_collect_filter, gdf_conversion, bus_stop_conversion, join_osm_pois_n_busstops
-from preparation import pois_preparation
+# fix issue with pyproj
+import pyproj
+pyproj.datadir.set_data_dir('C:\\Users\\phili\\anaconda3\\envs\\Plan4Better_Python_3.9\\Lib\\site-packages\\pyproj\\proj_dir\\share\\proj')
 
-import paramiko
+from collection import osm_collect_filter, gdf_conversion, bus_stop_conversion, join_osm_pois_n_busstops
+from preparation import pois_preparation, landuse_preparation
+
+# import paramiko
 import pandas as pd
 import geopandas as gpd
-from sqlalchemy import create_engine
-from fusion import geonode_connection, fusion_data_areas_rs_set
-from credidentials_geonode import db_password, serv_password
+
+# from sqlalchemy import create_engine
+# from fusion import geonode_connection, fusion_data_areas_rs_set
+# from credidentials_geonode import db_password, serv_password
+
+# import data.passwords
+
+# db_password = data.passwords.db_password
+# serv_password = data.passwords.serv_password
+
+
+
 
 # POIS Collection + Preparation 
 
@@ -27,19 +40,19 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 # 2nd way - Download it separately and merge it together in one file 
 # Return type 'GPKG' could be used
 
-df_res = pd.DataFrame()
+# df_res = pd.DataFrame()
 
-for d in data_set:
-    pois_collection = osm_collect_filter("pois",d, update=True)[0]
-    pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter("bus_stops",d)[0][0]),pois_collection[1])
+# for d in data_set:
+#     pois_collection = osm_collect_filter("pois",d, update=True)[0]
+#     pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter("bus_stops",d)[0][0]),pois_collection[1])
 
-    temp_df = pois_preparation(dataframe=pois_bus_collection[0],result_name=pois_bus_collection[1])[0]
-    if data_set.index(d) == 0:
-        df_res = temp_df
-    else:
-        df_res = pd.concat([df_res,temp_df],sort=False).reset_index(drop=True)
+#     temp_df = pois_preparation(dataframe=pois_bus_collection[0],result_name=pois_bus_collection[1])[0]
+#     if data_set.index(d) == 0:
+#         df_res = temp_df
+#     else:
+#         df_res = pd.concat([df_res,temp_df],sort=False).reset_index(drop=True)
 
-df = gdf_conversion(df_res, "pois_bayern", return_type='GPKG')[0]
+# df = gdf_conversion(df_res, "pois_bayern", return_type='GPKG')[0]
 
 # # GeoDataFrame to Geonode directly
 # engine = create_engine('postgresql://geonode_data:%s@161.97.133.234:5432/' % db_password )
@@ -91,4 +104,22 @@ df = gdf_conversion(df_res, "pois_bayern", return_type='GPKG')[0]
 
 ##==============================================================TESTS===============================================================================##
 
-#%%
+# Landuse Collection + Preparation 
+
+df_res = pd.DataFrame()
+
+for d in data_set:
+    landuse_collection = osm_collect_filter("landuse",d, update=True)
+    
+    temp_df = landuse_preparation(dataframe=landuse_collection[0],result_name=landuse_collection[1])[0]
+    if data_set.index(d) == 0:
+        df_res = temp_df
+    else:
+        df_res = pd.concat([df_res,temp_df],sort=False).reset_index(drop=True)
+
+df = gdf_conversion(df_res, "landuse_bayern", return_type=None)[0]
+
+# GeoDataFrame to Geonode directly
+# engine = create_engine('postgresql://geonode_data:%s@161.97.133.234:5432/' % db_password )
+# df.to_postgis(con=engine, name="landuse_bayern",if_exists='replace')
+# %%

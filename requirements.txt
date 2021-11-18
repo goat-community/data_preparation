@@ -1,5 +1,19 @@
-pygeos==0.10.2
-geopandas
-pyrosm
-PyYAML
-#jupyterlab
+# Environment Philipp
+# package # version 
+# all packages installed with conda forge as recommended for pyrosm and once you choose a channel you should stick according to anaconda
+
+# run these
+# conda config --prepend channels conda-forge
+# conda config --set channel_priority strict
+
+
+# python                    3.9.7           h7840368_3_cpython    conda-forge
+geopandas # geopandas-0.10.2           |     pyhd8ed1ab_0           5 KB  conda-forge
+pygeos # pygeos-0.11.1              |   py39h2358463_1         422 KB  conda-forge
+cython # cython-0.29.24             |   py39h415ef7b_1         1.9 MB  conda-forge
+Pyrobuf # pyrobuf-0.9.3              |   py39h415ef7b_3         336 KB  conda-forge
+cykhash=1.0.2 #cykhash-1.0.2              |   py39hb0d2dfa_2         228 KB  conda-forge (downgrad needed due to issues of pyrosm with cykhash 2.0)
+pyrosm # pyrosm-0.6.1               |   py39h415ef7b_0         1.9 MB  conda-forge
+jupyterlab #jupyterlab-3.2.4           |     pyhd8ed1ab_0         6.0 MB  conda-forge
+pyyaml # pyyaml-6.0                 |   py39hb82d6ee_3         158 KB  conda-forge
+
