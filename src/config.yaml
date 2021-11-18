@@ -127,25 +127,26 @@ VARIABLES_SET :
       operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
     
       sport:
-        sport_var_disc : ["table_tennis"]
-        leisure_var_add : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
+        sport_var_disc   : ["table_tennis"]
+        leisure_var_add  : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
         leisure_var_disc : ["fitness_station"]
 
     fusion:
+      rs_codes: ["097610000", "095640000", "096630000"]
   
   # Following config set treat the bug issue
   # Bug behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 
   bus_stops :
     collection:
       osm_tags: 
-        highway: ["bus_stop"]
-        public_transport: ["stop_position", "station"]
+        highway          : ["bus_stop"]
+        public_transport : ["stop_position", "station"]
 
-      additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+      additional_columns : ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
                            "opening_hours", "operator", "origin", "organic", "subway"]
-      points: True
-      polygons: True
-      lines: True
+      points   : True
+      polygons : True
+      lines    : True
     preparation:
     fusion:
 

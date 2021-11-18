@@ -3,7 +3,8 @@ import yaml
 import os
 import sys
 import time
-from pygeos import GEOSException
+
+#from pygeos import GEOSException
 from pyrosm import get_data, OSM
 import geopandas as gpd
 import pandas as pd
@@ -96,7 +97,7 @@ def osm_collect_filter(name, pbf_region=None, driver=None, update=False):
     # Timer
     print("Collection and filtering %s started..." % name)
     start_time = time.time()
-    #import data from pois_coll_conf.yaml
+    #import data from config.yaml
     with open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8") as m:
         config = yaml.safe_load(m)
 
