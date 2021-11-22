@@ -1,7 +1,6 @@
-# VARIABLES_SET -> set for data fusion variables
-
+# VARIABLES_SET 
 VARIABLES_SET : 
-  # variables for Pyrosm
+  # variables for Pyrosm collector
   # region to download - could be "Bayern"
   region_pbf : "Mittelfranken"
 
@@ -66,34 +65,88 @@ VARIABLES_SET :
                    "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
         tourism : ["hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery"]
         railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
-        leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", "fitness_centre"]
+        leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", 'sports_hall', "fitness_centre"]
         sport   : ["yoga", "fitness"]
 
-      additional_columns: ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "religion", "opening_hours", "ref", 
-                           "wheelchair"]
+      additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                           "opening_hours", "operator", "origin", "organic", "public_transport", "subway"]
       points    : True
       polygons  : True
       lines     : True
+      
     preparation:
+      bank: 
+        sparkasse       : ["kreissparkasse", "sparkasse", "stadtsparkasse"]
+        raiffeisenbank  : ["raiffeisenbank", "vr bank", "vr-bank", "volksbank", "volks", "Münchner"]
+        hypovereinsbank : ["hypo vereinsbank", "hypovereinsbank"]
+
+      chemist: 
+        dm        : ["dm"]
+        rossmann" : ["rossmann"]
+  
+      nursery : ["krippe", "kinderkrippe", "kita"]
+
+      fast_food: 
+        mcdonalds : ["mcdonald"]
+  
+      health_food: 
+        vitalia"   : ["vitalia"]
+        reformhaus : ["reformhaus"]
+    
+      hypermarket: 
+        hit       : ["hit"]
+        real      : ["real"]
+        v-markt   : ["v-markt"]
+        kaufland  : ["kaufland"]
+        marktkauf : ["marktkauf"]
+  
+      supermarket: 
+        rewe  : ["rewe", "rewe city"]
+        edeka : ["e center", "edeka"]
+    
+      discount_gym: 
+        fitx           : ["fitx"]
+        mcfit          : ["mcfit"]
+        fitstar        : ["fitstar","fit-star", "fit star"]
+        cleverfit      : ["cleverfit" ,"clever fit"]
+        jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
+  
+      discount_supermarket: 
+        aldi  : ["aldi"]
+        lidl  : ["lidl"]
+        netto : ["netto"]
+        norma : ["norma"]
+        penny : ["penny"]
+    
+      no_end_consumer_store: 
+        metro"     : ["metro"]
+        hamberger" : ["hamberger"]
+    
+      community_sport_centre: ["bezirkssportanlage"]
+
+      operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
+    
+      sport:
+        sport_var_disc   : ["table_tennis"]
+        leisure_var_add  : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
+        leisure_var_disc : ["fitness_station"]
+
     fusion:
-
-  # Excluded
-  # Categories: "water", "landuse", "natural"
-  # Tags: "forest", "heath", "scrub", "lake", "river", "recreation_ground, "park"
-  # Not in the list "sport_club", "community_sports_center", "outdoor_fitness_station", "organic", "tram_station", "subway_station", "railway_station", "rail_station"
+      rs_codes: ["097610000", "095640000", "096630000"]
+  
+  # Following config set treat the bug issue
   # Bug behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 
-
   bus_stops :
     collection:
       osm_tags: 
-        highway: ["bus_stop"]
-        public_transport: ["stop_position", "station"]
+        highway          : ["bus_stop"]
+        public_transport : ["stop_position", "station"]
 
-      additional_columns: ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", 
-                          "railway", "religion", "opening_hours", "ref", "wheelchair", "subway"]
-      points: True
-      polygons: True
-      lines: True
+      additional_columns : ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                           "opening_hours", "operator", "origin", "organic", "subway"]
+      points   : True
+      polygons : True
+      lines    : True
     preparation:
     fusion:
 
@@ -108,4 +161,3 @@ VARIABLES_SET :
       lines: True
     preparation:
     fusion:
-

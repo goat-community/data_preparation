@@ -1,5 +1,3 @@
-#%%
-
 import os
 import time
 import sys
@@ -9,11 +7,12 @@ import numpy as np
 import pandas as pd
 import geopandas as gp
 from pandas.core.accessor import PandasDelegate
-from pyrosm_collector import osm_collect_filter, gdf_conversion
-# Solutuion for the bug in pyrosm (functions)
-from bus_stop_preparation_merge import bus_stop_conversion, join_osm_pois_n_busstops
+from collection import gdf_conversion, PyrOSM_Filter
+gp.options.use_pygeos = True
 
+#====================================================== POIs preparation ==================================================================#
 
+# Function search in config
 def poi_return_search_condition(name, var_dict):
     for key,value in var_dict.items():
         for v in value:
@@ -22,25 +21,23 @@ def poi_return_search_condition(name, var_dict):
             else:
                 pass
 
-    # Convert polygons to points and set origin geometry for all elements
+# Convert polygons to points and set origin geometry for all elements
 def osm_obj2points(df, geom_column = "geom"):
     #df = df.set_crs(31468)
-
     df.at[df[geom_column].geom_type == "Point", 'origin_geometry'] = 'point'
 
     df.at[df[geom_column].geom_type == "MultiPolygon", 'origin_geometry'] = 'polygon'
-    df.at[df[geom_column].geom_type == "MultiPolygon", 'geom'] = df['geom'].centroid
+    df.at[df[geom_column].geom_type == "MultiPolygon", 'geom'] = df['geom'].to_crs(31468).centroid
     df.at[df[geom_column].geom_type == "Polygon", 'origin_geometry'] = 'polygon'
-    df.at[df[geom_column].geom_type == "Polygon", 'geom'] = df['geom'].centroid
+    df.at[df[geom_column].geom_type == "Polygon", 'geom'] = df['geom'].to_crs(31468).centroid
 
     df.at[df[geom_column].geom_type == "LineString", 'origin_geometry'] = 'line'
     df.at[df[geom_column].geom_type == "MultiLineString", 'origin_geometry'] = 'line'
 
-    #df = df.set_crs(4326)
-
+    df['geom'] = df['geom'].to_crs(4326)
     return df
 
-def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result_name="pois_preparation_result"):
+def pois_preparation(dataframe=None,filename=None, return_type=None,result_name="pois_preparation_result"):
     # (2 Options) POIs preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
         df = dataframe
@@ -55,12 +52,15 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
     print("Preparation started...")
     start_time = time.time()
 
+    df["osm_id"] = df["id"]
+
     df = df.drop(columns={"lat", "lon", "version", "timestamp", "changeset"})
 
-    df = df.rename(columns={"geometry": "geom", "id ":"osm_id", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
+    df = df.rename(columns={"geometry": "geom", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
+
     df = df.assign(source = "osm")
 
-    # Replace None values with empty strings in "name" and "amenity" column and dict in "tags" column
+    # Replace None values with empty strings in "name" column and dict in "tags" column
     # To be able to search within the values
     df["name"] = df["name"].fillna(value="")
     df["amenity"] = df["amenity"].fillna(value="")
@@ -94,12 +94,19 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
         df = df.assign(origin = None)
         i_origin = df.columns.get_loc("origin")
 
+    # Try to get location of subway column if it exists 
+    try:
+        i_subway = df.columns.get_loc("subway")
+    except:
+        df = df.assign(subway = None)
+        i_subway = df.columns.get_loc("subway")
+
+
     # This section getting var from conf file (variables container)
-    with open(os.path.join(sys.path[0] , 'pois_prep_conf.yaml'), encoding="utf-8") as m:
+    with open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8") as m:
             config = yaml.safe_load(m)
 
-    var = config['VARIABLES_SET']
-
+    var = config['VARIABLES_SET']["pois"]["preparation"]
     # Related to sport facilities
     sport_var_disc = var["sport"]["sport_var_disc"]
     leisure_var_add = var["sport"]["leisure_var_add"]
@@ -117,9 +124,8 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
     # Convert polygons to points and set origin geometry for all elements
     df = osm_obj2points(df)
 
-    # remove lines from df
+    # remove lines from 
     df = df[df.origin_geometry != 'line']
-
     df = df.reset_index(drop=True)
 
     # # Playgrounds
@@ -130,19 +136,22 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
     for i in df.index:
         df_row = df.iloc[i]
 
-        if df_row[i_tourism] and df_row[i_amenity] != "" and df_row[i_tourism] != df_row[i_amenity]:
+        if df_row[i_tourism] and df_row[i_amenity] != "" and df_row[i_tourism] != df_row[i_amenity] and df_row[i_tourism] != "yes":
             df_row["amenity"] = df_row["tourism"]
             df = df.append(df_row)
-        elif df_row[i_tourism] and df_row[i_amenity] == "":
+        elif df_row[i_tourism] and df_row[i_amenity] == "" and df_row[i_tourism] != "yes":
             df.iat[i,i_amenity] = df.iat[i,i_tourism]
         
         # Sport pois from leisure and sport features
-        # !!!!!!!!!!!!!Add sport and leisure into tags
         if df_row[i_sport] or df_row[i_leisure] in leisure_var_add and df_row[i_leisure] not in leisure_var_disc and df_row[i_sport] not in sport_var_disc:
             df.iat[i,i_amenity] = "sport"
-
-            
+            if df_row[i_sport]:
+                df.iat[i,i_tags]["sport"] = df_row[i_sport]
+            elif df_row[i_leisure]:
+                df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
             continue
+        elif df_row[i_leisure] not in leisure_var_add and df_row[i_leisure]:
+            df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
 
         # Gyms and discount gyms -> Fitness centers
         if (df_row[i_leisure] == "fitness_centre" or (df_row[i_leisure] == "sport_centre" and df_row[i_sport] == "fitness")) and (
@@ -159,28 +168,28 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
         if (df_row[i_sport] == "yoga" or "yoga" in df_row[i_name] or "Yoga" in df_row[i_name]) and not df_row[i_shop]:
             df.iat[i,i_amenity] = "yoga"
             continue    
-
-        ##================================================================================================================##
             
         # Recclasify shops. Define convenience and clothes, others assign to amenity. If not rewrite amenity with shop value
-        if df_row[i_shop] == "grocery":
+        if df_row[i_shop] == "grocery" and df_row[i_amenity] == "":
             if df_row[i_organic] == "only":
                 df.iat[i,i_amenity] = "organic"
+                df.iat[i,i_tags]["organic"] = df_row[i_organic]
                 continue
             elif df_row[i_origin]:
                 df.iat[i,i_amenity] = "international_hypermarket"
+                df.iat[i,i_tags]["origin"] = df_row[i_origin]
                 continue
             else:
                 df.iat[i,i_amenity] = "convenience"
                 df.iat[i,i_shop] = None
                 continue
 
-        elif df_row[i_shop] == "fashion":
+        elif df_row[i_shop] == "fashion" and df_row[i_amenity] == "":
             df.iat[i,i_amenity] = "clothes"
             df.iat[i,i_shop] = None
             continue
         # Supermarkets recclassification
-        elif df_row[i_shop] == "supermarket":
+        elif df_row[i_shop] == "supermarket" and df_row[i_amenity] == "":
             operator = [poi_return_search_condition(df_row[i_name].lower(), health_food_var),
                         poi_return_search_condition(df_row[i_name].lower(), hypermarket_var),
                         poi_return_search_condition(df_row[i_name].lower(), no_end_consumer_store_var),
@@ -197,15 +206,18 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
             else:
                 if df_row[i_organic] == "only":
                     df.iat[i,i_amenity] = "organic"
+                    df.iat[i,i_tags]["organic"] = df_row[i_organic]
                     continue
                 elif df_row[i_origin]:
                     df.iat[i,i_amenity] = "international_hypermarket"
+                    df.iat[i,i_tags]["origin"] = df_row[i_origin]
                     continue 
                 else:
                     df.iat[i,i_amenity] = "supermarket"
                     continue
-        elif df_row[i_shop]:
+        elif df_row[i_shop] and df_row[i_shop] != "yes" and df_row[i_amenity] == "":
             df.iat[i,i_amenity] = df.iat[i,i_shop]
+            df.iat[i,i_tags]["shop"] = df_row[i_shop]
             continue
          
         # Transport stops
@@ -214,23 +226,34 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
             continue
         elif df_row[i_public_transport] == "platform" and df_row[i_tags] and df_row[i_highway] != "bus_stop" and df_row[i_name] != '' and ("bus","yes") in df_row[i_tags].items():
             df.iat[i,i_amenity] = "bus_stop"
+            df.iat[i,i_tags]["public_transport"] = df_row[i_public_transport]
             continue
         elif df_row[i_public_transport] == "stop_position" and isinstance(df_row[i_tags], dict) and ("tram","yes") in df_row[i_tags].items() and df_row[i_name] != '':
             df.iat[i,i_amenity] = "tram_stop"
+            df.iat[i,i_tags]["public_transport"] = df_row[i_public_transport]
             continue
         elif df_row[i_railway] == "subway_entrance":
             df.iat[i,i_amenity] = "subway_entrance"
+            df.iat[i,i_tags]["railway"] = df_row[i_railway]  
             continue
         elif df_row[i_railway] == "stop" and df_row[i_tags] and ("train","yes") in df_row[i_tags].items():
             df.iat[i,i_amenity] = "rail_station"
+            df.iat[i,i_tags]["railway"] = df_row[i_railway]  
             continue
-        
+        elif df_row[i_highway]:
+            df.iat[i,i_tags]["highway"] = df_row[i_highway]
+        elif df_row[i_public_transport]:
+            df.iat[i,i_tags]["public_transport"] = df_row[i_public_transport]
+        elif df_row[i_railway]:
+            df.iat[i,i_tags]["railway"] = df_row[i_railway]
+        elif df_row[i_subway]:
+            df.iat[i,i_tags]["subway"] = df_row[i_subway]        
+
     df = df.reset_index(drop=True)
 
     # # # Convert DataFrame back to GeoDataFrame (important for saving geojson)
     df = gp.GeoDataFrame(df, geometry='geom')
     df.crs = "EPSG:4326"
-
 
     # Filter subway entrances
     try: 
@@ -240,7 +263,6 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
         df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
         df_sub_stations = df_sub_stations.to_crs(4326) 
 
-
         df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
         df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
  
@@ -249,90 +271,92 @@ def pois_preparation(dataframe=None,filename=None, return_type="PandasDF",result
         df = (df_snames.set_index('id_1').rename(columns = {'name_2':'name'}).combine_first(df.set_index('id')))
     except:
         print("No subway stations for given area.")
+        df = df.drop(columns={"id"})
 
 
-    
- 
+    # Remove irrelevant columns
+    df = df.drop(columns={"shop", "tourism", "leisure", "sport", "highway", "origin", "organic", "public_transport", "railway", "subway"})
+
+    df = df.drop_duplicates(subset=['osm_id', 'amenity', 'name'], keep='first')
+
     # Timer finish
     print("Preparation took %s seconds ---" % (time.time() - start_time)) 
     df = gp.GeoDataFrame(df, geometry='geom')
     
     if filename and not result_name:
         result_name = filename + "prepared"
-    
 
     return gdf_conversion(df,result_name,return_type)
 
 
-# Tests
-# 1 - Direct collection and preparation
-# pois_collection = osm_collect_filter("pois")
-# pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter("bus_stops")[0]))
-# pois_preparation(dataframe=pois_bus_collection[0], return_type="GeoJSON",result_filename=pois_bus_collection[1])
+#====================================================== Landuse preparation ======================================================================#
+ 
 
-# pois_preparation(dataframe=df, return_type="GeoJSON",result_filename='test')
+def landuse_preparation(dataframe=None, filename=None, return_type=None, result_filename="landuse_preparation_result"):
+    """Beschreibung für eine Funktion kdhwekjhdkj"""
+    # (2 Options) landuse preparation from geojson imported from OSM (if you already have it)
+    if dataframe is not None:
+        df = dataframe
+    elif filename:
+        file = open(os.path.join(os.path.abspath(os.getcwd()),
+                                 'data', filename + ".geojson"), encoding="utf-8")
+        df = gp.read_file(file)
+    else:
+        print("Incorrect 'datatype' value!")
+        sys.exit()
 
-# # 2 - Preparation from geoJSON
-# join_osm_pois_n_busstops(osm_collect_filter("pois")[0],bus_stop_conversion(osm_collect_filter("bus_stops")[0]),return_type="GeoJSON", return_filename='pois_merged')
-# pois_preparation(filename="pois_merged",return_type="GeoJSON", result_name="pois_from_geojson_test")
+    # Timer start
+    print("Preparation started...")
+    start_time = time.time()
 
-#%%
+    # Preprocessing: removing, renaming and reordering of columns
+    df = df.drop(columns={"timestamp", "version", "changeset"})
+    df = df.rename(columns={"geometry": "geom",
+                            "id": "osm_id", "osm_type": "origin_geometry"})
+    df["landuse_simplified"] = None
+    df = df[["landuse_simplified", "landuse", "tourism", "amenity", "leisure", "natural", "name", "tags",
+             "osm_id", "origin_geometry", "geom"]]
+
+    # Fill landuse_simplified coulmn with values from the other columns
+    custom_filter = PyrOSM_Filter('landuse').filter
+
+    if custom_filter == None:
+        print("landuse_simplified can only be generated if the custom_filter of osm_collect_filter is passed")
+    else:
+        for i in custom_filter.keys():
+            df["landuse_simplified"] = df["landuse_simplified"].fillna(
+                df[i].loc[df[i].isin(custom_filter[i])])
+
+        # import landuse_simplified dict from pyrosm_collector.py
+        with open(os.path.join(sys.path[0], 'config.yaml'), encoding="utf-8") as m:
+            config = yaml.safe_load(m)
+        var = config['VARIABLES_SET']
+        landuse_simplified_dict = var['landuse']['preparation']['landuse_simplified']
+
+        # Rename landuse_simplified by grouping e.g. ["basin","reservoir","salt_pond","waters"] -> "water"
+        for i in landuse_simplified_dict.keys():
+            df["landuse_simplified"] = df["landuse_simplified"].replace(
+                landuse_simplified_dict[i], i)
+
+    # hier wörter durch dict.keys() ebenfalls ersetzen
+    if df.loc[~df['landuse_simplified'].isin(list(landuse_simplified_dict.keys()))].empty:
+        print("All entries were classified in landuse_simplified")
+    else:
+        print("The following tags in the landuse_simplified column need to be added to the landuse_simplified dict in config.yaml:")
+        print(df.loc[~df['landuse_simplified'].isin(
+            list(landuse_simplified_dict.keys()))])
+
+    # Convert DataFrame back to GeoDataFrame (important for saving geojson)
+    df = gp.GeoDataFrame(df, geometry="geom")
+
+    df = df.reset_index(drop=True)
+
+    # Timer finish
+    print("Preparation took %s seconds ---" % (time.time() - start_time))
+    print(df)
+    print(df.columns)
+
+    return gdf_conversion(df, result_filename, return_type)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-##=======================================================REWRITTEN=================================================================##
-
-    #     # Convert polygons to points and set origin geometry for all elements
-    #     if df_row[i_geom_idx].geom_type in ("Polygon", "MultiPolygon"):
-    #         df.iat[i,i_geom_idx] = df.iat[i,i_geom_idx].centroid
-    #         df.iat[i,i_orig_geom] = "polygon"
-    #     elif df_row[i_geom_idx].geom_type in ("Point") or df_row[i_orig_geom] == "node":
-    #         df.iat[i,i_orig_geom] = "point"
-    #     else:
-    #         df.iat[i,i_orig_geom] = "line"
-
-    # Alternatives 
-    
-    # Tourism pois
-    # temp_df = df.loc[(df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None)]
-    # df = pd.concat([df,temp_df],sort=False).reset_index(drop=True)
-    # df['amenity'] = np.where((df['tourism'] != df['amenity']) & (df['amenity'] != '') & (df['tourism'] != None), df['tourism'], df['amenity'])
-    # df['amenity'] = np.where((df['tourism'] != None) & (df['amenity'] == ''), df['tourism'], df['amenity'])
-
-    # Sport pois
-    # df['amenity'] = np.where((df['sport'] != None) | (df['leisure'].isin(leisure_var_add)) & (~df['leisure'].isin(leisure_var_disc)) & (~df['sport'].isin(sport_var_disc)), "sport", df['amenity'])
-
-    # Gyms discounts
-    # rewrite next loop
-
-
-        # POIs preparation 
-        # Playgrouds pois
-        # if df_row[i_leisure] == "playground":
-        #     df.iat[i,i_amenity] = df.iat[i,i_leisure]
-        #     continue
-
-        # # Tourism pois
-        # if df_row[i_tourism] and df_row[i_amenity] and df_row[i_tourism] != df_row[i_amenity]:
-        #     #collect data in separate df
-        #     df = df.append(df.iloc[i])
-        #     df.iat[i,i_amenity] = df.iat[i,i_tourism]
-        #     continue
-        # elif df_row[i_tourism] and not df_row[i_amenity]:
-        #     df.iat[i,i_amenity] = df.iat[i,i_tourism]
-        #     continue
-        
-        ##================================================================================================================##
-# %%
