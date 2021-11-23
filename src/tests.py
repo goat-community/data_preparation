@@ -5,9 +5,11 @@ from preparation import landuse_preparation, pois_preparation
 # import paramiko
 import pandas as pd
 import geopandas as gpd
-# from sqlalchemy import create_engine
+from db import Database
 from fusion import geonode_connection, fusion_data_areas_rs_set
-from credidentials_geonode import db_password, serv_password
+import data.passwords
+db_password = data.passwords.db_password
+serv_password = data.passwords.serv_password
 
 # POIS Collection + Preparation 
 
