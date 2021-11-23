@@ -292,14 +292,13 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
 #====================================================== Landuse preparation ======================================================================#
  
 
-def landuse_preparation(dataframe=None, filename=None, return_type=None, result_filename="landuse_preparation_result"):
+def landuse_preparation(dataframe=None, filename=None, return_type=None, result_name="landuse_preparation_result"):
     """Beschreibung für eine Funktion kdhwekjhdkj"""
     # (2 Options) landuse preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
         df = dataframe
     elif filename:
-        file = open(os.path.join(os.path.abspath(os.getcwd()),
-                                 'data', filename + ".geojson"), encoding="utf-8")
+        file = open(os.path.join(sys.path[0], 'data', filename + ".geojson"), encoding="utf-8")
         df = gp.read_file(file)
     else:
         print("Incorrect 'datatype' value!")
@@ -316,6 +315,8 @@ def landuse_preparation(dataframe=None, filename=None, return_type=None, result_
     df["landuse_simplified"] = None
     df = df[["landuse_simplified", "landuse", "tourism", "amenity", "leisure", "natural", "name", "tags",
              "osm_id", "origin_geometry", "geom"]]
+
+    df = df.assign(source = "osm")
 
     # Fill landuse_simplified coulmn with values from the other columns
     custom_filter = PyrOSM_Filter('landuse').filter
@@ -338,25 +339,29 @@ def landuse_preparation(dataframe=None, filename=None, return_type=None, result_
             df["landuse_simplified"] = df["landuse_simplified"].replace(
                 landuse_simplified_dict[i], i)
 
-    # hier wörter durch dict.keys() ebenfalls ersetzen
     if df.loc[~df['landuse_simplified'].isin(list(landuse_simplified_dict.keys()))].empty:
         print("All entries were classified in landuse_simplified")
     else:
         print("The following tags in the landuse_simplified column need to be added to the landuse_simplified dict in config.yaml:")
         print(df.loc[~df['landuse_simplified'].isin(
             list(landuse_simplified_dict.keys()))])
+    
+    # remove lines from dataset
+    df = df[df.origin_geometry != 'line']
+    df = df.reset_index(drop=True)
 
     # Convert DataFrame back to GeoDataFrame (important for saving geojson)
     df = gp.GeoDataFrame(df, geometry="geom")
-
     df = df.reset_index(drop=True)
 
     # Timer finish
     print("Preparation took %s seconds ---" % (time.time() - start_time))
-    print(df)
-    print(df.columns)
 
-    return gdf_conversion(df, result_filename, return_type)
+
+    if filename and not result_name:
+        result_name = filename + "prepared"
+
+    return gdf_conversion(df, result_name, return_type)
 
 
 

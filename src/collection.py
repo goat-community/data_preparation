@@ -90,7 +90,7 @@ def gdf_conversion(gdf, name=None, return_type=None):
 # name - should be referenced to set from YAML file (e.g. "pois") 
 # pbf_region=None - when "None" data comes from YAML file, when specified - from it 
 # driver=None default variables driver could be (driver from "Fiona" drivers, e.g "GeoJSON", "GPKG") 
-# !! Notice if driver is specified it creates GeoJSON, but fuction still returns DF. If it is nnot specified func returns only DF
+# !! Notice if driver is specified it creates GeoJSON, but function still returns DF. If it is not specified func returns only DF
 # update=True parameter to download fresh data from OSM 
 
 def osm_collect_filter(name, pbf_region=None, driver=None, update=False):

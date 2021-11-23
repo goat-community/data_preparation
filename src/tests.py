@@ -2,7 +2,7 @@
 from collection import osm_collect_filter, gdf_conversion, bus_stop_conversion, join_osm_pois_n_busstops
 from preparation import landuse_preparation, pois_preparation
 
-import paramiko
+# import paramiko
 import pandas as pd
 import geopandas as gpd
 # from sqlalchemy import create_engine
@@ -48,20 +48,20 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 
 #==============================================================Fusion POIs===========================================================================##
 # ====== Complete replace amenity ======
-table_base = "pois_bayern"
-table_input = "doctors_bavaria"
-rs_set = ["097610000", "095640000", "096630000"]
-amenity_replace = "doctors"
-columns2drop_input = ["id", "ref", "layer", "path"]
-columns2rename = {"category": "amenity", "extras": "tags", "spider": "source"}
-columns2drop_input =[]
+# table_base = "pois_bayern"
+# table_input = "doctors_bavaria"
+# rs_set = ["097610000", "095640000", "096630000"]
+# amenity_replace = "doctors"
+# columns2drop_input = ["id", "ref", "layer", "path"]
+# columns2rename = {"category": "amenity", "extras": "tags", "spider": "source"}
+# columns2drop_input =[]
 
-return_name = "data_fused_test"
-return_type = "GeoJSON"
+# return_name = "data_fused_test"
+# return_type = "GeoJSON"
 
-con = geonode_connection()
-fusion_data_areas_rs_set(con, table_base, rs_set, table_input=table_input, amenity_replace=amenity_replace, columns2rename=columns2rename,
-                               columns2drop_input=columns2drop_input, return_name=return_name, return_type=return_type)
+# con = geonode_connection()
+# fusion_data_areas_rs_set(con, table_base, rs_set, table_input=table_input, amenity_replace=amenity_replace, columns2rename=columns2rename,
+#                                columns2drop_input=columns2drop_input, return_name=return_name, return_type=return_type)
 
 # ====== Complete replace brand ======
 # table_base = "pois_bayern"
@@ -112,8 +112,22 @@ fusion_data_areas_rs_set(con, table_base, rs_set, table_input=table_input, ameni
 
 ##==============================================================TESTS===============================================================================##
 
+# Landuse Collection + Preparation 
 
+df_res = pd.DataFrame()
 
+for d in data_set:
+    landuse_collection = osm_collect_filter("landuse",d, update=True)
+    
+    temp_df = landuse_preparation(dataframe=landuse_collection[0],result_name=landuse_collection[1])[0]
+    if data_set.index(d) == 0:
+        df_res = temp_df
+    else:
+        df_res = pd.concat([df_res,temp_df],sort=False).reset_index(drop=True)
 
+df = gdf_conversion(df_res, "landuse_bayern", return_type=None)[0]
 
-#%%
+# GeoDataFrame to Geonode directly
+# engine = create_engine('postgresql://geonode_data:%s@161.97.133.234:5432/' % db_password )
+# df.to_postgis(con=engine, name="landuse_bayern",if_exists='replace')
+# %%
