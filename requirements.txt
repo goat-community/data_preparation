@@ -1,5 +1,0 @@
-pygeos==0.10.2
-geopandas
-pyrosm
-PyYAML
-#jupyterlab
