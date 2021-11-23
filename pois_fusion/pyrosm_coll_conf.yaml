@@ -1,7 +1,6 @@
-# VARIABLES_SET -> set for data fusion variables
-
+# VARIABLES_SET 
 VARIABLES_SET : 
-  # variables for Pyrosm
+  # variables for Pyrosm collector
   # region to download - could be "Bayern"
   region_pbf : "Mittelfranken"
 
@@ -66,11 +65,11 @@ VARIABLES_SET :
                    "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
         tourism : ["hotel", "museum", "hostel", "guest_house", "viewpoint", "gallery"]
         railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
-        leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", "fitness_centre"]
+        leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", 'sports_hall', "fitness_centre"]
         sport   : ["yoga", "fitness"]
 
-      additional_columns: ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", "religion", "opening_hours", "ref", 
-                           "wheelchair"]
+      additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                           "opening_hours", "operator", "origin", "organic", "public_transport", "subway"]
       points    : True
       polygons  : True
       lines     : True
@@ -89,8 +88,8 @@ VARIABLES_SET :
         highway: ["bus_stop"]
         public_transport: ["stop_position", "station"]
 
-      additional_columns: ["access", "addr:housenumber", "origin", "organic", "denomination", "brand", "name", "operator", 
-                          "railway", "religion", "opening_hours", "ref", "wheelchair", "subway"]
+      additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                           "opening_hours", "operator", "origin", "organic", "subway"]
       points: True
       polygons: True
       lines: True
