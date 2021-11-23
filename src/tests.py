@@ -10,14 +10,11 @@ import yaml
 
 import pandas as pd
 import geopandas as gpd
-from db import Database
-from fusion import geonode_connection, fusion_data_areas_rs_set
-import data.passwords
-db_password = data.passwords.db_password
-serv_password = data.passwords.serv_password
+
+# from fusion import geonode_connection, fusion_data_areas_rs_set
 # from sqlalchemy import create_engine
 from fusion import replace_data_area, geonode_connection, geonode_table2df, area_n_buffer2df, base2area
-#from credidentials_geonode import serv_password
+from credidentials_geonode import serv_password, db_password
 
 # POIS Collection + Preparation 
 
@@ -27,14 +24,14 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 
 # # 1st way - Create separate files for each region in list
 
-config = Config("pois")
-config_buses = Config("bus_stops")
+# config = Config("pois")
+# config_buses = Config("bus_stops")
 
-for d in data_set:
-    pois_collection = osm_collect_filter(config,d,update=False, driver="GPKG")
-    pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter(config_buses,d)[0]),pois_collection[1])
+# for d in data_set:
+#     pois_collection = osm_collect_filter(config,d,update=False, driver="GPKG")
+#     pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],bus_stop_conversion(osm_collect_filter(config_buses,d)[0]),pois_collection[1])
 
-    pois_preparation(dataframe=pois_bus_collection[0], return_type="GPKG",result_name=pois_bus_collection[1])
+#     pois_preparation(dataframe=pois_bus_collection[0], return_type="GPKG",result_name=pois_bus_collection[1])
 
 # #=============##
 
@@ -148,10 +145,11 @@ for d in data_set:
 
 # Landuse Collection + Preparation 
 
+config = Config("landuse")
 df_res = pd.DataFrame()
 
 for d in data_set:
-    landuse_collection = osm_collect_filter("landuse",d, update=True)
+    landuse_collection = osm_collect_filter(config,d, update=True)
     
     temp_df = landuse_preparation(dataframe=landuse_collection[0],result_name=landuse_collection[1])[0]
     if data_set.index(d) == 0:

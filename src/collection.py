@@ -24,7 +24,23 @@ class Config:
 
     def pyrosm_filter(self):
         coll = self.collection
-        po_filter = coll["osm_tags"],None,"keep",list(coll["osm_tags"].keys())+coll["additional_columns"],coll["points"], coll["lines"],coll["polygons"], None
+
+        # check if input osm_tags, osm_features are valid and print non valid ones
+        for i in coll["osm_tags"].keys():
+            if i not in OSM_tags.keys():
+                print("%s is not a valid osm_feature" % i)
+        for i in [item for sublist in coll["osm_tags"].values() for item in sublist]:
+            if i not in [item for sublist in OSM_tags.values() for item in sublist] + ['all']:
+                print("%s is not a valid osm_tag" % i)
+
+        # the loop collects all tags of a feature from osm_feature_tags_dict.py if "all" in config file
+        temp = {}
+        for key, values in coll["osm_tags"].items():
+            for value in values:
+                if value == 'all':
+                    temp = temp | {key:OSM_tags[key]}
+
+        po_filter = coll["osm_tags"] | temp,None,"keep",[coll["osm_tags"].keys()]+coll["additional_columns"],coll["points"], coll["lines"],coll["polygons"], None
         return po_filter
 
     def fusion_key_set(self, typ):
@@ -41,56 +57,33 @@ class Config:
 # Pyrosm filter class. Input for it: type of search 'pois'(currently only pois), tags from config , dictionary of osm tags
 # variables of class are 'filter' - list of feature:tags which are relevant to scrap and 'tags_as_columns'- list of tags which will be 
 # converted to columns in geopandas DataFrame
-class PyrOSM_Filter:
-    def __init__(self, name):
-        # import dict from conf_yaml
-        with open(os.path.join(sys.path[0], 'config.yaml'), encoding="utf-8") as m:config = yaml.safe_load(m) 
-        var = config['VARIABLES_SET']
-        # check if input osm_tags, osm_features are valid and print non valid ones
-        for i in var[name]['collection']['osm_tags'].keys():
-            if i not in OSM_tags.keys():
-                print("%s is not a valid osm_feature" % i)
-        for i in [item for sublist in var['bus_stops']['collection']['osm_tags'].values() for item in sublist]:
-            if i not in [item for sublist in OSM_tags.values() for item in sublist]:
-                print("%s is not a valid osm_tag" % i)
-
-        # the loop prints a dict with all the tags in "not_sure" and their associated feature 
-        # if the tag is not in osm_featutre_tags_dict.py, it will be assigned to the key "no_valid_osm_tag"
-        temp = {}
-        for key in var[name]['collection']['osm_tags'].keys():
-            if key == 'not_sure':
-                for i in var[name]['collection']['osm_tags'][key]:
-                    for keys, values in OSM_tags.items():
-                        for value in values:
-                            if i == value:
-                                if keys in temp.keys():
-                                    if type(temp[keys]) == str:
-                                        temp[keys] = [temp[keys], i]
-                                    else:
-                                        temp[keys].append(i)
+def classify_osm_tags(name):
+    # import dict from conf_yaml
+    with open(os.path.join(sys.path[0], 'config.yaml'), encoding="utf-8") as m:config = yaml.safe_load(m) 
+    var = config['VARIABLES_SET']
+    temp = {}
+    for key in var[name]['collection']['osm_tags'].keys():
+        if key == 'not_sure':
+            for i in var[name]['collection']['osm_tags'][key]:
+                for keys, values in OSM_tags.items():
+                    for value in values:
+                        if i == value:
+                            if keys in temp.keys():
+                                if type(temp[keys]) == str:
+                                    temp[keys] = [temp[keys], i]
                                 else:
-                                    temp = temp | {keys:i}
-                            elif "no_valid_osm_tag" not in temp.keys() and i not in temp.values():
-                                temp = temp | {"no_valid_osm_tag":i}
-                            elif "no_valid_osm_tag" in temp.keys() and i not in temp["no_valid_osm_tag"]:
-                                if type(temp["no_valid_osm_tag"]) == str:
-                                    temp["no_valid_osm_tag"] = [temp["no_valid_osm_tag"], i]
-                                else: 
-                                    temp["no_valid_osm_tag"].append(i)
-                print(temp)
-                sys.exit()
-        # the loop collects all tags of a feature from osm_feature_tags_dict.py if "all" in config file
-        temp = {}
-        for key, values in var[name]['collection']['osm_tags'].items():
-            for value in values:
-                if value == 'all':
-                    temp = temp | {key:OSM_tags[key]}
-        # collects user input from config file
-        self.filter    = var[name]['collection']['osm_tags'] | temp
-        self.columns   = list(var[name]['collection']['osm_tags'].keys()) + var[name]['collection']['additional_columns']
-        self.f_point   = var[name]['collection']['points']
-        self.f_polygon = var[name]['collection']['polygons']
-        self.f_line    = var[name]['collection']['lines']      
+                                    temp[keys].append(i)
+                            else:
+                                temp = temp | {keys:i}
+                        elif "no_valid_osm_tag" not in temp.keys() and i not in temp.values():
+                            temp = temp | {"no_valid_osm_tag":i}
+                        elif "no_valid_osm_tag" in temp.keys() and i not in temp["no_valid_osm_tag"]:
+                            if type(temp["no_valid_osm_tag"]) == str:
+                                temp["no_valid_osm_tag"] = [temp["no_valid_osm_tag"], i]
+                            else: 
+                                temp["no_valid_osm_tag"].append(i)
+            print(temp)
+            sys.exit()
 
 # Function for creation backupfiles
 # Use it as return result for data preparation functions 

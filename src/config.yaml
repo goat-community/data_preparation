@@ -8,6 +8,8 @@ VARIABLES_SET :
     collection:
         # add all tags in a list associated to their osm feature that should be collected from geofabrik 
         # if you are not sure add feature not_sure: ["tag1", "tag2"] then a dict with all tags (value) and their assosicated feature (key) and one key 
+        # -> use e.g. terminal and activate your env -> change directory to src (run: cd src) 
+        # -> and run: python -c "from collection import classify_osm_tags;classify_osm_tags('landuse')" for e.g. landuse
         # "not a valid osm tag/ missing in our list" with values that where not found will be returned and the collection breaks
         # -> if you need a certain tag add it manually to osm_featutre_tags_dict.py
         # PyrOSM recommends to use True instead of the tags list if you want all entries of the specific feature, but their backend dict is incomplete and has 
