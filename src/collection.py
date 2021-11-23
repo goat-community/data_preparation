@@ -11,6 +11,33 @@ import pandas as pd
 import numpy as np
 from osm_dict import OSM_tags
 
+
+class Config:
+    def __init__(self,name):
+        with open(os.path.join(sys.path[0], 'config.yaml'), encoding="utf-8") as m:config = yaml.safe_load(m) 
+        var = config['VARIABLES_SET']
+        self.name = name
+        self.pbf_data = var['region_pbf']
+        self.collection = var[name]['collection']
+        self.preparation = var[name]['preparation']
+        self.fusion = var[name]['fusion']
+
+    def pyrosm_filter(self):
+        coll = self.collection
+        po_filter = coll["osm_tags"],None,"keep",list(coll["osm_tags"].keys())+coll["additional_columns"],coll["points"], coll["lines"],coll["polygons"], None
+        return po_filter
+
+    def fusion_key_set(self, typ):
+        fus = self.fusion
+        key_set = fus["fusion_data"]['source'][typ].keys()
+        return key_set
+
+    def fusion_set(self,typ,key):
+        fus = self.fusion["fusion_data"]["source"][typ][key]
+        fus_set = fus["amenity_replace"],fus["amenity_brand_replace"],fus["columns2rename"],fus["columns2drop"]
+        return fus_set
+
+
 # Pyrosm filter class. Input for it: type of search 'pois'(currently only pois), tags from config , dictionary of osm tags
 # variables of class are 'filter' - list of feature:tags which are relevant to scrap and 'tags_as_columns'- list of tags which will be 
 # converted to columns in geopandas DataFrame
@@ -93,43 +120,37 @@ def gdf_conversion(gdf, name=None, return_type=None):
 # !! Notice if driver is specified it creates GeoJSON, but function still returns DF. If it is not specified func returns only DF
 # update=True parameter to download fresh data from OSM 
 
-def osm_collect_filter(name, pbf_region=None, driver=None, update=False):
+def osm_collect_filter(config, pbf_region=None, driver=None, update=False):
     # Timer
-    print("Collection and filtering %s started..." % name)
+    print("Collection and filtering %s started..." % config.name)
     start_time = time.time()
-    #import data from config.yaml
-    with open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8") as m:
-        config = yaml.safe_load(m)
-
-    var = config['VARIABLES_SET']
 
     # get region name desired pois types from yaml settings
     if pbf_region:
         pbf_data = pbf_region
     else:
-        pbf_data = var['region_pbf']
+        pbf_data = config.pbf_data
 
     # Get defined data from Geofabrik
     fp = get_data(pbf_data, update=update)
     osm = OSM(fp)
 
     # Create filter class with given parameters and create filter with class method          
-    custom_filter = PyrOSM_Filter(name)
+    custom_filter = config.pyrosm_filter()
     
     # Get Data from OSM with given filter ###custom_filter.tags_as_columns 
     # Additional filters can be applied (exmpl.  keep_nodes=False, keep_ways=True,keep_relations=True)
-    df = osm.get_data_by_custom_criteria(custom_filter=custom_filter.filter, tags_as_columns=custom_filter.columns, keep_ways=custom_filter.f_line, 
-    keep_relations=custom_filter.f_polygon, keep_nodes=custom_filter.f_point)
+    df = osm.get_data_by_custom_criteria(*custom_filter)
 
     print("Collection and filtering took %s seconds ---" % (time.time() - start_time))
 
-    return_name = name + '_' + pbf_data
+    return_name = config.name + '_' + pbf_data
 
     # Return type if driver -> 'GeoJSON' write geojson file if driver -> 'PandasDF' return PandasDF
     return gdf_conversion(df, return_name ,driver)
 
 #====================================================== Temporary functions to convert bus_stops lines to polygons=======================================#
-# Bug FIX 
+# Bug FIX (Relazted ot POIs)
 def bus_stop_conversion(df):
     # Timer
     start_time = time.time()
