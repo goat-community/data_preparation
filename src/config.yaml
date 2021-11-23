@@ -132,7 +132,24 @@ VARIABLES_SET :
         leisure_var_disc : ["fitness_station"]
 
     fusion:
-      rs_codes: ["097610000", "095640000", "096630000"]
+      table_base  : "pois_bayern"
+      rs_set      : ["097610000", "095640000", "096630000"]
+      fusion_data :
+        source:
+          geonode:
+            doctors_bavaria: 
+              amenity_replace : "doctors"
+              amenity_brand_replace : 
+              columns2rename : {"category": "amenity", "extras": "tags", "spider": "source"}
+              columns2drop : ["id", "ref", "layer", "path"]
+          geojson:
+            dm:
+              amenity_replace : 
+              amenity_brand_replace : ("chemist","dm")
+              columns2rename : {"@spider": "brand"}
+              columns2drop : ["ref","id"]
+              columns2default : {"name" : "dm-drogerie markt"}
+
   
   # Following config set treat the bug issue
   # Bug behavior "highway" -> "bus_stop"!!!!!!!!!!!!!!!!!!!!!!!!!! 

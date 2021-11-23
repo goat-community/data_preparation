@@ -83,3 +83,5 @@ class Database:
         self.connect()
         self.conn.cursor()
         return self.conn.cursor()
+
+#%%

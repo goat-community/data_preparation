@@ -37,15 +37,27 @@ def osm_obj2points(df, geom_column = "geom"):
     df['geom'] = df['geom'].to_crs(4326)
     return df
 
+def file2df(filename):
+    name, extens = filename.split(".")
+    if extens == "geojson":
+        file = open(os.path.join(sys.path[0], 'data', filename), encoding="utf-8")
+        df = gp.read_file(file)
+    elif extens == "gpkg":
+        file =  os.path.join(sys.path[0], 'data', filename)
+        df = gp.read_file(file)
+    else:
+        print("Extension of file %s currently doen not support with file2df() function." % filename)
+        sys.exit()
+    return df     
+
 def pois_preparation(dataframe=None,filename=None, return_type=None,result_name="pois_preparation_result"):
     # (2 Options) POIs preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
         df = dataframe
     elif filename:
-        file = open(os.path.join(sys.path[0], 'data', filename + ".geojson"), encoding="utf-8")
-        df = gp.read_file(file)
+        df = file2df(filename)
     else:
-        print("Incorrect 'datatype' value!") 
+        print("Expected dataframe of filename as input!") 
         sys.exit()
 
     # Timer start
@@ -55,9 +67,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
     df["osm_id"] = df["id"]
 
     df = df.drop(columns={"lat", "lon", "version", "timestamp", "changeset"})
-
     df = df.rename(columns={"geometry": "geom", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
-
     df = df.assign(source = "osm")
 
     # Replace None values with empty strings in "name" column and dict in "tags" column
