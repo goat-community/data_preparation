@@ -11,10 +11,10 @@ import yaml
 import pandas as pd
 import geopandas as gpd
 
-# from fusion import geonode_connection, fusion_data_areas_rs_set
-# from sqlalchemy import create_engine
+#from fusion import geonode_connection, fusion_data_areas_rs_set
 from fusion import replace_data_area, geonode_connection, geonode_table2df, area_n_buffer2df, base2area
 from credidentials_geonode import serv_password, db_password
+from db.db import Database
 
 # POIS Collection + Preparation 
 
@@ -143,15 +143,15 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 
 ##==============================================================TESTS===============================================================================##
 
-# Landuse Collection + Preparation 
+# Landuse Collection + Preparation + Export to GeoNode
 
 config = Config("landuse")
 df_res = pd.DataFrame()
 
 for d in data_set:
     landuse_collection = osm_collect_filter(config,d, update=True)
-    
-    temp_df = landuse_preparation(dataframe=landuse_collection[0],result_name=landuse_collection[1])[0]
+  
+    temp_df = landuse_preparation(dataframe=landuse_collection[0],result_name=landuse_collection[1], config=config)[0]
     if data_set.index(d) == 0:
         df_res = temp_df
     else:
@@ -159,7 +159,6 @@ for d in data_set:
 
 df = gdf_conversion(df_res, "landuse_bayern", return_type=None)[0]
 
-# GeoDataFrame to Geonode directly
-# engine = create_engine('postgresql://geonode_data:%s@161.97.133.234:5432/' % db_password )
-# df.to_postgis(con=engine, name="landuse_bayern",if_exists='replace')
+
+df.to_postgis(con=Database().connect_sqlalchemy(), name="landuse_bayern",if_exists='replace')
 # %%

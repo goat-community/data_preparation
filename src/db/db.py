@@ -1,7 +1,7 @@
 # Code based on https://github.com/hackersandslackers/psycopg2-tutorial/blob/master/psycopg2_tutorial/db.py
 import logging as LOGGER
 import psycopg2
-# from sqlalchemy import create_engine
+from sqlalchemy import create_engine
 from db.config import DATABASE
 
 user,password,host,port,dbname = DATABASE.values()
@@ -24,17 +24,17 @@ class Database:
             finally:
                 LOGGER.info('Connection opened successfully.')
         return self.conn 
-    # def connect_engine(self):
-    #     """Connect to a Postgres database with engine"""
-    #     if self.conn is None:
-    #         try:
-    #             self.conn = create_engine(f"postgres://{user}:{password}@{host}:{port}/{dbname}")
-    #         except Exception as e:
-    #             LOGGER.error(e)
-    #             raise e
-    #         finally:
-    #             LOGGER.info('Connection opened successfully.')
-    #     return self.conn
+    def connect_sqlalchemy(self):
+        """Connect to a Postgres database with engine"""
+        if self.conn is None:
+            try:
+                self.conn = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{dbname}")
+            except Exception as e:
+                LOGGER.error(e)
+                raise e
+            finally:
+                LOGGER.info('Connection opened successfully.')
+        return self.conn
     def select(self, query, params=None):
         """Run a SQL query to select rows from table."""
         self.connect()

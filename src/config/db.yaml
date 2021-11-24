@@ -1,5 +1,5 @@
-HOST: ""
-PORT: 0000
-DB_NAME: ""
-USER: ""
-PASSWORD: ""
+HOST: "datastore.plan4better.de"
+PORT: 5432
+DB_NAME: "geonode_data"
+USER: "geonode_data"
+PASSWORD: "G2qWmSpgbdE2k9R3"

@@ -40,7 +40,7 @@ class Config:
                 if value == 'all':
                     temp = temp | {key:OSM_tags[key]}
 
-        po_filter = coll["osm_tags"] | temp,None,"keep",[coll["osm_tags"].keys()]+coll["additional_columns"],coll["points"], coll["lines"],coll["polygons"], None
+        po_filter = coll["osm_tags"] | temp,None,"keep",list(coll["osm_tags"].keys())+coll["additional_columns"],coll["points"], coll["lines"],coll["polygons"], None
         return po_filter
 
     def fusion_key_set(self, typ):
