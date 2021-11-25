@@ -1,8 +1,8 @@
 import os
 import time
 import sys
-import yaml
 import ast
+import yaml
 import numpy as np
 import pandas as pd
 import geopandas as gp
@@ -10,13 +10,13 @@ from pandas.core.accessor import PandasDelegate
 from collection import gdf_conversion
 gp.options.use_pygeos = True
 
-#====================================================== POIs preparation ==================================================================#
+#================================== POIs preparation =============================================#
 
 # Function search in config
 def poi_return_search_condition(name, var_dict):
     for key,value in var_dict.items():
         for v in value:
-            if (name in v  or v in name) and name != '': 
+            if (name in v  or v in name) and name != '':
                 return key
             else:
                 pass
@@ -46,9 +46,9 @@ def file2df(filename):
         file =  os.path.join(sys.path[0], 'data', filename)
         df = gp.read_file(file)
     else:
-        print("Extension of file %s currently doen not support with file2df() function." % filename)
+        print(f"Extension of file {filename} currently doen not support with file2df() function.")
         sys.exit()
-    return df     
+    return df
 
 def pois_preparation(dataframe=None,filename=None, return_type=None,result_name="pois_preparation_result"):
     # (2 Options) POIs preparation from geojson imported from OSM (if you already have it)
@@ -57,7 +57,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
     elif filename:
         df = file2df(filename)
     else:
-        print("Expected dataframe of filename as input!") 
+        print("Expected dataframe of filename as input!")
         sys.exit()
 
     # Timer start
@@ -67,7 +67,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
     df["osm_id"] = df["id"]
 
     df = df.drop(columns={"lat", "lon", "version", "timestamp", "changeset"})
-    df = df.rename(columns={"geometry": "geom", "addr:housenumber": "housenumber", "osm_type" : "origin_geometry"})
+    df = df.rename(columns={"geometry":"geom", "addr:housenumber":"housenumber", "osm_type":"origin_geometry"})
     df = df.assign(source = "osm")
 
     # Replace None values with empty strings in "name" column and dict in "tags" column
@@ -79,9 +79,8 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
         df["tags"] = df["tags"].apply(lambda x: dict() if not x else ast.literal_eval(x))
     else:
         df["tags"] = df["tags"].apply(lambda x: dict() if not x else x)
-    
     # variables for preparation
-    # !!! Some columns could be not in the list 
+    # !!! Some columns could be not in the list
     # REVISE it (probabaly check columns - if value from config is not there - create column)
 
     i_amenity = df.columns.get_loc("amenity")
@@ -104,7 +103,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
         df = df.assign(origin = None)
         i_origin = df.columns.get_loc("origin")
 
-    # Try to get location of subway column if it exists 
+    # Try to get location of subway column if it exists
     try:
         i_subway = df.columns.get_loc("subway")
     except:
@@ -113,8 +112,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
 
 
     # This section getting var from conf file (variables container)
-    with open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8") as m:
-            config = yaml.safe_load(m)
+    config = yaml.safe_load(open(os.path.join(sys.path[0] , 'config.yaml'), encoding="utf-8"))
 
     var = config['VARIABLES_SET']["pois"]["preparation"]
     # Related to sport facilities
@@ -134,7 +132,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
     # Convert polygons to points and set origin geometry for all elements
     df = osm_obj2points(df)
 
-    # remove lines from 
+    # remove lines from
     df = df[df.origin_geometry != 'line']
     df = df.reset_index(drop=True)
 
@@ -151,7 +149,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
             df = df.append(df_row)
         elif df_row[i_tourism] and df_row[i_amenity] == "" and df_row[i_tourism] != "yes":
             df.iat[i,i_amenity] = df.iat[i,i_tourism]
-        
+
         # Sport pois from leisure and sport features
         if df_row[i_sport] or df_row[i_leisure] in leisure_var_add and df_row[i_leisure] not in leisure_var_disc and df_row[i_sport] not in sport_var_disc:
             df.iat[i,i_amenity] = "sport"
@@ -177,8 +175,8 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
         # Yoga centers check None change here
         if (df_row[i_sport] == "yoga" or "yoga" in df_row[i_name] or "Yoga" in df_row[i_name]) and not df_row[i_shop]:
             df.iat[i,i_amenity] = "yoga"
-            continue    
-            
+            continue
+
         # Recclasify shops. Define convenience and clothes, others assign to amenity. If not rewrite amenity with shop value
         if df_row[i_shop] == "grocery" and df_row[i_amenity] == "":
             if df_row[i_organic] == "only":
@@ -221,7 +219,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
                 elif df_row[i_origin]:
                     df.iat[i,i_amenity] = "international_hypermarket"
                     df.iat[i,i_tags]["origin"] = df_row[i_origin]
-                    continue 
+                    continue
                 else:
                     df.iat[i,i_amenity] = "supermarket"
                     continue
@@ -229,7 +227,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
             df.iat[i,i_amenity] = df.iat[i,i_shop]
             df.iat[i,i_tags]["shop"] = df_row[i_shop]
             continue
-         
+
         # Transport stops
         if df_row[i_highway] == "bus_stop" and df_row[i_name] != '':
             df.iat[i,i_amenity] = "bus_stop"
@@ -244,11 +242,11 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
             continue
         elif df_row[i_railway] == "subway_entrance":
             df.iat[i,i_amenity] = "subway_entrance"
-            df.iat[i,i_tags]["railway"] = df_row[i_railway]  
+            df.iat[i,i_tags]["railway"] = df_row[i_railway]
             continue
         elif df_row[i_railway] == "stop" and df_row[i_tags] and ("train","yes") in df_row[i_tags].items():
             df.iat[i,i_amenity] = "rail_station"
-            df.iat[i,i_tags]["railway"] = df_row[i_railway]  
+            df.iat[i,i_tags]["railway"] = df_row[i_railway]
             continue
         elif df_row[i_highway]:
             df.iat[i,i_tags]["highway"] = df_row[i_highway]
@@ -257,7 +255,7 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
         elif df_row[i_railway]:
             df.iat[i,i_tags]["railway"] = df_row[i_railway]
         elif df_row[i_subway]:
-            df.iat[i,i_tags]["subway"] = df_row[i_subway]        
+            df.iat[i,i_tags]["subway"] = df_row[i_subway] 
 
     df = df.reset_index(drop=True)
 
@@ -266,17 +264,17 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
     df.crs = "EPSG:4326"
 
     # Filter subway entrances
-    try: 
+    try:
         df_sub_stations = df[(df["public_transport"] == "station") & (df["subway"] == "yes") & (df["railway"] != "proposed")]
         df_sub_stations = df_sub_stations[["name","geom", "id"]]
         df_sub_stations = df_sub_stations.to_crs(31468)
         df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
-        df_sub_stations = df_sub_stations.to_crs(4326) 
+        df_sub_stations = df_sub_stations.to_crs(4326)
 
         df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
         df_sub_entrance = df_sub_entrance[["name","geom", "id"]]
- 
-        df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection') 
+
+        df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how='intersection')
         df_snames = df_snames[["name_2", "id_1"]]
         df = (df_snames.set_index('id_1').rename(columns = {'name_2':'name'}).combine_first(df.set_index('id')))
     except:
@@ -290,20 +288,20 @@ def pois_preparation(dataframe=None,filename=None, return_type=None,result_name=
     df = df.drop_duplicates(subset=['osm_id', 'amenity', 'name'], keep='first')
 
     # Timer finish
-    print("Preparation took %s seconds ---" % (time.time() - start_time)) 
+    print(f"Preparation took {time.time() - start_time} seconds ---")
     df = gp.GeoDataFrame(df, geometry='geom')
-    
+
     if filename and not result_name:
         result_name = filename + "prepared"
 
     return gdf_conversion(df,result_name,return_type)
 
 
-#====================================================== Landuse preparation ======================================================================#
- 
+#================================ Landuse preparation ============================================#
+
 
 def landuse_preparation(dataframe=None, filename=None, config=None, return_type=None, result_name="landuse_preparation_result"):
-    """Beschreibung für eine Funktion kdhwekjhdkj"""
+    """introduces the landuse_simplified column and classifies it according to the config input"""
     # (2 Options) landuse preparation from geojson imported from OSM (if you already have it)
     if dataframe is not None:
         df = dataframe
@@ -323,16 +321,17 @@ def landuse_preparation(dataframe=None, filename=None, config=None, return_type=
     df = df.rename(columns={"geometry": "geom",
                             "id": "osm_id", "osm_type": "origin_geometry"})
     df["landuse_simplified"] = None
-    df = df[["landuse_simplified", "landuse", "tourism", "amenity", "leisure", "natural", "name", "tags",
-             "osm_id", "origin_geometry", "geom"]]
+    df = df[["landuse_simplified", "landuse", "tourism", "amenity", "leisure", "natural", "name",
+             "tags", "osm_id", "origin_geometry", "geom"]]
 
     df = df.assign(source = "osm")
 
     # Fill landuse_simplified coulmn with values from the other columns
     custom_filter = config.pyrosm_filter()[0]
 
-    if custom_filter == None:
-        print("landuse_simplified can only be generated if the custom_filter of osm_collect_filter is passed")
+    if custom_filter is None:
+        print("landuse_simplified can only be generated if the custom_filter of collection\
+               is passed")
     else:
         for i in custom_filter.keys():
             df["landuse_simplified"] = df["landuse_simplified"].fillna(
@@ -344,7 +343,8 @@ def landuse_preparation(dataframe=None, filename=None, config=None, return_type=
         var = config['VARIABLES_SET']
         landuse_simplified_dict = var['landuse']['preparation']['landuse_simplified']
 
-        # Rename landuse_simplified by grouping e.g. ["basin","reservoir","salt_pond","waters"] -> "water"
+        # Rename landuse_simplified by grouping
+        # e.g. ["basin","reservoir","salt_pond","waters"] -> "water"
         for i in landuse_simplified_dict.keys():
             df["landuse_simplified"] = df["landuse_simplified"].replace(
                 landuse_simplified_dict[i], i)
@@ -352,10 +352,11 @@ def landuse_preparation(dataframe=None, filename=None, config=None, return_type=
     if df.loc[~df['landuse_simplified'].isin(list(landuse_simplified_dict.keys()))].empty:
         print("All entries were classified in landuse_simplified")
     else:
-        print("The following tags in the landuse_simplified column need to be added to the landuse_simplified dict in config.yaml:")
+        print("The following tags in the landuse_simplified column need to be added to the\
+               landuse_simplified dict in config.yaml:")
         print(df.loc[~df['landuse_simplified'].isin(
             list(landuse_simplified_dict.keys()))])
-    
+
     # remove lines from dataset
     df = df[df.origin_geometry != 'line']
     df = df.reset_index(drop=True)
@@ -365,13 +366,10 @@ def landuse_preparation(dataframe=None, filename=None, config=None, return_type=
     df = df.reset_index(drop=True)
 
     # Timer finish
-    print("Preparation took %s seconds ---" % (time.time() - start_time))
+    print(f"Preparation took {time.time() - start_time} seconds ---")
 
 
     if filename and not result_name:
         result_name = filename + "prepared"
 
     return gdf_conversion(df, result_name, return_type)
-
-
-

@@ -1,26 +1,25 @@
 #%%
-from collection import Config, osm_collect_filter, gdf_conversion, bus_stop_conversion, join_osm_pois_n_busstops
-from preparation import file2df, landuse_preparation, pois_preparation
-
-import os 
+import os
 import sys
 import yaml
 #import paramiko
-
-
 import pandas as pd
 import geopandas as gpd
+
+from collection import Config, osm_collect_filter, gdf_conversion, bus_stop_conversion, join_osm_pois_n_busstops
+from preparation import file2df, landuse_preparation, pois_preparation
 
 #from fusion import geonode_connection, fusion_data_areas_rs_set
 from fusion import replace_data_area, geonode_connection, geonode_table2df, area_n_buffer2df, base2area
 from credidentials_geonode import serv_password, db_password
 from db.db import Database
 
-# POIS Collection + Preparation 
+# POIS Collection + Preparation
 
-data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz","Schwaben","Unterfranken"]
+data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz","Schwaben",\
+            "Unterfranken"]
 
-##====================================================Collection POIs=============================================================================##
+##===================================Collection POIs=============================================##
 
 # # 1st way - Create separate files for each region in list
 
@@ -141,16 +140,14 @@ data_set = ["Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz
 # fusion_data_areas_rs_set(con, table_base, rs_set, file_input=file_input, amenity_brand_replace=amenity_brand_replace, columns2rename=columns2rename,
 #                          columns2drop_input=columns2drop_input,return_name=return_name, return_type=return_type)
 
-##==============================================================TESTS===============================================================================##
-
-# Landuse Collection + Preparation + Export to GeoNode
+##============================================================== Landuse Collection + Preparation + Export to GeoNode ===============================================================================##
 
 config = Config("landuse")
 df_res = pd.DataFrame()
 
 for d in data_set:
     landuse_collection = osm_collect_filter(config,d, update=True)
-  
+
     temp_df = landuse_preparation(dataframe=landuse_collection[0],result_name=landuse_collection[1], config=config)[0]
     if data_set.index(d) == 0:
         df_res = temp_df
@@ -161,4 +158,6 @@ df = gdf_conversion(df_res, "landuse_bayern", return_type=None)[0]
 
 
 df.to_postgis(con=Database().connect_sqlalchemy(), name="landuse_bayern",if_exists='replace')
+
+##==============================================================TESTS===============================================================================##
 # %%
