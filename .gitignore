@@ -3,4 +3,4 @@ env
 venv
 data
 __pycache__
-config
+config/db.yaml

@@ -1,5 +1,5 @@
-HOST: ""
-PORT: 0000
+HOST: "datastore.plan4better.de"
+PORT: 5432
 DB_NAME: ""
 USER: ""
 PASSWORD: ""
