@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gp
 from pandas.core.accessor import PandasDelegate
-from collection import gdf_conversion
+from collection import gdf_conversion, PyrOSM_Filter
 gp.options.use_pygeos = True
 
 #================================== POIs preparation =============================================#
@@ -327,7 +327,7 @@ def landuse_preparation(dataframe=None, filename=None, config=None, return_type=
     df = df.assign(source = "osm")
 
     # Fill landuse_simplified coulmn with values from the other columns
-    custom_filter = config.pyrosm_filter()[0]
+    custom_filter = PyrOSM_Filter('landuse').filter
 
     if custom_filter is None:
         print("landuse_simplified can only be generated if the custom_filter of collection\

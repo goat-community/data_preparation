@@ -6,7 +6,7 @@ import numpy as np
 from collection import gdf_conversion
 from db.db import Database
 from db.config import DATABASE
-from sqlalchemy import create_engine
+#from sqlalchemy import create_engine
 
 # Create connection to geonode db
 def geonode_connection():

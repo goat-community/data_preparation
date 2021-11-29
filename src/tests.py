@@ -12,7 +12,6 @@ from preparation import file2df, landuse_preparation, pois_preparation
 #from fusion import geonode_connection, fusion_data_areas_rs_set
 from fusion import replace_data_area, geonode_connection, geonode_table2df, area_n_buffer2df, base2area
 from credidentials_geonode import serv_password, db_password
-from db.db import Database
 
 # POIS Collection + Preparation
 
