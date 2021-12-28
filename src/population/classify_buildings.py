@@ -3,12 +3,12 @@
 # In this current implementation priority is given to the landuse_osm and landuse layers, while landuse_additional is only applied if 
 # none of the other landuse layers intersect.
 
-from pathlib import Path
-import yaml
+import sys
+sys.path.insert(0,"..")
+import collection
 
-with open(Path.cwd().parent/'config/config.yaml', encoding="utf-8") as stream:
-    config = yaml.safe_load(stream)
-var = config['Population']
+config_population = collection.Config("population")
+variable_container_population = config_population.variable_container
 
 classify_buildings = f'''
 
@@ -34,7 +34,7 @@ SET area = ST_AREA(geom::geography);
 
 UPDATE buildings
 SET residential_status = 'no_residents'
-WHERE buildings.area < (SELECT {var['variable_container']['minimum_building_size_residential']}::integer)
+WHERE buildings.area < (SELECT {variable_container_population['minimum_building_size_residential']}::integer)
 AND residential_status = 'potential_residents';
 
 INSERT INTO buildings_classification 
@@ -69,7 +69,7 @@ DO $$
         	WITH buildings_intersects AS 
         	(
 				SELECT b.gid, CASE WHEN l.landuse IS NULL THEN 2 
-				ELSE (ARRAY{var['variable_container']['custom_landuse_no_residents']} && ARRAY[l.landuse])::integer END AS residential_status, l.gid landuse_gid
+				ELSE (ARRAY{variable_container_population['custom_landuse_no_residents']} && ARRAY[l.landuse])::integer END AS residential_status, l.gid landuse_gid
 				FROM (
 					SELECT * 
 					FROM buildings 
@@ -96,7 +96,7 @@ $$ ;
 
 DO $$                  
     DECLARE 
-    	categories_no_residents TEXT[] := ARRAY{var['variable_container']['custom_landuse_additional_no_residents']};
+    	categories_no_residents TEXT[] := ARRAY{variable_container_population['custom_landuse_additional_no_residents']};
 	BEGIN 
         IF EXISTS
             ( SELECT 1
@@ -145,9 +145,9 @@ $$ ;
 
 DO $$
 	DECLARE 
-    	categories_no_residents TEXT[] := ARRAY{var['variable_container']['osm_landuse_no_residents']}
-    		|| ARRAY{var['variable_container']['tourism_no_residents']}
-    		|| ARRAY{var['variable_container']['amenity_no_residents']};
+    	categories_no_residents TEXT[] := ARRAY{variable_container_population['osm_landuse_no_residents']}
+    		|| ARRAY{variable_container_population['tourism_no_residents']}
+    		|| ARRAY{variable_container_population['amenity_no_residents']};
     BEGIN 
         IF EXISTS
             ( SELECT 1

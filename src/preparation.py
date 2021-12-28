@@ -45,10 +45,10 @@ def osm_obj2points(df, geom_column = "geom"):
 def file2df(filename):
     name, extens = filename.split(".")
     if extens == "geojson":
-        file = open(Path.cwd()/'data'/filename, encoding="utf-8")
+        file = open(Path(__file__).parent/'data'/filename, encoding="utf-8")
         df = gp.read_file(file)
     elif extens == "gpkg":
-        file =  Path.cwd()/'data'/filename
+        file =  Path(__file__).parent/'data'/filename
         df = gp.read_file(file)
     else:
         print("Extension of file %s currently doen not support with file2df() function." % filename)
@@ -377,21 +377,31 @@ def school_categorization(df, config, result_name, return_type):
     # Should return 2 dataframes grundschule and mittel_haupt+schule
     return gdf_conversion(df_result,result_name,return_type)
 
+def pois_preparation_set(config,config_buses,update=False,filename=None,return_type=None):
+    df_res = pd.DataFrame()
+    data_set = config.pbf_data
+
+    for d in data_set:
+        pois_collection = osm_collect_filter(config, d, update=update)
+        pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],
+                                                    bus_stop_conversion(osm_collect_filter(config_buses,d)[0]),
+                                                    pois_collection[1])
+        temp_df = pois_preparation(dataframe=pois_bus_collection[0], config=config, result_name=pois_bus_collection[1])[0]
+        if data_set.index(d) == 0:
+            df_res = temp_df
+        else:
+            df_res = pd.concat([df_res,temp_df],sort=False).reset_index(drop=True)
+
+    return gdf_conversion(df_res, filename, return_type=return_type)
+
 
 #================================ Landuse preparation ============================================#
 
 
 def landuse_preparation(dataframe=None, filename=None, config=None, return_type=None, result_name="landuse_preparation_result"):
     """introduces the landuse_simplified column and classifies it according to the config input"""
-    # (2 Options) landuse preparation from geojson imported from OSM (if you already have it)
-    if dataframe is not None:
-        df = dataframe
-    elif filename:
-        file = open(Path.cwd()/'data'/filename/'.geojson', encoding="utf-8")
-        df = gp.read_file(file)
-    else:
-        print("Incorrect 'datatype' value!")
-        sys.exit()
+    
+    df = dataframe
 
     # Timer start
     print("Preparation started...")
@@ -446,42 +456,17 @@ def landuse_preparation(dataframe=None, filename=None, config=None, return_type=
     # Timer finish
     print(f"Preparation took {time.time() - start_time} seconds ---")
 
-
     if filename and not result_name:
         result_name = filename + "prepared"
 
     return gdf_conversion(df, result_name, return_type)
 
-def pois_preparation_set(config,config_buses,update=False,filename=None,return_type=None):
-    df_res = pd.DataFrame()
-    data_set = config.pbf_data
-
-    for d in data_set:
-        pois_collection = osm_collect_filter(config, d, update=update)
-        pois_bus_collection = join_osm_pois_n_busstops(pois_collection[0],
-                                                    bus_stop_conversion(osm_collect_filter(config_buses,d)[0]),
-                                                    pois_collection[1])
-        temp_df = pois_preparation(dataframe=pois_bus_collection[0], config=config, result_name=pois_bus_collection[1])[0]
-        if data_set.index(d) == 0:
-            df_res = temp_df
-        else:
-            df_res = pd.concat([df_res,temp_df],sort=False).reset_index(drop=True)
-
-    return gdf_conversion(df_res, filename, return_type=return_type)
-
     #================================ Buildings preparation ======================================#
 
 def buildings_preparation(dataframe=None, filename=None, config=None ,return_type=None, result_name="buildings_preparation_result"):
     """introduces the landuse_simplified column and classifies it according to the config input"""
-    # (2 Options) landuse preparation from geojson imported from OSM (if you already have it)
-    if dataframe is not None:
-        df = dataframe
-    elif filename:
-        file = open(Path.cwd()/'data'/filename/'.geojson', encoding="utf-8")
-        df = gp.read_file(file)
-    else:
-        print("Incorrect 'datatype' value!")
-        sys.exit()
+
+    df = dataframe
 
     # Timer start
     print("Preparation started...")

@@ -39,6 +39,7 @@ class Database:
             finally:
                 LOGGER.info('Connection opened successfully.')
         return self.conn
+        
     def select(self, query, params=None):
         """Run a SQL query to select rows from table."""
         self.connect()

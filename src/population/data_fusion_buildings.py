@@ -11,12 +11,12 @@
 # roof_Levels == number of roof levels
 # height == height of the building
 
-from pathlib import Path
-import yaml
+import sys
+sys.path.insert(0,"..")
+import collection
 
-with open(Path.cwd().parent/'config/config.yaml', encoding="utf-8") as stream:
-    config = yaml.safe_load(stream)
-var = config['Population']
+config_population = collection.Config("population")
+variable_container_population = config_population.variable_container
 
 data_fusion_buildings = f'''
 
@@ -52,9 +52,9 @@ CREATE INDEX ON buildings USING GIST(geom);
 DO 
 $$
 	DECLARE
-		average_building_levels integer := {var['variable_container']['average_building_levels']}::integer;
-		average_roof_levels integer := {var['variable_container']['average_roof_levels']}::integer;
-		average_height_per_level float := {var['variable_container']['average_height_per_level']}::float;
+		average_building_levels integer := {variable_container_population['average_building_levels']}::integer;
+		average_roof_levels integer := {variable_container_population['average_roof_levels']}::integer;
+		average_height_per_level float := {variable_container_population['average_height_per_level']}::float;
 		inject_not_duplicated_osm TEXT := 'yes';
 		inject_not_duplicated_custom TEXT := 'no';
 	BEGIN 
