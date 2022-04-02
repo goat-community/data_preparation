@@ -127,17 +127,17 @@ class PrepareLayers():
             conn.commit()
             conn.close()
 
-        db = Database()
-        conn = db.connect()
-        cur = conn.cursor()
-        rename_tables = '''
-            DROP TABLE IF EXISTS edge;
-            DROP TABLE IF EXISTS node;
-            CREATE TABLE edge AS TABLE ways;
-            CREATE TABLE node AS TABLE ways_vertices_pgr;'''
-        cur.execute(rename_tables)
-        conn.commit()
-        conn.close()
+        # db = Database()
+        # conn = db.connect()
+        # cur = conn.cursor()
+        # rename_tables = '''
+        #     DROP TABLE IF EXISTS edge;
+        #     DROP TABLE IF EXISTS node;
+        #     CREATE TABLE edge AS TABLE ways;
+        #     CREATE TABLE node AS TABLE ways_vertices_pgr;'''
+        # cur.execute(rename_tables)
+        # conn.commit()
+        # conn.close()
 
 ##==========================================OUTDATED===============================================###
 

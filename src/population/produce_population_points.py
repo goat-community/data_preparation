@@ -9,19 +9,19 @@ import geopandas as gpd
 # from winreg import QueryInfoKey
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from db.db import Database
-from data_fusion_buildings import data_fusion_buildings as sql_data_fusion_buildings
-from classify_buildings import classify_buildings as sql_classify_buildings
-from classify_buildings import intersect_landuse as sql_intersection_landuse
-from classify_buildings import intersect_landuse_additional as sql_intersect_landuse_additional
-from classify_buildings import intersect_osm_landuse as sql_intersect_osm_landuse
-from classify_buildings import finalized_classification as sql_finalized_classification
-from classify_buildings import buildings_update as sql_buildings_update
-from create_residential_addresses import create_residential_addresses
-from prepare_census import prepare_census
-from population_census import population_census
-from population_extrapolated_census import population_extrapolated_census
-from population_disaggregation import population_disaggregation
-from building_classifier import building_prediction
+from src.population.data_fusion_buildings import data_fusion_buildings as sql_data_fusion_buildings
+from src.population.classify_buildings import classify_buildings as sql_classify_buildings
+from src.population.classify_buildings import intersect_landuse as sql_intersection_landuse
+from src.population.classify_buildings import intersect_landuse_additional as sql_intersect_landuse_additional
+from src.population.classify_buildings import intersect_osm_landuse as sql_intersect_osm_landuse
+from src.population.classify_buildings import finalized_classification as sql_finalized_classification
+from src.population.classify_buildings import buildings_update as sql_buildings_update
+from src.population.create_residential_addresses import create_residential_addresses
+from src.population.prepare_census import prepare_census
+from src.population.population_census import population_census
+from src.population.population_extrapolated_census import population_extrapolated_census
+from src.population.population_disaggregation import population_disaggregation
+from src.population.building_classifier import building_prediction
 from sqlalchemy import create_engine
 
 ### The following files are required to be in the data directory to run the script:
@@ -146,8 +146,13 @@ class Population():
 
 
     
-population = Population(Database=Database)
-population.produce_population_points(source_population = 'census_extrapolation')
+# population = Population(Database=Database)
+# population.produce_population_points(source_population = 'census_extrapolation')
+
+
+
+
+
 
 
 # def main():

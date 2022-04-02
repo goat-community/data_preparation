@@ -43,8 +43,8 @@ sql_queries = {
             CREATE INDEX ON temporal.landuse_additional USING GIST(geom);''',
     "landuse_osm": '''DROP TABLE IF EXISTS temporal.landuse_osm;
             CREATE TABLE temporal.landuse_osm AS 
-            SELECT * 
-            FROM public.landuse_osm, (SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s
+            SELECT u.* 
+            FROM public.landuse_osm u, (SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s
             WHERE ST_Intersects(u.geom, s.geom);
             ALTER TABLE temporal.landuse_osm ADD COLUMN gid serial;
             CREATE INDEX ON temporal.landuse_osm(gid);
@@ -84,12 +84,14 @@ sql_queries = {
             SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 
             FROM temporal.study_area;
 
+            DROP TABLE IF EXISTS temporal.ways;
             CREATE TABLE temporal.ways AS 
             SELECT w.* 
             FROM ways w, buffer_study_area sa 
             WHERE ST_Intersects(sa.geom,w.geom);
 
-            CREATE TABLE temporal.ways_vertic_study_area AS 
+            DROP TABLE IF EXISTS temporal.ways_vertices_pgr;
+            CREATE TABLE temporal.ways_vertices_pgr AS 
             SELECT w.* 
             FROM ways_vertices_pgr w, temporal.ways wa
             WHERE w.id = wa.source

@@ -1,5 +1,5 @@
 # Network
-HowTo for preparation of Points of Network to GOAT database format.  
+HowTo for collect of Points of Network. Result of this operation will be local database tables **ways** and **ways_vertices_pgr**. It will be neccessary to store tables in   
   
 All settings for the subsequent preprocessing of the data are used by the file **_config.yaml_**. The **"ways"** section provides settings for **_"collection"_, _"preparation"_** and **_"fusion"_** in the corresponding categories. 
 In the header of the configuration file there is an attribute _**"region_pbf"**_ in which as a list the regions for which the data collection and preparation will be performed. 

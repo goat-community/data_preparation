@@ -3,13 +3,18 @@ from argparse import RawTextHelpFormatter
 from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
-from src.other.utility_functions import database_table2df, df2database, drop_table
+from src.other.utility_functions import database_table2df, df2database, drop_table, migrate_table2localdb
 from src.collection import osm_collection
 from src.preparation import pois_preparation, landuse_preparation, buildings_preparation
 from src.fusion import pois_fusion
 from src.network.network_collection import network_collection
 from src.network.ways import PrepareLayers, Profiles
 from src.network.conversion_dem import conversion_dem
+from src.population.population_data_preparation import population_data_preparation
+from src.population.produce_population_points import Population
+from src.export.export_goat import getDataFromSql
+from src.export.export_tables2basic import sql_queries_goat
+from src.network.network_islands import network_islands
 
 from src.db.db import Database
 from src.db.prepare import PrepareDB
@@ -17,68 +22,37 @@ from src.db.prepare import PrepareDB
 
 #Define command line options
 
-layers_prepare = ['network', 'pois']
-layers_fuse = ['pois']
+layers_prepare = ['aoi', 'dem', 'building', 'network', 'study_area', 'population', 'grid_visualization', 'grid_calculation', 'poi']
 
 parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-db',help='Create neccesary extensions and functions for fresh database', action='store_true')
+parser.add_argument('-p','--prepare', required=True, help='Please specify layer name for data preparation for goat (e.g. pois, network, population, buildings, etc)')
+parser.add_argument("-m", "--municipality", required=True, help = "Comma Separated Codes of the municipality to be passed e.g. 091780124")
 
-parser.add_argument('-p','--prepare',help='Please specify layer name for data collection and preparation from osm (e.g. pois, network)')
-parser.add_argument('-f', '--fuse',help='Please specify layer name for data fusion from osm (e.g. pois, network)')
+args = vars(parser.parse_args())
+prepare = args['prepare']
 
-args = parser.parse_args()
-prepare = args.prepare
-fuse = args.fuse
-
-if args.db == True:
-    prepare_db = PrepareDB(Database)
-    prepare_db.create_db_functions()
-    prepare_db.create_db_extensions()
-    prepare_db.create_db_tables()
-
-# if args.i == True:
+municipalities = [municipality.strip() for municipality in args['municipality'].split(',')]   
 
 if prepare or prepare in(layers_prepare):
-    if prepare == 'network':
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Network collection started.')
-        network_collection()
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Network collection has been finished.')
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Starting network preparation..')
-        prep_layers = PrepareLayers('ways')
-        prep_layers.ways()
-    elif prepare == 'pois':
-        pois = osm_collection('pois')[0]
-        pois = pois_preparation(pois)[0]
-        drop_table('pois')
-        df2database(pois, 'pois')
-    elif prepare == 'landuse':
-        landuse = osm_collection('landuse')[0]
-        landuse = landuse_preparation(landuse)[0]
-        drop_table('landuse_osm')
-        df2database(landuse, 'landuse_osm')
-    elif prepare == 'buildings':
-        buildings = osm_collection('buildings')[0]
-        buildings = buildings_preparation(buildings)[0]   
-        drop_table('buildings_osm')
-        df2database(buildings, 'buildings_osm')             
-    else:
-        print('Please specify a valid preparation type.')
-
-if fuse or fuse in(layers_fuse):
-    if fuse == 'pois':
+    if prepare == 'population':
+        population_data_preparation(municipalities)
+        population = Population(Database=Database)
+        population.produce_population_points(source_population = 'census_extrapolation')
+    elif prepare == 'network':
+        getDataFromSql('ways', municipalities)
+        migrate_table2localdb('ways', 'ways')
+        migrate_table2localdb('ways_vertices_pgr', 'ways_vertices_pgr')
         db = Database()
-        con = db.connect()
-        pois = database_table2df(con, 'pois', geometry_column='geom')
-        pois = pois_fusion(pois)[0]
-        drop_table('pois_fused')
-        df2database(pois, 'pois_fused')
-        db.perform(query = 'ALTER TABLE pois_fused DROP COLUMN IF EXISTS id;')  
-        db.perform(query = 'ALTER TABLE pois_fused ADD COLUMN id serial;')
-        db.perform(query = 'ALTER TABLE pois_fused ADD PRIMARY KEY (id);')        
-        db.perform(query = 'CREATE INDEX ON pois_fused(poi_goat_id);')
-        db.perform(query = 'ALTER TABLE pois_fused RENAME COLUMN geometry TO geom;')
-        db.perform(query = 'ALTER TABLE pois_fused ALTER COLUMN osm_id TYPE float USING osm_id::double precision')        
-        db.perform(query = 'ALTER TABLE pois_fused ALTER COLUMN osm_id TYPE bigint USING osm_id::bigint')
-    else:
-        print('Error ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Please specify a valid fusion type.')
+        db.perform(query=network_islands)
+        conn = db.connect()
+        cur = conn.cursor()
+        rename_tables = '''
+            DROP TABLE IF EXISTS edge;
+            DROP TABLE IF EXISTS node;
+            CREATE TABLE edge AS TABLE ways;
+            CREATE TABLE node AS TABLE ways_vertices_pgr;'''
+        cur.execute(rename_tables)
+        conn.commit()
+        db.perform(sql_queries_goat['nodes_edges'])
+        conn.close()

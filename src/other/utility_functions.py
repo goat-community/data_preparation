@@ -254,8 +254,29 @@ def create_sql_dumps():
         if tab_e in tables_extra_standard:
             table_dump('local','.'.join(['extra',tab_e]))
 
+
+
+########################TESTS############################
 # create_sql_dumps()
 
 # migrate_all_tables2localdb()
 
 # migrate_table2localdb('accidents', 'accidents')
+
+# table_dump('local','ways_vertices_pgr')
+# table_restore('remote', 'ways_vertices_pgr')
+
+# table_dump('local','ways')
+# table_restore('remote', 'ways')
+
+# table_dump('local','landuse_osm')
+# table_restore('remote', 'landuse_osm')
+
+# table_dump('local','buildings_osm')
+# table_restore('remote', 'buildings_osm')
+
+# table_dump('local','planet_osm_point')
+# table_restore('remote', 'planet_osm_point')
+
+# table_dump('local','pois')
+# table_restore('remote', 'pois')
