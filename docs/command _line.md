@@ -7,7 +7,7 @@
 1. Rename .env_template file to .env
 2. Run `docker-compose up -d`
 3. Connect using the credentials defined in .env
-4. Use command line to prepare database `python prepare.py -db`.
+4. Use command line to prepare database `python collect.py -db`.
 
 ### Collect Layers and Store it in Local Database
 

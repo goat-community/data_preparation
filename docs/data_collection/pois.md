@@ -1,5 +1,7 @@
 # POIs
-HowTo for preparation of Points of Interest to GOAT database format.  
+HowTo for preparation of Points of Interest to GOAT database format.
+
+Result of this operation will be local database table **pois_goat**. It will be neccessary to store result tables in remote database for execution of preparation for defined municiplaities.  
   
 All settings for the subsequent preprocessing of the data are used by the file **_config.yaml_**. The **"pois"** section provides settings for **_"collection"_, _"preparation"_** and **_"fusion"_** in the corresponding categories. 
 In the header of the configuration file there is an attribute _**"region_pbf"**_ in which as a list the regions for which the data collection and preparation will be performed. 
