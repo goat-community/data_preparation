@@ -1,5 +1,5 @@
 sql_queries_goat = {
-    "schema_basic": '''CREATE SCHEMA IF NOT EXISTS basic;''',
+    ##"schema_basic": '''CREATE SCHEMA IF NOT EXISTS basic;''',
     "study area": '''
         DROP TABLE IF EXISTS basic.sub_study_area CASCADE;
         DROP TABLE IF EXISTS basic.study_area CASCADE;

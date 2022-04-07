@@ -1,8 +1,5 @@
 sql_queries_goat = {
-    "schema_extra": '''
-        CREATE SCHEMA IF NOT EXISTS extra;
-    '''
-    ,
+    ##"schema_extra": '''CREATE SCHEMA IF NOT EXISTS extra;''',
     "landuse": '''
         DROP TABLE IF EXISTS extra.landuse_atkis;
         CREATE TABLE extra.landuse_atkis (LIKE public.landuse INCLUDING ALL);

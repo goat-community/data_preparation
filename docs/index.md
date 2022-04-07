@@ -35,4 +35,4 @@ Almost all data tables (except __population__ and __buildings__) could be genera
 
 The result will be presented in two tables __population__ and __building__ stored in schema __basic__ in local database.
 
-Subsequetly created in schema __basic__ tables could be dumped and restored in GOAT app database.
+Subsequently created in schema __basic__ tables could be dumped and restored in GOAT app database.
