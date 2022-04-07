@@ -4,9 +4,9 @@ from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from src.other.utility_functions import database_table2df, df2database, drop_table
-from src.collection import osm_collection
-from src.preparation import pois_preparation, landuse_preparation, buildings_preparation
-from src.fusion import pois_fusion
+from src.collection.collection import osm_collection
+from src.collection.preparation import pois_preparation, landuse_preparation, buildings_preparation
+from src.collection.fusion import pois_fusion
 from src.network.network_collection import network_collection
 from src.network.ways import PrepareLayers, Profiles
 from src.network.conversion_dem import conversion_dem

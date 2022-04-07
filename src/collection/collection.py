@@ -8,7 +8,7 @@ import geopandas as gpd
 from other.utility_functions import gdf_conversion, create_pgpass
 from config.config import Config
 from db.db import DATABASE, Database
-from fusion import database_table2df
+from src.collection.fusion import database_table2df
 
 # Function for collection data from OSM dbf and conversion to Dataframe
 # Could be extended with varios type of searches and filters
@@ -17,9 +17,6 @@ from fusion import database_table2df
 # driver=None default variables driver could be (driver from "Fiona" drivers, e.g "GeoJSON", "GPKG")
 # !! Notice if driver is specified it creates GeoJSON, but function still returns DF.
 # !! If it is not specified func returns only DF
-
-
-
 
 def osm_collection(conf, database=None, filename=None, return_type=None):
     create_pgpass()
