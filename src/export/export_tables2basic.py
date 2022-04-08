@@ -1,6 +1,6 @@
 sql_queries_goat = {
     ##"schema_basic": '''CREATE SCHEMA IF NOT EXISTS basic;''',
-    "study area": '''
+    "study_area": '''
         DROP TABLE IF EXISTS basic.sub_study_area CASCADE;
         DROP TABLE IF EXISTS basic.study_area CASCADE;
         CREATE TABLE basic.study_area (
@@ -432,6 +432,7 @@ sql_queries_goat = {
     '''
     ,
     "grid_calculation":'''
+        DROP TABLE IF EXISTS basic.grid_calculation CASCADE;
         CREATE TABLE basic.grid_calculation (
         id int8 NOT NULL,
         grid_visualization_id int8 NOT NULL,
