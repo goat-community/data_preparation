@@ -35,6 +35,7 @@ if args.db == True:
     prepare_db.create_db_functions()
     prepare_db.create_db_extensions()
     prepare_db.create_db_tables()
+    prepare_db.create_db_schemas()
 
 # if args.i == True:
 
@@ -70,14 +71,14 @@ if fuse or fuse in(layers_fuse):
         con = db.connect()
         pois = database_table2df(con, 'pois', geometry_column='geom')
         pois = pois_fusion(pois)[0]
-        drop_table('pois_fused')
-        df2database(pois, 'pois_fused')
-        db.perform(query = 'ALTER TABLE pois_fused DROP COLUMN IF EXISTS id;')  
-        db.perform(query = 'ALTER TABLE pois_fused ADD COLUMN id serial;')
-        db.perform(query = 'ALTER TABLE pois_fused ADD PRIMARY KEY (id);')        
-        db.perform(query = 'CREATE INDEX ON pois_fused(poi_goat_id);')
-        db.perform(query = 'ALTER TABLE pois_fused RENAME COLUMN geometry TO geom;')
-        db.perform(query = 'ALTER TABLE pois_fused ALTER COLUMN osm_id TYPE float USING osm_id::double precision')        
-        db.perform(query = 'ALTER TABLE pois_fused ALTER COLUMN osm_id TYPE bigint USING osm_id::bigint')
+        drop_table('pois_goat')
+        df2database(pois, 'pois_goat')
+        db.perform(query = 'ALTER TABLE pois_goat DROP COLUMN IF EXISTS id;')  
+        db.perform(query = 'ALTER TABLE pois_goat ADD COLUMN id serial;')
+        db.perform(query = 'ALTER TABLE pois_goat ADD PRIMARY KEY (id);')        
+        db.perform(query = 'CREATE INDEX ON pois_goat(poi_goat_id);')
+        db.perform(query = 'ALTER TABLE pois_goat RENAME COLUMN geometry TO geom;')
+        db.perform(query = 'ALTER TABLE pois_goat ALTER COLUMN osm_id TYPE float USING osm_id::double precision')        
+        db.perform(query = 'ALTER TABLE pois_goat ALTER COLUMN osm_id TYPE bigint USING osm_id::bigint')
     else:
         print('Error ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Please specify a valid fusion type.')

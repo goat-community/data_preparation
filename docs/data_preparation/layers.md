@@ -15,4 +15,3 @@ The availiable layers for **basic** schema are:
 |grid_calculation| creates **grid_calculation** layer |
 |aoi| creates **aoi** layer |
 |dem| creates **dem** layer|
-
