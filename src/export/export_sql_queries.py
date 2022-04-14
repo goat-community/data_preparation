@@ -64,10 +64,10 @@ sql_queries = {
             SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 
             FROM temporal.study_area;
 
-            DROP TABLE IF EXISTS temporal.pois;
-            CREATE TABLE temporal.pois as 
+            DROP TABLE IF EXISTS temporal.poi;
+            CREATE TABLE temporal.poi as 
             SELECT p.* 
-            FROM public.pois_goat p, buffer_study_area s
+            FROM public.poi p, buffer_study_area s
             WHERE ST_Intersects(p.geom,s.geom);''',
     "planet_osm_points": '''DROP TABLE IF EXISTS buffer_study_area;
             CREATE TEMP TABLE buffer_study_area AS 

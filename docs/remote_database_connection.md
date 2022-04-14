@@ -1,5 +1,4 @@
 # Remote database connection
-Some data preparation operations require a connection to a remote database. For this purpose it is necessary to make certain connection settings. 
 
 Some data preparation operations require a connection to a remote database. For this purpose it is necessary to make certain connection settings. This can be done in the file .env file. It is necessary to specify the credidentials for the remote connection in the second part of the settings. The first part refers to the Docker database. After the settings are made, it is possible to interact with the remote database given in fusion.
 
