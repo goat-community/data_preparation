@@ -19,13 +19,21 @@ class Database:
 
     def __init__(self):
         self.conn = None
-
+        try:
+            connection_string = " ".join(("{}={}".format(*i) for i in DATABASE.items()))
+            self.conn = psycopg2.connect(connection_string)
+        except psycopg2.DatabaseError as e:
+            LOGGER.error(e)
+            raise e
+        finally:
+            LOGGER.getLogger().setLevel(LOGGER.INFO)   # To show logging.info in the console
+            LOGGER.info('Connection opened successfully.')
+        
     def connect_geopandas(self):
         if self.conn is None:
             try:
                 # connection object
-                self.conn = psycopg2.connect(database = dbname, user = user, password = password,host=host, port=port)
-            
+                self.conn = psycopg2.connect(database=dbname, user=user, password=password, host=host, port=port)     
             except Exception as e:
                 LOGGER.error(e)
                 raise e
@@ -88,7 +96,6 @@ class Database:
         
     def select(self, query, params=None):
         """Run a SQL query to select rows from table."""
-        self.connect()
         with self.conn.cursor() as cur:
             if params is None:
                 cur.execute(query)
@@ -112,7 +119,6 @@ class Database:
 
     def perform(self, query, params=None):
         """Run a SQL query that does not return anything"""
-        self.connect()
         with self.conn.cursor() as cur:
             if params is None:
                 cur.execute(query)
