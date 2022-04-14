@@ -126,8 +126,7 @@ def dataframe_goat_index(df):
             tup_new = tup_l
             tup_new.append(0)
             tup_new = tuple(tup_new)
-            query = f"INSERT INTO poi_goat_id({cols} , index) VALUES {tup_new}"
-            cur.execute(query)
+            cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, index) VALUES (%s,%s,%s,%s)""",tup_new)
             con.commit()
             df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-0000'
         else:
@@ -135,8 +134,7 @@ def dataframe_goat_index(df):
             tup_new = tup_l
             tup_l.append(new_ind)
             tup_new = tuple(tup_new)
-            query = f"INSERT INTO poi_goat_id({cols} , index) VALUES {tup_new}"
-            cur.execute(query)
+            cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, index) VALUES (%s, %s, %s, %s)""",tup_new)
             con.commit()
             df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-{new_ind:04}'
         cnt += 1
@@ -299,7 +297,7 @@ def pois_fusion(df=None, config=None, result_name=None, return_type=None):
     if not config:
         config = Config("pois")
 
-#    rs_set = config.fusion["rs_set"]
+    # rs_set = config.fusion["rs_set"]
     typen = ["database", "gpkg", "geojson"]
 
     # REMOVE OPTION FOR BASE TABLE FROM 
@@ -309,10 +307,7 @@ def pois_fusion(df=None, config=None, result_name=None, return_type=None):
     else:
         print('Please specify database table in pois_fusion() variables or table_name in config.yaml')
     
-    values = ['atm','bakery','bank','bar','bike_sharing','biergarten','bus_stop','butcher','cafe','car_sharing','charging_station','chemist','cinema','clothes','convenience','dentist','discount_gym','discount_supermarket',
-                'general_practitioner','fast_food','fuel','greengrocer','guest_house','gym','hairdresser','health_food','hostel','hotel','hypermarket','ice_cream','international_hypermarket','kindergarten','kiosk','library','mall','marketplace',
-                'museum','nightclub','organic_supermarket','parking','pharmacy','playground','post_box','post_office','post_paketshop','pub','rail_station','recycling','restaurant','restaurant;bar','school','shoes','subway_entrance',
-                'supermarket','taxi','theatre','toilets','tram_stop', 'yoga']
+    values = config.fusion["pois_categories"]
                 
     df_base = df_base[df_base.amenity.isin(values)]
 

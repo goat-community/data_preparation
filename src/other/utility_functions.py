@@ -145,9 +145,9 @@ def table_dump(source, tablename,data_only=False):
         )
         os.system(f"chmod 600  ~/.pgpass_{dbname_rd}")
         if not data_only:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t {tablename} --no-owner -U {username_rd} {dbname_rd} > export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t temporal.{tablename} --no-owner -U {username_rd} {dbname_rd} > src/data/export_results/{tablename}.sql"""
         else:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t {tablename} --no-owner -U {username_rd} --data-only  {dbname_rd} > export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t temporal.{tablename} --no-owner -U {username_rd} --data-only  {dbname_rd} > src/data/export_results/{tablename}.sql"""
         subprocess.call(cmd_call, shell=True)
     elif source == "local":
         create_pgpass()
@@ -158,9 +158,9 @@ def table_dump(source, tablename,data_only=False):
             DATABASE["port"],
         )
         if not data_only:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} {dbname} > export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} {dbname} > src/data/export_results/{tablename}.sql"""
         else:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} --data-only  {dbname} > export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} --data-only  {dbname} > src/data/export_results/{tablename}.sql"""
         subprocess.call(cmd_call, shell=True)
     else:
         print("Please, specify 'source' - 'remote' or 'local'!")
@@ -185,7 +185,7 @@ def table_restore(source, filename):
             + f" > ~/.pgpass_{dbname_rd}"
         )
         os.system(f"chmod 600  ~/.pgpass_{dbname_rd}")
-        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} psql -h {host_rd} -U {username_rd} -p {port_rd} -d {dbname_rd} < export_results/{filename}.sql"""
+        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} psql -h {host_rd} -U {username_rd} -p {port_rd} -d {dbname_rd} < src/data/export_results/{filename}.sql"""
         subprocess.call(cmd_call, shell=True)
     elif source == "local":
         create_pgpass()
@@ -195,25 +195,19 @@ def table_restore(source, filename):
             DATABASE["user"],
             DATABASE["port"],
         )
-        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} psql -h {host} -U {username} -p {port} -d {dbname} < export_results/{filename}.sql"""
+        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} psql -h {host} -U {username} -p {port} -d {dbname} < src/data/export_results/{filename}.sql"""
         subprocess.call(cmd_call, shell=True)
     else:
         print("Please, specify 'source' - 'remote' or 'local'!")
 
 
-def migrate_table2localdb(source_table, dest_table):
+def migrate_table2localdb(tablename):
     db = Database()
-    db.perform_rd(query=f"DROP TABLE IF EXISTS {dest_table};")
-    if source_table != dest_table:
-        db.perform_rd(
-            query=f"ALTER TABLE temporal.{source_table} RENAME TO {dest_table};"
-        )
-    db.perform_rd(query=f"ALTER TABLE temporal.{dest_table} SET SCHEMA public;")
-    table_dump("remote", dest_table)
-    db.perform_rd(query=f"DROP TABLE IF EXISTS {dest_table};")
-    db.perform(query = f"DROP TABLE IF EXISTS {dest_table} CASCADE;")
-    table_restore("local", dest_table)
-    subprocess.run(f'rm export_results/{dest_table}.sql', shell=True, check=True)
+    table_dump("remote", tablename)
+    db.perform_rd(query=f"DROP TABLE IF EXISTS temporal.{tablename};")
+    db.perform(query = f"DROP TABLE IF EXISTS temporal.{tablename} CASCADE;")
+    table_restore("local", tablename)
+    subprocess.run(f'rm src/data/export_results/{tablename}.sql', shell=True, check=True)
 
 
 def GetTableList(t_schema, source='remote'):
@@ -276,7 +270,6 @@ def create_sql_dumps():
 # table_restore('remote', 'buildings_osm')
 
 # table_dump('local','planet_osm_point')
-# table_restore('remote', 'planet_osm_point')
 
 # table_dump('local','pois')
 # table_restore('remote', 'pois')

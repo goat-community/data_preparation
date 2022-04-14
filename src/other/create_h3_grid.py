@@ -19,7 +19,7 @@ class H3Grid:
         """
         return {'type': 'Polygon', 'coordinates': [[[bottom, left], [bottom, right], [top, right], [top, left], [bottom, left]]]}
 
-    def create_grid(self, study_area, polygon, resolution, layer_name):
+    def create_grid(self, study_area, polygon, resolution):
         """
         Creates a h3 grid for passed bounding box in SRID 4326
         """
@@ -50,15 +50,15 @@ class H3Grid:
         # Return gdf
         return gdf
 
-    def create_grids_study_area_table(self,rs_code):
+    def create_grids_study_area_table(self,municipality):
         db = Database()
-        con = db.connect_rd()
-        rs_code = "'" + rs_code + "'" 
-        df = database_table2df(con, 'germany_municipalities', 'rs', rs_code, geometry_column="geom")
+        con = db.connect()
+        df = database_table2df(con, 'temporal.study_area', attribute='rs', value=f"'{municipality}'", geometry_column="geom")
         df = df.to_crs(31468)
-        df["geom"] = df["geom"].buffer(1000)
-        df = df.to_crs(4326)
-        bounds = df.geometry.bounds
+        df_ds = df.dissolve()
+        df_ds["geom"] = df_ds["geom"].buffer(1000)
+        df_ds = df_ds.to_crs(4326)
+        bounds = df_ds.geometry.bounds
         top = bounds['maxy'][0]
         left = bounds['minx'][0]
         bottom = bounds['miny'][0]
