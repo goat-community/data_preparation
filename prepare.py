@@ -76,5 +76,5 @@ if prepare or prepare in(layers_prepare):
         db.perform(sql_queries_goat['study_area'])
     elif prepare == 'pois':
         getDataFromSql(['pois'], municipalities)
-        migrate_table2localdb('pois')
+        migrate_table2localdb('poi')
         db.perform(sql_queries_goat['pois'])

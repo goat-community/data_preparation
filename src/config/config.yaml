@@ -57,7 +57,7 @@ VARIABLES_SET :
     fusion: 
   
   pois:
-    region_pbf : ["freiburg"]
+    region_pbf : ["freiburg", "oberbayern"]
     collection:
       osm_tags:
         amenity : ["fuel", "post_office", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
@@ -110,16 +110,12 @@ VARIABLES_SET :
   
       supermarket: 
         rewe     : ["rewe", "rewe city"]
-        # edeka    : ["e center", "edeka", "e-", "e express", "e xpress", "e aktiv", "e kauf", "nah und gut", "nah & gut", "cap markt",
-        #              "cap-markt", "diska", "beckesepp", "elli", "frischemarkt ", "frischmarkt ", "inkoop", "kiezmarkt", "marktkauf", "simmel",
-        #              "scheck-in"] # a lot of places impossible to define z.B."NP" replace data from edeka file all super without operator defined
         tegut    : ["tegut"]
         feneberg : ["feneberg"]
         nahkauf  : ["nahkauf"]
         kupsch   : ["kupsch"]
         aez      : ["aez"]
-        #dorfladen: ["dorfladen"]
-     
+
       discount_gym: 
         fitx           : ["fitx"]
         mcfit          : ["mcfit"]
@@ -156,23 +152,45 @@ VARIABLES_SET :
         exclude: ['privat','priv.','montessori','waldorf']
 
     fusion:
-      rs_set      : ["083110000"] # ["091620000","095640000","097610000","093620000","091610000","096630000","095630000","095620000","094610000",
-                    #  "094620000","092610000","096610000","097630000","091630000","096620000","092620000","091780124","092630000",
-                    #  "091740115","094640000","097620000","097640000","093630000","093610000","095610000","094630000","095650000",
-                    #  "091790123","091790121","094740126","091840149","091790142","095740138","091860143","095730134","095760143",
-                    #  "091840148","091880139","091750132","095720132","091740126","091840136","091790145","091840123","091880120",
-                    #  "091780145","083110000"] 
+      rs_set      : ["091620000","095640000","097610000","093620000","091610000","096630000","095630000","095620000","094610000",
+                     "094620000","092610000","096610000","097630000","091630000","096620000","092620000","091780124","092630000",
+                     "091740115","094640000","097620000","097640000","093630000","093610000","095610000","094630000","095650000",
+                     "091790123","091790121","094740126","091840149","091790142","095740138","091860143","095730134","095760143",
+                     "091840148","091880139","091750132","095720132","091740126","091840136","091790145","091840123","091880120",
+                     "091780145"] # ["083110000"] 
+      pois_categories : ['atm','bakery','bank','bar','bike_sharing','biergarten','bus_stop','butcher','cafe','car_sharing','charging_station',
+                         'chemist','cinema','clothes','convenience','dentist','discount_gym','discount_supermarket', 'general_practitioner','fast_food',
+                         'fuel','greengrocer','guest_house','gym','hairdresser','health_food','hostel','hotel','hypermarket','ice_cream',
+                         'international_hypermarket','kindergarten','kiosk','library','mall','marketplace','museum','nightclub','organic_supermarket',
+                         'parking','pharmacy','playground','post_box','post_office','post_paketshop','pub','rail_station','recycling','restaurant',
+                         'restaurant;bar','school','shoes','subway_entrance','supermarket','taxi','theatre','toilets','tram_stop','yoga']
       fusion_data :
         source:
           database:
-            # doctors_bavaria_upd:
-            #   fusion_type : "replace" 
-            #   amenity : "general_practitioner"
-            #   amenity_set : False
-            #   amenity_operator : 
-            #   columns2rename : {"category": "amenity", "extras": "tags", "spider": "source"}
-            #   column_set_value : 
-            #   columns2fuse : ["amenity", "tags", "source", "name", "opening_hours", "phone", "addr:street", "housenumber" ,"addr:city", "addr:postcode", "addr:country", "website"]
+            doctors_bavaria_upd:
+              fusion_type : "replace" 
+              amenity : "general_practitioner"
+              amenity_set : False
+              amenity_operator : 
+              columns2rename : {"category": "amenity", "extras": "tags", "spider": "source"}
+              column_set_value : 
+              columns2fuse : ["amenity", "tags", "source", "name", "opening_hours", "phone", "addr:street", "housenumber" ,"addr:city", "addr:postcode", "addr:country", "website"]
+            deutschepost_filiale:
+              fusion_type : "replace"
+              amenity : "post_office"
+              amenity_set : True
+              amenity_operator :
+              columns2rename : {"_spider" : "source", 'addr_street' : 'addr:street', 'addr_city' : 'addr:city', 'addr_postcode' : 'addr:postcode', 'addr_country' : 'addr:country'}
+              column_set_value : {"brand": "Deutschepost"} 
+              columns2fuse : ["name", "source", "brand", "addr:street", "housenumber", "addr:city", "addr:postcode", "addr:country", "opening_hours"]
+            deutschepost_paketshop:
+              fusion_type : "replace"
+              amenity : "post_paketshop"
+              amenity_set : True
+              amenity_operator :
+              columns2rename : {"_spider" : "source", 'addr_street' : 'addr:street', 'addr_city' : 'addr:city', 'addr_postcode' : 'addr:postcode', 'addr_country' : 'addr:country'}
+              column_set_value : {"brand": "Deutschepost"} 
+              columns2fuse : ["name", "source", "brand", "addr:street", "housenumber", "addr:city", "addr:postcode", "addr:country", "opening_hours"]
           gpkg:
             dm:
               fusion_type : "fuse"
@@ -182,38 +200,38 @@ VARIABLES_SET :
               columns2rename : 
               column_set_value : {"brand" : "dm-drogerie markt", "source" : "dm_de"} # for all values
               columns2fuse : ["name", "source", "opening_hours", "phone", "addr:street", "housenumber" ,"addr:city", "addr:postcode", "addr:country", "brand"]
-            childcare_freiburg_upd:
-              fusion_type : "replace"
-              amenity : 'kindergarten'
-              amenity_set : False
-              amenity_operator :
-              columns2rename : 
-              column_set_value : {"source" : "freiburg.de"} # for all values
-              columns2fuse : ["name", "source", "opening_hours", "phone", "addr:street", "housenumber" ,"addr:city", "addr:postcode"]
-            nextbike_freiburg:
-              fusion_type : "replace"
-              amenity : 'bike_sharing'
-              amenity_set : True
-              amenity_operator :
-              columns2rename : 
-              column_set_value : {"source" : "nextbike.de", "addr:city" : "Freiburg", "operator" : "Frilo"} # for all values
-              columns2fuse : ["name", "source", "addr:street", "housenumber" ,"addr:city"]
-            playgrounds_freiburg:
-              fusion_type : "replace"
-              amenity : 'playground'
-              amenity_set : False
-              amenity_operator :
-              columns2rename : 
-              column_set_value : {"source" : "govdata.de", "addr:city" : "Freiburg"} # for all values
-              columns2fuse : ["name", "source", "addr:city"]
-            jedeschule_geocode:
+            # childcare_freiburg_upd:
+            #   fusion_type : "replace"
+            #   amenity : 'kindergarten'
+            #   amenity_set : False
+            #   amenity_operator :
+            #   columns2rename : 
+            #   column_set_value : {"source" : "freiburg.de"} # for all values
+            #   columns2fuse : ["name", "source", "opening_hours", "phone", "addr:street", "housenumber" ,"addr:city", "addr:postcode"]
+            # nextbike_freiburg:
+            #   fusion_type : "replace"
+            #   amenity : 'bike_sharing'
+            #   amenity_set : True
+            #   amenity_operator :
+            #   columns2rename : 
+            #   column_set_value : {"source" : "nextbike.de", "addr:city" : "Freiburg", "operator" : "Frilo"} # for all values
+            #   columns2fuse : ["name", "source", "addr:street", "housenumber" ,"addr:city"]
+            # playgrounds_freiburg:
+            #   fusion_type : "replace"
+            #   amenity : 'playground'
+            #   amenity_set : False
+            #   amenity_operator :
+            #   columns2rename : 
+            #   column_set_value : {"source" : "govdata.de", "addr:city" : "Freiburg"} # for all values
+            #   columns2fuse : ["name", "source", "addr:city"]
+            jedeschule_geocode_upd:
               fusion_type : "replace"
               amenity : "school"
               amenity_set : False
               amenity_operator :
-              columns2rename : {"id": "osm_id"}
+              columns2rename : 
               column_set_value : {"source": "jedeschule"} 
-              columns2fuse : ["name", "source", "osm_id", "addr:street", "housenumber", "addr:city", "addr:postcode"] # , "addr:street", "housenumber", "addr:city", "addr:postcode", "addr:country", "opening_hours"
+              columns2fuse : ["name", "source", "addr:street", "housenumber", "addr:city", "addr:postcode"] # , "addr:street", "housenumber", "addr:city", "addr:postcode", "addr:country", "opening_hours"
           geojson:
             mueller:
               fusion_type : "fuse"
@@ -287,22 +305,6 @@ VARIABLES_SET :
               columns2rename : {"@spider" : "source"}
               column_set_value : {"brand": "Penny"} 
               columns2fuse : ["source", "addr:street", "addr:city", "addr:postcode", "addr:country", "name", "brand"]
-            deutschepost_filiale:
-              fusion_type : "replace"
-              amenity : "post_office"
-              amenity_set : True
-              amenity_operator :
-              columns2rename : {"@spider" : "source"}
-              column_set_value : {"brand": "Deutschepost"} 
-              columns2fuse : ["name", "source", "brand", "addr:street", "housenumber", "addr:city", "addr:postcode", "addr:country", "opening_hours"]
-            deutschepost_paketshop:
-              fusion_type : "replace"
-              amenity : "post_paketshop"
-              amenity_set : True
-              amenity_operator :
-              columns2rename : {"@spider" : "source"}
-              column_set_value : {"brand": "Deutschepost"} 
-              columns2fuse : ["name", "source", "brand", "addr:street", "housenumber", "addr:city", "addr:postcode", "addr:country", "opening_hours"]
             vitalia:
               fusion_type : "fuse"
               amenity : 
@@ -319,14 +321,14 @@ VARIABLES_SET :
               columns2rename : {"@spider" : "source"}
               column_set_value : {"brand": "Tegut"} 
               columns2fuse : ["name", "source", "phone", "addr:street", "housenumber" ,"addr:city", "addr:postcode", "addr:country", "brand"]
-            # childcare_bayern_de:
-            #   fusion_type : "replace"
-            #   amenity : "kindergarten"
-            #   amenity_set : False
-            #   amenity_operator :
-            #   columns2rename : {"street" : "addr:street", "zipcode" : "addr:postcode", "municipality" : "addr:city"}
-            #   column_set_value : 
-            #   columns2fuse : ["source", "name", "addr:street" , "housenumber" ,"addr:city", "addr:postcode"]
+            childcare_bayern_de:
+              fusion_type : "replace"
+              amenity : "kindergarten"
+              amenity_set : False
+              amenity_operator :
+              columns2rename : {"street" : "addr:street", "zipcode" : "addr:postcode", "municipality" : "addr:city"}
+              column_set_value : 
+              columns2fuse : ["source", "name", "addr:street" , "housenumber" ,"addr:city", "addr:postcode"]
             zahnarzt_de:
               fusion_type : "replace"
               amenity : "dentist"

@@ -235,7 +235,7 @@ sql_queries_goat = {
         AND class_id IS NOT NULL
         AND "source" IS NOT NULL
         AND target IS NOT NULL;''',
-    "pois": '''
+    "pois_old": '''
         DROP TABLE IF EXISTS basic.poi;
         CREATE TABLE basic.poi (
         id serial4 NOT NULL,
@@ -318,6 +318,30 @@ sql_queries_goat = {
         INSERT INTO basic.poi (category, "name", street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid)
         SELECT amenity, "name", "addr:street", housenumber, "addr:postcode" , opening_hours, wheelchair, tags, geom, poi_goat_id
         FROM pois_goat;''',
+    "pois": '''
+        DROP TABLE IF EXISTS basic.poi;
+        CREATE TABLE basic.poi (
+        id serial4 NOT NULL,
+        category text NOT NULL,
+        "name" text NULL,
+        street text NULL,
+        housenumber text NULL,
+        zipcode text NULL,
+        opening_hours text NULL,
+        wheelchair text NULL,
+        tags jsonb NULL,
+        geom geometry(point, 4326) NOT NULL,
+        uid text NOT NULL,
+        CONSTRAINT poi_pkey PRIMARY KEY (id),
+        CONSTRAINT poi_uid_key UNIQUE (uid)
+        );
+        CREATE INDEX idx_poi_geom ON basic.poi USING gist (geom);
+        CREATE INDEX ix_basic_poi_category ON basic.poi USING btree (category);
+        CREATE INDEX ix_basic_poi_uid ON basic.poi USING btree (uid); 
+
+        INSERT INTO basic.poi (category, "name", street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid)
+        SELECT category, "name", street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid
+        FROM temporal.poi;''',
     "building": '''
         DROP TABLE IF EXISTS basic.population;
         DROP TABLE IF EXISTS basic.building;
