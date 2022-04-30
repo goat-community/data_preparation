@@ -2,7 +2,7 @@ FROM goatcommunity/data-preparation-base:0.01
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml ./poetry.lock* /app/
-
+ENV PYTHONPATH "${PYTHONPATH}:."
 WORKDIR /app
 
 # Allow installing dev dependencies to run tests

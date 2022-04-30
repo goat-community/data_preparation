@@ -16,19 +16,22 @@ user_rd,password_rd,host_rd,port_rd,dbname_rd = DATABASE_RD.values()
 
 class Database:
     """PostgreSQL Database class."""
+    def __init__(self, db_type='processing'):
+        
+        if db_type == 'processing': 
+            self.connection_string = " ".join(("{}={}".format(*i) for i in DATABASE.items()))
+        elif db_type == 'reading':
+            self.connection_string = " ".join(("{}={}".format(*i) for i in DATABASE_RD.items()))
 
-    def __init__(self):
-        self.conn = None
         try:
-            connection_string = " ".join(("{}={}".format(*i) for i in DATABASE.items()))
-            self.conn = psycopg2.connect(connection_string)
+            self.conn = psycopg2.connect(self.connection_string)
         except psycopg2.DatabaseError as e:
             LOGGER.error(e)
             raise e
         finally:
             LOGGER.getLogger().setLevel(LOGGER.INFO)   # To show logging.info in the console
             LOGGER.info('Connection opened successfully.')
-        
+
     def connect_geopandas(self):
         if self.conn is None:
             try:
