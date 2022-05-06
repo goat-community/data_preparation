@@ -21,7 +21,7 @@ CREATE INDEX ON buildings_residential USING gist(geom);
 DROP TABLE IF EXISTS all_addresses; 
 CREATE TABLE all_addresses AS 
 SELECT osm_id, way AS geom 
-FROM planet_osm_point p
+FROM temporal.planet_osm_point p
 WHERE (tags -> 'entrance') IS NOT NULL 
 AND (tags -> 'entrance') <> 'emergency'
 AND amenity IS NULL 
@@ -34,7 +34,7 @@ INSERT INTO all_addresses
 SELECT p.osm_id, p.way AS geom 
 FROM (
 	SELECT osm_id, way 
-	FROM planet_osm_point p 
+	FROM temporal.planet_osm_point p 
 	WHERE p."addr:housenumber" IS NOT NULL
 	AND amenity IS NULL 
 	AND shop IS NULL

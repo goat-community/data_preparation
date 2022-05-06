@@ -49,16 +49,45 @@ sql_queries = {
             ALTER TABLE temporal.landuse_osm ADD COLUMN gid serial;
             CREATE INDEX ON temporal.landuse_osm(gid);
             CREATE INDEX ON temporal.landuse_osm USING GIST(geom);''',
-    "buildings_osm": '''DROP TABLE IF EXISTS buffer_study_area;
-            CREATE TEMP TABLE buffer_study_area AS 
-            SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 
-            FROM temporal.study_area;
-
+    "buildings_osm": '''
             DROP TABLE IF EXISTS temporal.buildings_osm;
             CREATE TABLE temporal.buildings_osm AS 
             SELECT b.* 
-            FROM public.buildings_osm b, buffer_study_area s
-            WHERE ST_Intersects(b.geom,s.geom);''',
+            FROM public.buildings_osm b, (SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s
+            WHERE ST_Intersects(b.geom,s.geom);
+            CREATE INDEX ON temporal.buildings_osm(osm_id);
+            CREATE INDEX ON temporal.buildings_osm USING GIST(geom);
+            
+                DROP TABLE IF EXISTS temporal.buildings_osm_board;
+                CREATE TABLE temporal.buildings_osm_board AS 
+                WITH coverage_perc AS (
+                SELECT round((ST_Area(ST_Intersection(bo.geom,s.geom))/ST_Area(bo.geom))::numeric,4) AS perc, osm_id 
+                FROM temporal.buildings_osm bo,(SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s
+                )
+                SELECT cp.perc, bo.osm_id, bo.geom 
+                FROM temporal.buildings_osm bo, coverage_perc cp
+                WHERE cp.perc <= 0.5
+                --AND cp.perc > 0.25
+                AND cp.osm_id = bo.osm_id;
+
+                WITH shares_buildings AS (
+                SELECT round((ST_Area(ST_Intersection(bob.geom,s.geom))/ST_Area(bob.geom))::numeric,4) AS shares, s.rs, bob.osm_id
+                FROM temporal.buildings_osm_board bob, sub_study_area s
+                WHERE ST_intersects(bob.geom,s.geom)
+                ),
+                rs_code AS (
+                SELECT DISTINCT rs FROM temporal.study_area
+                )
+                DELETE FROM temporal.buildings_osm
+                WHERE osm_id IN (
+                                SELECT osm_id
+                                FROM shares_buildings sb, rs_code rc
+                                WHERE shares = (SELECT max(shares) 
+                                                FROM shares_buildings
+                                                WHERE osm_id = sb.osm_id)
+                                AND sb.rs != rc.rs);
+
+                DROP TABLE IF EXISTS temporal.buildings_osm_board; ''',
     "pois": '''DROP TABLE IF EXISTS buffer_study_area;
             CREATE TEMP TABLE buffer_study_area AS 
             SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 
@@ -69,15 +98,15 @@ sql_queries = {
             SELECT p.* 
             FROM public.poi p, buffer_study_area s
             WHERE ST_Intersects(p.geom,s.geom);''',
-    "planet_osm_points": '''DROP TABLE IF EXISTS buffer_study_area;
+    "planet_osm_point": '''DROP TABLE IF EXISTS buffer_study_area;
             CREATE TEMP TABLE buffer_study_area AS 
             SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 
             FROM temporal.study_area;
 
-            DROP TABLE IF EXISTS temporal.planet_osm_points_p;
-            CREATE TABLE temporal.planet_osm_points_p as 
+            DROP TABLE IF EXISTS temporal.planet_osm_point;
+            CREATE TABLE temporal.planet_osm_point as 
             SELECT p.* 
-            FROM public.planet_osm_points p, buffer_study_area s
+            FROM public.planet_osm_point p, buffer_study_area s
             WHERE ST_Intersects(p.way,s.geom);''',
     "ways": '''DROP TABLE IF EXISTS buffer_study_area;
             CREATE TEMP TABLE buffer_study_area AS 
@@ -154,7 +183,38 @@ sql_queries = {
             WHERE ST_Intersects(b.geom, s.geom);
             ALTER TABLE temporal.buildings_custom ADD COLUMN gid serial;
             CREATE INDEX ON temporal.buildings_custom(gid);
-            CREATE INDEX ON temporal.buildings_custom USING GIST(geom);''',
+            CREATE INDEX ON temporal.buildings_custom USING GIST(geom);
+            
+            DROP TABLE IF EXISTS temporal.buildings_custom_board;
+            CREATE TABLE temporal.buildings_custom_board AS 
+            WITH coverage_perc AS (
+                SELECT round((ST_Area(ST_Intersection(bc.geom,s.geom))/ST_Area(bc.geom))::numeric,4) AS perc, gid 
+                FROM temporal.buildings_custom bc,(SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s
+                )
+                SELECT cp.perc, bc.geom, bc.gid 
+                FROM temporal.buildings_custom bc, coverage_perc cp
+                WHERE cp.perc <= 0.5
+                --AND cp.perc > 0.25
+                AND cp.gid = bc.gid;
+
+            WITH shares_buildings AS (
+                SELECT round((ST_Area(ST_Intersection(bcb.geom,s.geom))/ST_Area(bcb.geom))::numeric,4) AS shares, s.rs, bcb.gid
+                FROM temporal.buildings_custom_board bcb, sub_study_area s
+                WHERE ST_intersects(bcb.geom,s.geom)
+                ),
+                rs_code AS (
+                SELECT DISTINCT rs FROM temporal.study_area
+                )
+                DELETE FROM temporal.buildings_custom
+                WHERE gid IN (
+                                SELECT gid
+                                FROM shares_buildings sb, rs_code rc
+                                WHERE shares = (SELECT max(shares) 
+                                                FROM shares_buildings
+                                                WHERE gid = sb.gid)
+                                AND sb.rs != rc.rs);
+
+            DROP TABLE IF EXISTS temporal.buildings_custom_board;''',
     "geographical_names": '''DROP TABLE IF EXISTS temporal.geographical_names;
             CREATE TABLE temporal.geographical_names AS 
             SELECT g.* 

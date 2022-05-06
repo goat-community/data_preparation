@@ -23,19 +23,19 @@ data_fusion_buildings = f'''
 DROP TABLE IF EXISTS buildings_osm_study_area; 
 CREATE TABLE buildings_osm_study_area AS 
 SELECT b.*
-FROM buildings_osm b, study_area s
+FROM temporal.buildings_osm b, (SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s 
 WHERE ST_Intersects(s.geom, b.geom);  
 
 ALTER TABLE buildings_osm_study_area ADD COLUMN gid serial; 
 ALTER TABLE buildings_osm_study_area ADD PRIMARY KEY(gid);
 CREATE INDEX ON buildings_osm_study_area USING GIST(geom);
 
-ALTER TABLE study_area ADD COLUMN IF NOT EXISTS default_building_levels SMALLINT;
-ALTER TABLE study_area ADD COLUMN IF NOT EXISTS default_roof_levels SMALLINT; 
-ALTER TABLE study_area ALTER COLUMN sum_pop TYPE integer using sum_pop::integer;
-ALTER TABLE study_area DROP COLUMN IF EXISTS area;
-ALTER TABLE study_area add column area float;
-UPDATE study_area set area = st_area(geom::geography);
+ALTER TABLE temporal.study_area ADD COLUMN IF NOT EXISTS default_building_levels SMALLINT;
+ALTER TABLE temporal.study_area ADD COLUMN IF NOT EXISTS default_roof_levels SMALLINT; 
+ALTER TABLE temporal.study_area ALTER COLUMN sum_pop TYPE integer using sum_pop::integer;
+ALTER TABLE temporal.study_area DROP COLUMN IF EXISTS area;
+ALTER TABLE temporal.study_area add column area float;
+UPDATE temporal.study_area SET area = st_area(geom::geography);
 DROP TABLE IF EXISTS buildings;
 CREATE TABLE buildings 
 (
@@ -69,20 +69,20 @@ $$
 		IF EXISTS
             ( SELECT 1
               FROM   information_schema.tables 
-              WHERE  table_schema = 'public'
+              WHERE  table_schema = 'temporal'
               AND    table_name = 'buildings_custom'
             )
         THEN	
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS building TEXT;
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS amenity TEXT;
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS residential_status TEXT; 
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS housenumber TEXT;
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS street TEXT;
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS building_levels SMALLINT; 
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS roof_Levels SMALLINT;
-			ALTER TABLE buildings_custom ADD COLUMN IF NOT EXISTS height float;
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS building TEXT;
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS amenity TEXT;
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS residential_status TEXT; 
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS housenumber TEXT;
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS street TEXT;
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS building_levels SMALLINT; 
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS roof_Levels SMALLINT;
+			ALTER TABLE temporal.buildings_custom ADD COLUMN IF NOT EXISTS height float;
 			/*There where some invalid geometries in the dataset*/        	
-			UPDATE buildings_custom 
+			UPDATE temporal.buildings_custom 
 			SET geom = ST_MAKEVALID(geom)
 			WHERE ST_ISVALID(geom) IS FALSE;
 						
@@ -90,7 +90,7 @@ $$
         	DROP TABLE IF EXISTS match_osm;
         	CREATE TEMP TABLE match_osm AS  
         	SELECT o.osm_id, c.gid AS custom_gid, ST_AREA(ST_Intersection(o.geom,c.geom)) AS area_intersection, ST_Intersection(o.geom,c.geom) AS geom         	
-        	FROM buildings_custom c, buildings_osm o 
+        	FROM temporal.buildings_custom c, temporal.buildings_osm o 
         	WHERE ST_Intersects(o.geom,c.geom); 
         
         	ALTER TABLE match_osm ADD COLUMN gid serial;
@@ -116,7 +116,7 @@ $$
 	        	AND c.cnt_osm_id = 1
         	)        	
     		SELECT c.gid custom_gid, m.osm_id, c.geom 
-        	FROM m, buildings_custom c
+        	FROM m, temporal.buildings_custom c
         	WHERE m.custom_gid = c.gid 
         	AND m.area_intersection/ST_AREA(c.geom) > 0.35;
         
@@ -135,7 +135,7 @@ $$
 	        	GROUP BY custom_gid 
         	)
 			SELECT d.custom_gid, d.osm_id, c.geom 
-			FROM dominant_osm_building d, buildings_custom c 
+			FROM dominant_osm_building d, temporal.buildings_custom c 
 			WHERE d.custom_gid = c.gid; 
 			
         	CREATE INDEX ON selected_buildings (osm_id);
@@ -151,7 +151,7 @@ $$
 				DROP TABLE IF EXISTS osm_ids_intersect;
 				CREATE TABLE osm_ids_intersect AS 
 				SELECT DISTINCT o.gid   
-				FROM buildings_osm_study_area o, buildings_custom c 
+				FROM buildings_osm_study_area o, temporal.buildings_custom c 
 				WHERE ST_Intersects(o.geom,c.geom);
 						
 				ALTER TABLE osm_ids_intersect ADD PRIMARY KEY(gid);
@@ -169,7 +169,7 @@ $$
         	IF inject_not_duplicated_custom = 'yes' THEN 
 	        	INSERT INTO selected_buildings 
 	        	SELECT NULL AS osm_id, c.gid AS custom_gid, c.geom  
-	        	FROM buildings_custom c
+	        	FROM temporal.buildings_custom c
 	        	LEFT JOIN selected_buildings s 
 	        	ON c.gid = s.custom_gid
 	        	WHERE s.custom_gid IS NULL;	
@@ -203,9 +203,9 @@ $$
 			FROM selected_buildings b
 			LEFT JOIN buildings_osm_study_area o
 			ON b.osm_id = o.osm_id
-			LEFT JOIN buildings_custom c
+			LEFT JOIN temporal.buildings_custom c
 			ON b.custom_gid = c.gid
-			LEFT JOIN study_area s
+			LEFT JOIN (SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s 
 			ON ST_Intersects(s.geom,b.geom);
 			DROP TABLE IF EXISTS selected_buildings;
 		ELSE 
@@ -214,7 +214,7 @@ $$
 			CASE WHEN b.building_levels IS NOT NULL THEN b.building_levels ELSE average_building_levels END AS building_levels,
 			CASE WHEN b.roof_levels IS NOT NULL THEN b.roof_levels ELSE average_roof_levels END AS roof_levels,b.geom
 			FROM buildings_osm_study_area b
-			LEFT JOIN study_area s
+			LEFT JOIN (SELECT ST_UNION(geom) AS geom FROM temporal.study_area) s 
 			ON ST_Intersects(s.geom,b.geom);
 		END IF;
 	END

@@ -232,7 +232,7 @@ def GetTableList(t_schema, source='remote'):
 def migrate_all_tables2localdb():
     tables = GetTableList('temporal')
     for t in tables:
-        migrate_table2localdb(t,t)
+        migrate_table2localdb(t)
 
 def create_sql_dumps():
     tables_basic_standard = ['aoi', 'building', 'dem', 'edge', 'grid_calculation', 'grid_visualization', 'node', 'poi', 'population', 'study_area', 'sub_study_area']

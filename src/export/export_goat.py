@@ -14,8 +14,8 @@ user,password,host,port,dbname = DATABASE.values()
 
 create_pgpass()
 
-db_rd = Database()
-con_rd = db_rd.connect_rd()
+# db_rd = Database()
+# con_rd = db_rd.connect_rd()
 
 db = Database()
 #con = db.connect()
@@ -25,7 +25,7 @@ if os.path.isdir('export_results') == False:
     os.makedirs('export_results')
 
 def export_layer(layer_name, municipalities, export_formats):  
-
+    db_rd = Database()
     # If layer_name is study_area or exist in dictionary, only then it will be exported. Otherwise, export will be discarded.
     if layer_name in sql_queries or layer_name == "study_area":
         print('Data for %s is searched in the database.' % layer_name)    
@@ -56,21 +56,23 @@ def export_layer(layer_name, municipalities, export_formats):
         print(f'''Exporting failed for {layer_name} because it couldn't be found in dictionary''')
 
 def getDataFromSql(layer_names, municipalities, export_formats=['shp','sql', 'geojson']):   
-
+    db_rd = Database()
+    con_rd = db_rd.connect_rd()
     print(municipalities)
     #Create temp table for study_area
     for i, mun in enumerate(municipalities):
         if i == 0:
-            db_rd.perform_rd(f'''DROP TABLE IF EXISTS temporal.study_area;
+            db_rd.perform_rd(f'''CREATE SCHEMA IF NOT EXISTS temporal;
+            DROP TABLE IF EXISTS temporal.study_area;
             CREATE TABLE temporal.study_area AS 
             SELECT rs, name, sum_pop::integer, geom, gen, default_building_levels, default_roof_levels
-            FROM public.germany_municipalities_districts 
-            WHERE rs = '{mun}';''')
+            FROM public.sub_study_area
+            WHERE rs = '{mun}';''') # --germany_municipalities_districts 
         else:
             db_rd.perform_rd(f'''
             INSERT INTO temporal.study_area (rs, name, sum_pop, geom, gen, default_building_levels ,default_roof_levels)
             SELECT rs, name, sum_pop::integer, geom, gen, default_building_levels ,default_roof_levels
-            FROM public.germany_municipalities_districts 
+            FROM public.sub_study_area 
             WHERE rs = '{mun}';''')
 
     if db_rd.select_rd('SELECT * FROM temporal.study_area LIMIT 1') == []:
