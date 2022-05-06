@@ -93,11 +93,72 @@ sql_queries = {
             SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 
             FROM temporal.study_area;
 
-            DROP TABLE IF EXISTS temporal.poi;
-            CREATE TABLE temporal.poi as 
-            SELECT p.* 
-            FROM public.poi p, buffer_study_area s
-            WHERE ST_Intersects(p.geom,s.geom);''',
+            DO $$
+                DECLARE
+                        rec record; 
+                        total_cnt integer;
+                BEGIN 
+                        
+                        DROP TABLE IF EXISTS count_pois;
+                        CREATE TEMP TABLE count_pois 
+                        (
+                                cnt integer,
+                                starting_uid TEXT,
+                                uid TEXT,
+                                category TEXT,
+                                geom geometry,
+                                test float
+                        ); 
+                        ALTER TABLE count_pois ADD PRIMARY KEY(uid);	
+                        
+                        DROP TABLE IF EXISTS intersecting_pois;
+                        CREATE TEMP TABLE intersecting_pois (starting_uid TEXT, uid TEXT, category TEXT, geom geometry);
+                        FOR rec IN SELECT * FROM public.poi p, buffer_study_area s WHERE ST_Intersects(p.geom,s.geom) 
+                        LOOP
+                                IF (SELECT count(*) FROM count_pois WHERE uid = rec.uid) = 0 THEN  
+                                        
+                                        TRUNCATE intersecting_pois; 
+                                        INSERT INTO intersecting_pois
+                                        SELECT p.*
+                                        FROM
+                                        (
+                                                SELECT rec.uid starting_uid, p.uid, p.category, p.geom
+                                                FROM public.poi p
+                                                WHERE ST_Intersects(p.geom, ST_BUFFER(rec.geom, 0.00000001))
+                                                AND p.uid <> rec.uid
+                                                UNION ALL 
+                                                SELECT rec.uid, rec.uid, rec.category, rec.geom	
+                                        ) p
+                                        ORDER BY p.starting_uid, p.category;  
+                                        total_cnt = (SELECT count(*) FROM intersecting_pois); 
+                                        
+                                        IF total_cnt > 1 THEN 
+                                                INSERT INTO count_pois 
+                                                SELECT ROW_NUMBER() OVER() cnt, o.starting_uid, o.uid, o.category, 
+                                                ST_PROJECT(geom::geography, 3, radians(360 * ((ROW_NUMBER() OVER())::float / total_cnt::float)))::geometry 
+                                                FROM intersecting_pois o;
+                                        END IF; 
+                                
+                                END IF; 
+                        END LOOP;
+                        DROP TABLE IF EXISTS temporal.poi;
+                        CREATE TABLE temporal.poi AS 
+                        SELECT p.id, p.category, p.name, p.street, p.housenumber, p.zipcode, p.opening_hours, p.wheelchair, p.tags, c.geom, p.uid
+                        FROM public.poi p, buffer_study_area s, count_pois c  
+                        WHERE ST_Intersects(p.geom,s.geom) 
+                        AND p.uid = c.uid 
+                        UNION ALL 
+                        SELECT p.*
+                        FROM 
+                        (
+                                SELECT p.id, p.category, p.name, p.street, p.housenumber, p.zipcode, p.opening_hours, p.wheelchair, p.tags, p.geom, p.uid
+                                FROM public.poi p, buffer_study_area s
+                                WHERE ST_Intersects(p.geom,s.geom) 
+                        ) p
+                        LEFT JOIN count_pois c
+                        ON p.uid = c.uid 
+                        WHERE c.uid IS NULL; 
+	        END$$;''',
     "planet_osm_point": '''DROP TABLE IF EXISTS buffer_study_area;
             CREATE TEMP TABLE buffer_study_area AS 
             SELECT ST_BUFFER(ST_UNION(geom), 0.027) AS geom 

@@ -207,7 +207,10 @@ def migrate_table2localdb(tablename):
     db.perform_rd(query=f"DROP TABLE IF EXISTS temporal.{tablename};")
     db.perform(query = f"DROP TABLE IF EXISTS temporal.{tablename} CASCADE;")
     table_restore("local", tablename)
-    subprocess.run(f'rm src/data/export_results/{tablename}.sql', shell=True, check=True)
+    try:
+        os.remove(f'rm src/data/export_results/{tablename}.sql')
+    except OSError as e:
+        pass
 
 
 def GetTableList(t_schema, source='remote'):
