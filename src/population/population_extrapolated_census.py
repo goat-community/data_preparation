@@ -11,7 +11,7 @@ population_extrapolated_census = f'''
 DROP TABLE IF EXISTS splitted_census; 
 CREATE TEMP TABLE splitted_census AS 
 SELECT c.gid, c.pop, ST_Intersection(c.geom, s.geom) AS geom 
-FROM census c, study_area s
+FROM temporal.census c, temporal.study_area s
 WHERE ST_Intersects(c.geom, ST_BOUNDARY(s.geom));
 
 CREATE INDEX ON splitted_census USING GIST(geom);
@@ -20,7 +20,7 @@ CREATE INDEX ON splitted_census (gid);
 DROP TABLE IF EXISTS census_splitted_sum_built_up;
 CREATE TEMP TABLE census_splitted_sum_built_up AS 
 SELECT DISTINCT c.gid, COALESCE(c.pop,0) pop, COALESCE(c.sum_gross_floor_area_residential,0) AS sum_gross_floor_area_residential, c.number_buildings_now, c.geom 
-FROM study_area s
+FROM temporal.study_area s
 INNER JOIN LATERAL 
 (
 	SELECT c.gid, c.pop, sum(a.gross_floor_area_residential) sum_gross_floor_area_residential, count(a.gid) AS number_buildings_now, c.geom 
@@ -101,11 +101,11 @@ CREATE INDEX ON census_split_new_development USING GIST(geom);
 --Substract fixed population from study_area
 WITH study_area_to_update AS (
 	SELECT s.name, sum(fixed_population) AS sum_fixed_pop
-	FROM fixed_residential_addresses b, study_area s
+	FROM fixed_residential_addresses b, temporal.study_area s
 	WHERE ST_Intersects(b.geom,s.geom)
 	GROUP BY s.name
 )
-UPDATE study_area s 
+UPDATE temporal.study_area s 
 SET sum_pop = sum_pop - c.sum_fixed_pop
 FROM study_area_to_update c
 WHERE s.name = c.name; 
@@ -115,14 +115,14 @@ WHERE s.name = c.name;
 --Distribute the rest of the population
 WITH comparison_pop AS (
 	SELECT s.name, s.sum_pop,sum(c.new_pop) sum_new_pop, s.geom
-	FROM census_prepared c, study_area s
+	FROM census_prepared c, temporal.study_area s
 	WHERE ST_Intersects(ST_Centroid(c.geom),s.geom)
 	AND c.new_pop > 0
 	GROUP BY s.name, s.sum_pop, s.geom
 ),
 sum_distributed_pop AS (
 	SELECT s.name, sum(c.new_pop) distributed_pop
-	FROM census_prepared c, study_area s
+	FROM census_prepared c, temporal.study_area s
 	WHERE c.pop < 1 
 	AND c.number_buildings_now >= {variable_container_population['census_minimum_number_new_buildings']}::integer
 	AND ST_Intersects(ST_Centroid(c.geom), s.geom)
@@ -144,7 +144,7 @@ AND pop < 1;
 
 WITH new_comparison_pop AS (
 	SELECT s.name, s.sum_pop,sum(c.new_pop) sum_new_pop, s.geom
-	FROM census_prepared c, study_area s
+	FROM census_prepared c, temporal.study_area s
 	WHERE ST_Intersects(ST_Centroid(c.geom),s.geom)
 	AND c.new_pop > 0
 	GROUP BY s.name, s.sum_pop, s.geom
@@ -154,7 +154,7 @@ remaining_pop AS (
 	FROM new_comparison_pop c,
 	(	
 		SELECT s.name,count(*) AS count_grids
-		FROM census_prepared c, study_area s
+		FROM census_prepared c, temporal.study_area s
 		WHERE c.pop > 0
 		AND ST_Intersects(ST_Centroid(c.geom),s.geom)
 		GROUP BY s.name
@@ -163,7 +163,7 @@ remaining_pop AS (
 	AND c.name = x.name 
 )
 UPDATE census_prepared SET new_pop = new_pop + r.to_add
-FROM study_area s, remaining_pop r 
+FROM temporal.study_area s, remaining_pop r 
 WHERE s.name = r.name 
 AND ST_Intersects(s.geom,ST_Centroid(census_prepared.geom))
 AND census_prepared.pop > 0;
@@ -185,11 +185,11 @@ FROM fixed_residential_addresses;
 --Add fixed population again to study_area
 WITH study_area_to_update AS (
 	SELECT s.name, sum(fixed_population) AS sum_fixed_pop
-	FROM fixed_residential_addresses b, study_area s
+	FROM fixed_residential_addresses b, temporal.study_area s
 	WHERE ST_Intersects(b.geom,s.geom)
 	GROUP BY s.name
 )
-UPDATE study_area s 
+UPDATE temporal.study_area s 
 SET sum_pop = sum_pop + c.sum_fixed_pop
 FROM study_area_to_update c
 WHERE s.name = c.name; 

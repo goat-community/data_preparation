@@ -6,7 +6,7 @@ DO $$
         IF EXISTS
             ( SELECT 1
               FROM   information_schema.tables 
-              WHERE  table_schema = 'public'
+              WHERE  table_schema = 'temporal'
               AND    table_name = 'fixed_population'
             )
         THEN
@@ -23,19 +23,19 @@ DO $$
     END
 $$ ;
 
-ALTER TABLE census DROP COLUMN IF EXISTS gid; 
-ALTER TABLE census ADD COLUMN IF NOT EXISTS gid serial; 
-ALTER TABLE census ADD PRIMARY KEY(gid);
+ALTER TABLE temporal.census DROP COLUMN IF EXISTS gid; 
+ALTER TABLE temporal.census ADD COLUMN IF NOT EXISTS gid serial; 
+ALTER TABLE temporal.census ADD PRIMARY KEY(gid);
 
 /*Compute built up area per census tract*/
 DROP TABLE IF EXISTS census_sum_built_up;
 CREATE TABLE census_sum_built_up AS 
 SELECT DISTINCT c.gid, COALESCE(c.pop,0) pop, COALESCE(c.sum_gross_floor_area_residential,0) AS sum_gross_floor_area_residential, c.number_buildings_now, c.geom 
-FROM study_area s
+FROM temporal.study_area s
 INNER JOIN LATERAL 
 (
 	SELECT c.gid, sum(a.gross_floor_area_residential) sum_gross_floor_area_residential, count(a.gid) AS number_buildings_now, c.pop, c.geom  
-	FROM census c, residential_addresses a 
+	FROM temporal.census c, residential_addresses a 
 	WHERE ST_Intersects(s.geom, c.geom)
 	AND ST_Intersects(c.geom, a.geom) 
 	GROUP BY c.gid, c.pop, c.geom  

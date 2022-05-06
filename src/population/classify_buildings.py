@@ -55,7 +55,7 @@ DO $$
         IF EXISTS
             ( SELECT 1
               FROM   information_schema.tables 
-              WHERE  table_schema = 'public'
+              WHERE  table_schema = 'temporal'
               AND    table_name = 'landuse'
             )
         THEN
@@ -63,7 +63,7 @@ DO $$
         	DROP TABLE IF EXISTS landuse_subdivide; 
         	CREATE TABLE landuse_subdivide AS 
         	SELECT landuse::text, ST_SUBDIVIDE(geom, 200) AS geom
-        	FROM landuse; 
+        	FROM temporal.landuse; 
         
         	ALTER TABLE landuse_subdivide ADD COLUMN gid serial;
         	ALTER TABLE landuse_subdivide ADD PRIMARY KEY(gid);
@@ -110,14 +110,14 @@ DO $$
         IF EXISTS
             ( SELECT 1
               FROM   information_schema.tables 
-              WHERE  table_schema = 'public'
+              WHERE  table_schema = 'temporal'
               AND    table_name = 'landuse_additional'
             )
         THEN     
         	DROP TABLE IF EXISTS landuse_additional_subdivide ; 
         	CREATE TABLE landuse_additional_subdivide  AS 
         	SELECT landuse::text, ST_SUBDIVIDE(geom, 200) AS geom
-        	FROM landuse_additional; 
+        	FROM temporal.landuse_additional; 
         
         	ALTER TABLE landuse_additional_subdivide ADD COLUMN gid serial;
         	ALTER TABLE landuse_additional_subdivide  ADD PRIMARY KEY(gid);
@@ -164,7 +164,7 @@ DO $$
         IF EXISTS
             ( SELECT 1
               FROM   information_schema.tables 
-              WHERE  table_schema = 'public'
+              WHERE  table_schema = 'temporal'
               AND    table_name = 'landuse_osm'
             )
         THEN
@@ -172,7 +172,7 @@ DO $$
 			DROP TABLE IF EXISTS landuse_osm_subdivide ; 
         	CREATE TABLE landuse_osm_subdivide AS 
 			SELECT landuse::text, ST_SUBDIVIDE(geom, 200) AS geom
-			FROM landuse_osm l
+			FROM temporal.landuse_osm l
 			WHERE landuse IS NOT NULL;
 	
         	ALTER TABLE landuse_osm_subdivide ADD COLUMN gid serial;

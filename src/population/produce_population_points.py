@@ -97,39 +97,41 @@ class Population():
         self.db.perform(query = sql_finalized_classification)
         print ('------ finilized classification finished! ------')
         self.db.perform(query = sql_buildings_update)
-        print ('------ buildings upate finished! ------')
+        print ('------ buildings update finished! ------')
 
         # further classification: select residential_status = potential_residents 
         sql_potential_residents = "SELECT gid, residential_status, geom FROM buildings b WHERE b.residential_status = 'potential_residents'"
 
         # didn't connect with engine, only used connect() function
         gdf_potential_residents = gpd.GeoDataFrame.from_postgis(sql_potential_residents, self.db.connect_sqlalchemy())
-
         #gdf_potential_residents = self.db.select(query = sql_potential_residents)
         
         # print('------ data fetching finished! ------')
         print('the number of rows: ', len(gdf_potential_residents))
 
-        prediction_type = building_prediction(gdf_potential_residents)
-        prediction_type.to_postgis('prediction_type', self.db.connect_sqlalchemy(), if_exists='replace')   # why?
-        
-        # data prediction: save it to database
-        
-        # updating database with prediction results
-        
-        sql_update_building_types = f'''
-        UPDATE buildings b 
-        SET residential_status = 'with_residents'
-        FROM prediction_type pt
-        WHERE b.gid = pt.gid AND pt.pred_label = 1;
+        if len(gdf_potential_residents) != 0:
+            prediction_type = building_prediction(gdf_potential_residents)
+            prediction_type.to_postgis('prediction_type', self.db.connect_sqlalchemy(), if_exists='replace')   # why?
+            
+            # data prediction: save it to database
+            
+            # updating database with prediction results
+            
+            sql_update_building_types = f'''
+            UPDATE buildings b 
+            SET residential_status = 'with_residents'
+            FROM prediction_type pt
+            WHERE b.gid = pt.gid AND pt.pred_label = 1;
 
-        UPDATE buildings b
-        SET residential_status = 'no_residents'
-        FROM prediction_type pt
-        WHERE b.gid = pt.gid AND pt.pred_label = 2;'''
+            UPDATE buildings b
+            SET residential_status = 'no_residents'
+            FROM prediction_type pt
+            WHERE b.gid = pt.gid AND pt.pred_label = 2;'''
 
-        self.db.perform(query = sql_update_building_types)
-
+            self.db.perform(query = sql_update_building_types)
+        else:
+            pass
+        
         self.db.perform(query = create_residential_addresses)
 
         if source_population == 'census_standard':

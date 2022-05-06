@@ -8,12 +8,14 @@ from src.export.export_sql_queries import *
 from src.other.utility_functions import create_pgpass
 
 create_pgpass()
+
 db_reading = Database(db_type='reading')
 db = Database()
 
 #Create folder for the export results
 if os.path.isdir('export_results') == False:
     os.makedirs('export_results')
+
 
 def export_layer(layer_name):  
 
@@ -31,7 +33,7 @@ def export_layer(layer_name):
         print(f'''Exporting failed for {layer_name} because it couldn't be found in dictionary''')
 
 def getDataFromSql(layer_names, municipalities, export_formats=['shp','sql', 'geojson']):   
-    
+
     #Create temp table for study_area
     db_reading.perform('''
         DROP TABLE IF EXISTS temporal.study_area;
@@ -42,6 +44,7 @@ def getDataFromSql(layer_names, municipalities, export_formats=['shp','sql', 'ge
     )
 
     if db_reading.select('SELECT * FROM temporal.study_area LIMIT 1') == []:
+
         sql_municipalities = ('''CREATE TABLE study_area AS
         SELECT rs, gen AS name, ewz::integer AS sum_pop, geom, gen 
         FROM public.germany_municipalities

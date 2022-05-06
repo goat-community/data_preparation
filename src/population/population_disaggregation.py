@@ -3,7 +3,7 @@ population_disaggregation = '''
 DROP TABLE IF EXISTS sum_built_up;
 CREATE TEMP TABLE sum_built_up AS
 SELECT sum(a.gross_floor_area_residential) AS sum_gross_floor_area_residential, s.sum_pop, s.geom  
-FROM residential_addresses a, study_area s  
+FROM residential_addresses a, temporal.study_area s  
 WHERE ST_Intersects(a.geom, s.geom)
 GROUP BY s.geom, s.sum_pop ; 
 
