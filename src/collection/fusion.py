@@ -8,7 +8,7 @@ from other.utility_functions import gdf_conversion, file2df
 from config.config import Config
 from db.db import Database
 from db.config import DATABASE
-from other.utility_functions import rdatabase_connection, database_table2df
+from other.utility_functions import database_table2df
 
 
 # Creates DataFrame with buffer (default 8300 meters) of geometries, provided as a list of dataframes
@@ -311,7 +311,10 @@ def pois_fusion(df=None, config=None, result_name=None, return_type=None):
                 
     df_base = df_base[df_base.amenity.isin(values)]
 
-    df_area = config.get_areas_by_rs(buffer=8300)
+    db_rd = Database('reading')
+    con_rd = db_rd.connect_rd()
+
+    df_area = config.get_areas_by_rs(con_rd,buffer=8300)
     df_base2area = df2area(df_base, df_area)
 
     for typ in typen:

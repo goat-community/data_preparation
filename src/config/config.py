@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import geopandas as gpd 
 from config.osm_dict import OSM_tags, OSM_germany
-from other.utility_functions import rdatabase_connection, file2df
+from other.utility_functions import file2df
 
 class Config:
     def __init__(self,name):
@@ -108,7 +108,7 @@ class Config:
         fus_type = fus["fusion_type"]
         return fus_type
 
-    def get_areas_by_rs(self, buffer):
+    def get_areas_by_rs(self, con, buffer):
 
         # Returns study area as df from remote db (germany_municipalities) according to rs code 
         def study_area_remote2df(con,rs):
@@ -134,7 +134,6 @@ class Config:
         except:
             try:
                 list_areas = []
-                con = rdatabase_connection()
                 for rs in rs_set:
                     df_area = study_area_remote2df(con,rs)
                     list_areas.append(df_area)

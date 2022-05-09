@@ -55,11 +55,6 @@ def file2df(filename):
         sys.exit()
     return df
 
-# Create connection to remote database
-def rdatabase_connection():
-    db = Database()
-    con = db.connect_rd()
-    return con
 
 # Publish dataframe in REMOTE database
 # df - dataframe, name - table name to store, if_exists="replace" to overwrite datatable
