@@ -7,7 +7,7 @@ from src.network.network_islands_municip import network_islands_mun
 from src.collection.preparation import kindergarten_deaggrgation
 from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
-from src.db.db import Database+
+from src.db.db import Database
 
 import json
 import sys,os
