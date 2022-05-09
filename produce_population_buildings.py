@@ -7,47 +7,7 @@ from src.network.network_islands_municip import network_islands_mun
 from src.collection.preparation import kindergarten_deaggrgation
 from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
-from src.db.db import Database
-
-# municipalities = ['083110000', '091620000']
-
-# getDataFromSql(['ways'], municipalities)
-# migrate_table2localdb('study_area')
-# migrate_table2localdb('ways')
-# migrate_table2localdb('ways_vertices_pgr')
-# db = Database()
-# #mun_int = list(map(int, municipalities))
-# for m in municipalities:
-#     db.perform(query=network_islands_mun(m))
-# db.perform(sql_queries_goat['nodes_edges'])
-
-
-# def test(table_name, attribute=None, value=None, geometry_column="geometry"):
-#     if not attribute or not value:
-#         query = f"SELECT * FROM {table_name};" 
-#     else:
-#         query = f"SELECT * FROM {table_name} WHERE {attribute} = {value};" 
-#     print(query)
-
-# path = "ros_erd_prepared.geojson"
-# path2store = "ros_erd_prepared_upd.geojson"
-
-# addr = GeoAddress(
-#     street="street",
-#     city="municipality",
-#     postcode="zipcode",
-#     houseno="housenumber"
-# )
-
-
-# google_api_key = 'AIzaSyDZOSTumW8-iggE3KDYp6yGL4HlIe0eoqk'
-# addLocationOfAdressToJson(path, path2store, google_api_key, addr)
-
-# cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, index) VALUES %s""",tup_new)
-
-# df = file2df('ros_erd_prepared.geojson')
-
-# kindergarten_deaggrgation(df, 'ros_erd_prepared_n', 'GeoJSON')
+from src.db.db import Database+
 
 import json
 import sys,os
