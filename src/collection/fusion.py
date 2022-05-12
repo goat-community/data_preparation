@@ -342,8 +342,7 @@ def pois_fusion(df=None, config=None, result_name=None, return_type=None):
 
             elif typ == 'database':
                 try:
-                    con = rdatabase_connection()
-                    df_input = database_table2df(con, key)
+                    df_input = database_table2df(con_rd, key)
                     df_input = df2area(df_input, df_area)
                 except:
                     print(f"Table {key} was not found in 'goat' table.")
