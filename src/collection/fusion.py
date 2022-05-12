@@ -98,7 +98,7 @@ def find_nearest(gdA, gdB, max_dist):
 
 # Indexing data in dataframe with goat indexes
 def dataframe_goat_index(df):
-    db = Database()
+    db = Database('reading')
     con = db.connect_rd()
     cur = con.cursor()
     df = df[df['amenity'].notna()]
@@ -110,7 +110,7 @@ def dataframe_goat_index(df):
     df['poi_goat_id'] = df['id_x'].map(str) + '-' + df['id_y'].map(str) + '-' + df['amenity']
     df = df.drop(columns=['id_x','id_y'])
     df["osm_id"] = df["osm_id"].fillna(value=0)
-    df_poi_goat_id = df[['poi_goat_id','osm_id', 'name']]
+    df_poi_goat_id = df[['poi_goat_id','osm_id', 'name', 'origin_geometry']]
 
     cols = ','.join(list(df_poi_goat_id.columns))
     tuples = [tuple(x) for x in df_poi_goat_id.to_numpy()]
@@ -126,7 +126,7 @@ def dataframe_goat_index(df):
             tup_new = tup_l
             tup_new.append(0)
             tup_new = tuple(tup_new)
-            cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, index) VALUES (%s,%s,%s,%s)""",tup_new)
+            cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
             con.commit()
             df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-0000'
         else:
@@ -134,7 +134,7 @@ def dataframe_goat_index(df):
             tup_new = tup_l
             tup_l.append(new_ind)
             tup_new = tuple(tup_new)
-            cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, index) VALUES (%s, %s, %s, %s)""",tup_new)
+            cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
             con.commit()
             df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-{new_ind:04}'
         cnt += 1

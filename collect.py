@@ -2,11 +2,14 @@ import argparse, sys, os
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
+from test_p_upd import pois_update
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from src.other.utility_functions import database_table2df, df2database, drop_table
 from src.collection.collection import osm_collection
 from src.collection.preparation import pois_preparation, landuse_preparation, buildings_preparation
 from src.collection.fusion import pois_fusion
+from src.collection.update import pois_update
 from src.network.network_collection import network_collection
 from src.network.ways import PrepareLayers, Profiles
 from src.network.conversion_dem import conversion_dem
@@ -19,16 +22,19 @@ from src.db.prepare import PrepareDB
 
 layers_collect = ['network', 'pois']
 layers_fuse = ['pois', 'population', 'network']
+layers_update = ['pois']
 
 parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
 
 parser.add_argument('-db',help='Create neccesary extensions and functions for fresh database', action='store_true')
 parser.add_argument('-c','--collect',help='Please specify layer name for data collection from osm (e.g. pois, network)')
 parser.add_argument('-f', '--fuse',help='Please specify layer name for data fusion from osm (e.g. pois, network)')
+parser.add_argument('-u', '--update',help='Please specify layer name for data update from osm')
 
 args = parser.parse_args()
 collect = args.collect
 fuse = args.fuse
+update = args.update
 
 if args.db == True:
     prepare_db = PrepareDB(Database)
@@ -82,3 +88,9 @@ if fuse or fuse in(layers_fuse):
         db.perform(query = 'ALTER TABLE pois_goat ALTER COLUMN osm_id TYPE bigint USING osm_id::bigint')
     else:
         print('Error ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Please specify a valid fusion type.')
+
+if update or update in(layers_update):
+    if update == 'pois':
+        pois_update()
+    else:
+        print('Error ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Please specify a valid update type.')

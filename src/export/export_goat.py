@@ -39,7 +39,7 @@ def getDataFromSql(layer_names, municipalities, export_formats=['shp','sql', 'ge
         DROP TABLE IF EXISTS temporal.study_area;
         CREATE TABLE temporal.study_area AS 
         SELECT rs, name, sum_pop::integer, geom, gen, default_building_levels, default_roof_levels
-        FROM public.germany_municipalities_districts 
+        FROM public.sub_study_area 
         WHERE rs IN(SELECT UNNEST(ARRAY%s));''' % municipalities
     )
 
