@@ -13,11 +13,12 @@ class Config:
             config = yaml.safe_load(stream)
         var = config['VARIABLES_SET']
         self.name = name
-        if list(var[name].keys()) == ['region_pbf','collection', 'preparation', 'fusion']:
+        if list(var[name].keys()) == ['region_pbf','collection', 'preparation', 'fusion', 'update']:
             self.pbf_data = var[name]['region_pbf']
             self.collection = var[name]['collection']
             self.preparation = var[name]['preparation']
             self.fusion = var[name]['fusion']
+            self.update = var[name]['update']
         else:
             print("unknown config format")
             sys.exit()
@@ -108,7 +109,7 @@ class Config:
         fus_type = fus["fusion_type"]
         return fus_type
 
-    def get_areas_by_rs(self, con, buffer):
+    def get_areas_by_rs(self, con, buffer, process='fusion'):
 
         # Returns study area as df from remote db (germany_municipalities) according to rs code 
         def study_area_remote2df(con,rs):
@@ -125,8 +126,12 @@ class Config:
             df_res = df_rs[df_bool]
             df_res = df_res.filter(['geometry'], axis=1)
             return df_res
-
-        rs_set = self.fusion["rs_set"]
+        if process == 'fusion':
+            rs_set = self.fusion["rs_set"]
+        elif process == 'update':
+            rs_set = self.update["rs_set"]
+        else:
+            print("Process not defined! Choose 'fusion' or 'update'.")
 
         try:
             df_area_union = study_area_file2df(rs_set)

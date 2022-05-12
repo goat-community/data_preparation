@@ -25,7 +25,7 @@ def pois_preparation(dataframe, config=None,filename="pois_preparation_result", 
     # Function search in config
     def poi_return_search_condition(name, var_dict):
     # Func asses probability of string similarity
-
+        
         for key,value in var_dict.items():
             for v in value:
                 if (similar(name, v) > 0.8 or (name in v  or v in name)) and name != '': 
@@ -141,7 +141,7 @@ def pois_preparation(dataframe, config=None,filename="pois_preparation_result", 
     # bycicle rental & doctors renaming
     df.loc[df.amenity == 'bicycle_rental', 'amenity'] = "bike_sharing"
     df.loc[df.amenity == 'doctors', 'amenity'] = "general_practitioner"
- 
+
     # Iterate through the rows
     for i in df.index:
         df_row = df.iloc[i]
@@ -159,7 +159,6 @@ def pois_preparation(dataframe, config=None,filename="pois_preparation_result", 
                 df.iat[i,i_tags]["sport"] = df_row[i_sport]
             elif df_row[i_leisure]:
                 df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
-            continue
         elif df_row[i_leisure] not in leisure_var_add and df_row[i_leisure]:
             df.iat[i,i_tags]["leisure"] = df_row[i_leisure]
 
@@ -540,3 +539,4 @@ def buildings_preparation(dataframe, config=None, filename=None ,return_type=Non
     print(f"Preparation took {time.time() - start_time} seconds ---")
 
     return gdf_conversion(df, filename, return_type)
+
