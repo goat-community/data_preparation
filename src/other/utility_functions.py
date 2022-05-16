@@ -86,15 +86,11 @@ def df2database(df, name, if_exists="replace"):
         df.to_postgis(con=con, name=name, if_exists=if_exists)
 
 
-def drop_table(table):
-    db = Database()
-    conn = db.connect()
+def drop_table(conn,table):
     cur = conn.cursor()
     drop_table = """DROP TABLE IF EXISTS {0};""".format(table)
     cur.execute(drop_table)
     conn.commit()
-    conn.close()
-
 
 # Create pgpass function
 def create_pgpass():

@@ -80,14 +80,14 @@ conf = Config('population')
 
 db = Database()
 con = db.connect()
-drop_table('population_collection')
-drop_table('buildings_collection')
+drop_table(con,'population_collection')
+drop_table(con, 'buildings_collection')
 db.perform(query=query_rt)
 
 municipalities = conf.preparation['rs_codes']
 for m in municipalities:
-    drop_table('population')
-    drop_table('buildings')
+    drop_table(con, 'population')
+    drop_table(con, 'buildings')
     population_data_preparation([m])
     population = Population(Database=Database)
     population.produce_population_points(source_population = 'census_extrapolation')

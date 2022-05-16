@@ -126,6 +126,7 @@ class Config:
             df_res = df_rs[df_bool]
             df_res = df_res.filter(['geometry'], axis=1)
             return df_res
+
         if process == 'fusion':
             rs_set = self.fusion["rs_set"]
         elif process == 'update':
@@ -134,16 +135,15 @@ class Config:
             print("Process not defined! Choose 'fusion' or 'update'.")
 
         try:
-            df_area_union = study_area_file2df(rs_set)
-            print('File extraction..')
+            list_areas = []
+            for rs in rs_set:
+                df_area = study_area_remote2df(con,rs)
+                list_areas.append(df_area)
+            df_area_union = pd.concat(list_areas,sort=False).reset_index(drop=True)
         except:
             try:
-                list_areas = []
-                for rs in rs_set:
-                    df_area = study_area_remote2df(con,rs)
-                    list_areas.append(df_area)
-                df_area_union = pd.concat(list_areas,sort=False).reset_index(drop=True)
-                print('DB connection..')
+                df_area_union = study_area_file2df(rs_set)
+                print('File extraction..')
             except:
                 print("Please make sure that in remote DB is table 'germany_municipalities' or in folder data/input is 'germany_municipalities.gpkg' file.")
                 sys.exit()

@@ -2,8 +2,6 @@ import argparse, sys, os
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
-from test_p_upd import pois_update
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from src.other.utility_functions import database_table2df, df2database, drop_table
 from src.collection.collection import osm_collection
@@ -23,6 +21,9 @@ from src.db.prepare import PrepareDB
 layers_collect = ['network', 'pois']
 layers_fuse = ['pois', 'population', 'network']
 layers_update = ['pois']
+
+db = Database()
+con = db.connect()
 
 parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
 
@@ -56,28 +57,26 @@ if collect or collect in(layers_collect):
     elif collect == 'pois':
         pois = osm_collection('pois')[0]
         pois = pois_preparation(pois)[0]
-        drop_table('pois')
+        drop_table(con,'pois')
         df2database(pois, 'pois')
     elif collect == 'landuse':
         landuse = osm_collection('landuse')[0]
         landuse = landuse_preparation(landuse)[0]
-        drop_table('landuse_osm')
+        drop_table(con,'landuse_osm')
         df2database(landuse, 'landuse_osm')
     elif collect == 'buildings':
         buildings = osm_collection('buildings')[0]
         buildings = buildings_preparation(buildings)[0]   
-        drop_table('buildings_osm')
+        drop_table(con,'buildings_osm')
         df2database(buildings, 'buildings_osm')             
     else:
         print('Please specify a valid preparation type.')
 
 if fuse or fuse in(layers_fuse):
     if fuse == 'pois':
-        db = Database()
-        con = db.connect()
         pois = database_table2df(con, 'pois', geometry_column='geom')
         pois = pois_fusion(pois)[0]
-        drop_table('pois_goat')
+        drop_table(con,'pois_goat')
         df2database(pois, 'pois_goat')
         db.perform(query = 'ALTER TABLE pois_goat DROP COLUMN IF EXISTS id;')  
         db.perform(query = 'ALTER TABLE pois_goat ADD COLUMN id serial;')
@@ -91,6 +90,6 @@ if fuse or fuse in(layers_fuse):
 
 if update or update in(layers_update):
     if update == 'pois':
-        pois_update()
+        pois_update(db,con)
     else:
         print('Error ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Please specify a valid update type.')
