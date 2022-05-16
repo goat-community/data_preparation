@@ -9,13 +9,11 @@ import pandas as pd
 # IMPORTANT! This fuction creates new poi_goat_id in remote database table. 
 # It is necessary to control your actions!
 # Copy of 'poi' table should be in the local database -> local table will be updated
-def pois_update():
+def pois_update(db,con):
 
     config = Config("pois")
     values = config.update['categories']
 
-    db = Database()
-    con = db.connect()
     db_rd = Database('reading')
     con_rd = db_rd.connect_rd()
 
@@ -49,14 +47,12 @@ def pois_update():
     i2 = df_goat_id_sa.set_index(['osm_id', 'origin_geometry']).index
     df_new_pois = df_pois[~i1.isin(i2)]
 
-    # Dataframe with pois which were removed from OSM but existed in GOAT database
-    i3 = df_pois.set_index(['osm_id']).index
-    i4 = df_goat_id_sa.set_index(['osm_id']).index
-    df_removed_poi_id = df_goat_id_sa[~i4.isin(i3)]
+    # Dataframe with 'poi_goat_id' which were removed from OSM but existed in GOAT database
+    df_removed_poi_id = df_goat_id_sa[~i2.isin(i1)]
 
     # Indexing new pois and create table 'pois_upload' in local database
     df_new_pois = dataframe_goat_index(df_new_pois)
-    drop_table('pois_upload')
+    drop_table(con,'pois_upload')
     df2database(df_new_pois, 'pois_upload')
     for v in values:
         df_temp = df_new_pois.loc[df_new_pois['amenity'] == v]
@@ -65,13 +61,16 @@ def pois_update():
 
     # Create table with uid for pois which should be removed
     conn = db.connect_sqlalchemy()
-    drop_table('pois_remove')
+    drop_table(con,'pois_remove')
     df_removed_poi_id.to_sql('pois_remove', conn)
     for v in values:
         df_temp = df_removed_poi_id.loc[df_removed_poi_id['amenity'] == v]
         number = len(df_temp.index)
-        print(f'{number} {v} were removed to local "poi" database.')
+        print(f'{number} {v} were removed from local "poi" database.')
 
     # Remove entities from local 'poi' table and upload it local 'poi' database
     db = Database()
     db.perform(sql_queries_goat['pois_update'])
+
+
+
