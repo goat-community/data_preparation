@@ -11,6 +11,7 @@ create_pgpass()
 
 db_reading = Database(db_type='reading')
 db = Database()
+conn = db_reading.connect_rd()
 
 #Create folder for the export results
 if os.path.isdir('export_results') == False:
