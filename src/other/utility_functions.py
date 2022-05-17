@@ -95,6 +95,7 @@ def drop_table(conn,table):
 # Create pgpass function
 def create_pgpass():
     db_name = config("POSTGRES_DB")
+    db_name_rd = config("DB_NAME_RD")
     try:
         os.system(f"rm ~/.pgpass_{db_name}")
     except:
@@ -114,9 +115,28 @@ def create_pgpass():
     )
     os.system(f"chmod 600  ~/.pgpass_{db_name}")
 
+    try:
+        os.system(f"rm ~/.pgpass_{db_name_rd}")
+    except:
+        pass
+    os.system(
+        "echo "
+        + ":".join(
+            [
+                config("HOST_RD"),
+                "5432",
+                db_name,
+                config("DB_NAME_RD"),
+                config("PASSWORD_RD"),
+            ]
+        )
+        + f" > ~/.pgpass_{db_name_rd}"
+    )
+    os.system(f"chmod 600  ~/.pgpass_{db_name_rd}")
+
 
 # 'source' could be "remote" or "local". Need to specify
-def table_dump(source, tablename,data_only=False):
+def table_dump(source, tablename, schema='temporal', prefix ='',data_only=False):
     if source == "remote":
         dbname_rd, host_rd, username_rd, port_rd, password_rd = (
             DATABASE_RD["dbname"],
@@ -136,9 +156,9 @@ def table_dump(source, tablename,data_only=False):
         )
         os.system(f"chmod 600  ~/.pgpass_{dbname_rd}")
         if not data_only:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t temporal.{tablename} --no-owner -U {username_rd} {dbname_rd} > src/data/export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t {schema}.{tablename} --no-owner -U {username_rd} {dbname_rd} > src/data/sql_dumps/{tablename}{prefix}.sql"""
         else:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t temporal.{tablename} --no-owner -U {username_rd} --data-only  {dbname_rd} > src/data/export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} pg_dump -h {host_rd} -t {schema}.{tablename} --no-owner -U {username_rd} --data-only {dbname_rd} > src/data/sql_dumps/{tablename}{prefix}.sql"""
         subprocess.call(cmd_call, shell=True)
     elif source == "local":
         create_pgpass()
@@ -149,9 +169,9 @@ def table_dump(source, tablename,data_only=False):
             DATABASE["port"],
         )
         if not data_only:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} {dbname} > src/data/export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} {dbname} > src/data/sql_dumps/{tablename}{prefix}.sql"""
         else:
-            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} --data-only  {dbname} > src/data/export_results/{tablename}.sql"""
+            cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} pg_dump -h {host} -t {tablename} --no-owner -U {username} --data-only {dbname} > src/data/sql_dumps/{tablename}{prefix}.sql"""
         subprocess.call(cmd_call, shell=True)
     else:
         print("Please, specify 'source' - 'remote' or 'local'!")
@@ -176,7 +196,7 @@ def table_restore(source, filename):
             + f" > ~/.pgpass_{dbname_rd}"
         )
         os.system(f"chmod 600  ~/.pgpass_{dbname_rd}")
-        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} psql -h {host_rd} -U {username_rd} -p {port_rd} -d {dbname_rd} < src/data/export_results/{filename}.sql"""
+        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname_rd} psql -h {host_rd} -U {username_rd} -p {port_rd} -d {dbname_rd} < src/data/sql_dumps/{filename}.sql"""
         subprocess.call(cmd_call, shell=True)
     elif source == "local":
         create_pgpass()
@@ -186,7 +206,7 @@ def table_restore(source, filename):
             DATABASE["user"],
             DATABASE["port"],
         )
-        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} psql -h {host} -U {username} -p {port} -d {dbname} < src/data/export_results/{filename}.sql"""
+        cmd_call = f"""PGPASSFILE=~/.pgpass_{dbname} psql -h {host} -U {username} -p {port} -d {dbname} < src/data/sql_dumps/{filename}.sql"""
         subprocess.call(cmd_call, shell=True)
     else:
         print("Please, specify 'source' - 'remote' or 'local'!")

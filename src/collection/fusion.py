@@ -117,27 +117,32 @@ def dataframe_goat_index(df):
 
     cnt = 0
 
+    cur.execute("DROP TABLE IF EXISTS poi_goat_id_temp; \
+                 CREATE TABLE poi_goat_id_temp AS TABLE poi_goat_id;") 
+
     for tup in tuples:
         tup_l = list(tup)
         id_number = tup_l[0]
-        query_select = f"SELECT max(index) FROM poi_goat_id WHERE poi_goat_id = '{id_number}'"
+        query_select = f"SELECT max(index) FROM poi_goat_id_temp WHERE poi_goat_id = '{id_number}';"
         last_number = db.select_rd(query_select)
         if (list(last_number[0])[0]) is None:
-            # tup_new = tup_l
-            # tup_new.append(0)
-            # tup_new = tuple(tup_new)
-            # cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
-            # con.commit()
+            tup_new = tup_l
+            tup_new.append(0)
+            tup_new = tuple(tup_new)
+            cur.execute("""INSERT INTO poi_goat_id_temp(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
+            con.commit()
             df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-0000'
         else:
             new_ind = list(last_number[0])[0] + 1
-            # tup_new = tup_l
-            # tup_l.append(new_ind)
-            # tup_new = tuple(tup_new)
-            # cur.execute("""INSERT INTO poi_goat_id(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
-            # con.commit()
+            tup_new = tup_l
+            tup_l.append(new_ind)
+            tup_new = tuple(tup_new)
+            cur.execute("""INSERT INTO poi_goat_id_temp(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
+            con.commit()
             df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-{new_ind:04}'
         cnt += 1
+        
+    cur.execute("DROP TABLE poi_goat_id_temp;")
     con.close()
     df = df.astype({'osm_id': int})
     return df

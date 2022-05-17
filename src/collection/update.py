@@ -1,9 +1,11 @@
-from other.utility_functions import file2df, database_table2df, gdf_conversion,df2database,drop_table
+from other.utility_functions import database_table2df, df2database, drop_table,table_dump,table_restore
 from collection.fusion import df2area
 from config.config import Config
 from db.db import Database
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from collection.fusion import dataframe_goat_index
-from export.export_tables2basic import sql_queries_goat
+from collection.sql_scripts import sql_queries_goat
 import pandas as pd 
 
 # IMPORTANT! This fuction creates new poi_goat_id in remote database table. 
@@ -16,6 +18,15 @@ def pois_update(db,con):
 
     db_rd = Database('reading')
     con_rd = db_rd.connect_rd()
+
+    now = datetime.now(ZoneInfo("Europe/Berlin"))
+    date_time = now.strftime("_%d%m%y_%H%M%S")
+
+    prefix_r = '_geonode' + date_time
+
+    table_dump('remote','poi','public',prefix_r)
+    drop_table(con, 'poi')
+    table_restore('local','poi'+prefix_r)   
 
     # POIs from OSM to update (by selected categories)
     df_pois_update = database_table2df(con, 'pois', geometry_column='geom')
@@ -32,8 +43,8 @@ def pois_update(db,con):
 
     # Dataframe from poi_goat_id table where values are from OSM
     select_id = '''SELECT concat(poi_goat_id, '-', to_char("index", 'fm0000')) AS uid, osm_id, origin_geometry, split_part(poi_goat_id, '-', 3) AS amenity
-                FROM poi_goat_id 
-                WHERE osm_id != 0;'''
+                   FROM poi_goat_id 
+                   WHERE osm_id != 0;'''
     df_goat_id = pd.read_sql(select_id, con_rd)
 
     # Filter poi_goat_id table to study area boundaries and to defined categories
@@ -72,5 +83,24 @@ def pois_update(db,con):
     db = Database()
     db.perform(sql_queries_goat['pois_update'])
 
+def poi_geonode_update():
+    
+    db_rd = Database('reading')
+    conn = db_rd.connect_rd()
 
+    table = 'poi'
+
+    now = datetime.now(ZoneInfo("Europe/Berlin"))
+    date_time = now.strftime("_%d%m%y_%H%M%S")
+
+    prefix_r = '_geonode' + date_time
+    prefix_l = '_local' + date_time
+
+    table_dump('remote',table,'public',prefix_r)
+    table_dump('local',table,'public',prefix_l)
+
+    drop_table(conn, table)
+    table_restore('remote',table+prefix_l)
+
+    db_rd.perform_rd(sql_queries_goat['update_poi_id_table'])
 
