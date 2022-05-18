@@ -20,6 +20,13 @@
 8. In case of use of data from geonode, specify credidentials defined in .env for remote database
 9. Use command line to fuse data and store in layers in database tables `python collect.py -f LAYERNAME` (pois)
 
+### Update OSM Data with Data stored remote
+
+10. Make sure that all neccesary tables existed in REMOTE database. _*See related chapter_
+11. Use command line to collect and prepare layers with fresh OSM data in database tables `python collect.py -c LAYERNAME` (pois)
+12. Use command line to update data and store in layers in local database tables `python collect.py -u LAYERNAME` (pois)
+13. Update table in remote database by transfer local table with `python collect.py -t LAYERNAME` (pois) _*Old table from remote database will be dumped_ 
+
 ### Prepare Data for GOAT for defined municipality
 
 10. Make sure that all neccesary tables existed in REMOTE database. _*See related chapter_
