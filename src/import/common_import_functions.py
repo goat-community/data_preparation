@@ -45,7 +45,7 @@ class BulkImport:
         if crs == '4326':
             gpd_file = gpd_file.rename(columns={'geometry': 'geom'}).set_geometry('geom')
             # gpd_file = gpd_file.to_crs("EPSG:" + '4326')   # assign crs
-            gpd_file.columns = gpd_file.columns.str.replace(r'\W+', '')   
+            gpd_file.columns = gpd_file.columns.str.replace(r'\W+', '', regex=True)   
             gpd_file = gpd_file.loc[gpd_file.is_valid]    
             return gpd_file
         else:
