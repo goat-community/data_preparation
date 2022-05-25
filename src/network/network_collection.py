@@ -41,6 +41,8 @@ def network_collection(conf=None,database=None):
         cmd_pgr = f'PGPASSFILE=~/.pgpass_{dbname} osm2pgrouting --dbname {dbname} --host {host} --username {username} --port {port} --file src/data/temp/study_area.osm --conf src/config/mapconfig.xml --chunk 40000' # 
         if i == 0:
             cmd_pgr = cmd_pgr + ' --clean'
+        else:
+            cmd_pgr = cmd_pgr + ' --no-index'
         subprocess.run(cmd_pgr, shell=True, check=True)
 
         os.chdir('src/data/temp')
