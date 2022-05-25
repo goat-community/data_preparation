@@ -9,7 +9,8 @@ from src.collection.preparation import pois_preparation, landuse_preparation, bu
 from src.collection.fusion import pois_fusion
 from src.collection.update import pois_update, poi_geonode_update
 from src.network.network_collection import network_collection
-from src.network.ways import PrepareLayers, Profiles
+from src.network.ways import PrepareLayers
+from src.network.network_islands import NetworkIslands
 from src.export.export_tables2basic import sql_queries_goat
 from src.network.conversion_dem import conversion_dem
 
@@ -59,6 +60,7 @@ if collect or collect in(layers_collect):
         print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Starting network preparation..')
         prep_layers = PrepareLayers('ways')
         prep_layers.ways()
+        NetworkIslands().find_network_islands()
     elif collect == 'pois':
         pois = osm_collection('pois')[0]
         pois = pois_preparation(pois)[0]

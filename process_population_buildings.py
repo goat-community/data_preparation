@@ -3,7 +3,6 @@ from src.population.population_data_preparation import population_data_preparati
 from src.population.produce_population_points import Population
 from src.export.export_goat import getDataFromSql
 from src.export.export_tables2basic import sql_queries_goat
-from src.network.network_islands_municip import network_islands_mun
 from src.collection.preparation import kindergarten_deaggrgation
 from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
@@ -86,15 +85,15 @@ db.perform(query=query_rt)
 
 municipalities = conf.preparation['rs_codes']
 for m in municipalities:
-    drop_table(con, 'population')
-    drop_table(con, 'buildings')
-    population_data_preparation([m])
-    population = Population(Database=Database)
-    population.produce_population_points(source_population = 'census_extrapolation')
+   drop_table(con, 'population')
+   drop_table(con, 'buildings')
+   population_data_preparation([m])
+   population = Population(Database=Database)
+   population.produce_population_points(source_population = 'census_extrapolation')
 
-    db.perform(query = query_b)
-    db.perform(query = query_p)  
-    db.perform(query = query_upd_gid)
+   db.perform(query = query_b)
+   db.perform(query = query_p)  
+   db.perform(query = query_upd_gid)
 
 db.perform(query = query_drop_gid)
 

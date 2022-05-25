@@ -18,4 +18,9 @@ ALTER TABLE "configuration" RENAME COLUMN tag_id TO class_id;
 ALTER TABLE "configuration" RENAME COLUMN tag_key TO class_key;
 ALTER TABLE "configuration" RENAME COLUMN tag_value TO class_value;
 
+CREATE INDEX ON ways USING btree (bicycle);
+CREATE INDEX ON ways USING btree (foot);
+CREATE INDEX ON ways USING btree (source);
+CREATE INDEX ON ways USING btree (target);
+
 '''

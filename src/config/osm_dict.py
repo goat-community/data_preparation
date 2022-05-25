@@ -201,12 +201,12 @@ OSM_tags = {
 }
 
 OSM_germany = {
-    'regions':             ["brandenburg", "bremen", "hamburg", "hessen","mecklenburg_vorpommern",
-                            "niedersachsen", "rheinland_pfalz", "saarland", "sachsen_anhalt", "sachsen",
-                            "schleswig_holstein", "thueringen"],
+    'regions':             ["brandenburg", "bremen", "hamburg", "hessen","mecklenburg-vorpommern",
+                            "niedersachsen", "rheinland-pfalz", "saarland", "sachsen-anhalt", "sachsen",
+                            "schleswig-holstein", "thueringen"],
     'baden-wuerttemberg' : ['freiburg-regbez', 'karlsruhe-regbez', 'stuttgart-regbez', 'tuebingen-regbez'],
     'bayern' :             ["mittelfranken", "niederbayern", "oberbayern", "oberfranken", "oberpfalz", "schwaben", "unterfranken"],
-    'nordrhein_westfalen': ["arnsberg_regbez", "detmold_regbez", "duesseldorf_regbez", "koeln_regbez", "muenster_regbez"],
+    'nordrhein-westfalen': ["arnsberg-regbez", "detmold-regbez", "duesseldorf-regbez", "koeln-regbez", "muenster-regbez"],
 }
 
 gms_keys = {
