@@ -122,7 +122,7 @@ DO $$
 		CROSS JOIN LATERAL 
 		(
 			SELECT ST_CLOSESTPOINT(w.geom, ST_CENTROID(a.geom)) geom 
-			FROM ways w 
+			FROM temporal.ways w 
 			WHERE ST_DWITHIN(w.geom, a.geom, buffer_distance)
 			ORDER BY ST_CLOSESTPOINT(w.geom, a.geom) <-> a.geom
             LIMIT 1   

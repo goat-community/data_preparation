@@ -71,7 +71,8 @@ from sqlalchemy import create_engine
 class Population():
 
     def __init__(self, Database):
-        self.db = Database()     
+        self.db = Database()
+        self.db_cur = Database()     
     
     def produce_population_points(self, source_population):
         '''This function produces a SQL table with population points.'''
@@ -103,7 +104,7 @@ class Population():
         sql_potential_residents = "SELECT gid, residential_status, geom FROM buildings b WHERE b.residential_status = 'potential_residents'"
 
         # didn't connect with engine, only used connect() function
-        gdf_potential_residents = gpd.GeoDataFrame.from_postgis(sql_potential_residents, self.db.connect_sqlalchemy())
+        gdf_potential_residents = gpd.GeoDataFrame.from_postgis(sql_potential_residents, self.db_cur.connect_sqlalchemy())
         #gdf_potential_residents = self.db.select(query = sql_potential_residents)
         
         # print('------ data fetching finished! ------')
@@ -111,7 +112,7 @@ class Population():
 
         if len(gdf_potential_residents) != 0:
             prediction_type = building_prediction(gdf_potential_residents)
-            prediction_type.to_postgis('prediction_type', self.db.connect_sqlalchemy(), if_exists='replace')   # why?
+            prediction_type.to_postgis('prediction_type', self.db_cur.connect_sqlalchemy(), if_exists='replace')   # why?
             
             # data prediction: save it to database
             

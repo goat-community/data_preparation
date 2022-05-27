@@ -12,6 +12,7 @@ from src.network.network_collection import network_collection
 from src.network.ways import PrepareLayers
 from src.network.network_islands import NetworkIslands
 from src.export.export_tables2basic import sql_queries_goat
+from src.population.process_population_buildings import process_population_buildings
 from src.network.conversion_dem import conversion_dem
 
 from src.db.db import Database
@@ -20,7 +21,7 @@ from src.db.prepare import PrepareDB
 
 #Define command line options
 
-layers_collect = ['network', 'pois']
+layers_collect = ['network', 'pois', 'population']
 layers_fuse = ['pois', 'population', 'network']
 layers_update = ['pois']
 layers_transfer = ['pois']
@@ -75,7 +76,9 @@ if collect or collect in(layers_collect):
         buildings = osm_collection('buildings')[0]
         buildings = buildings_preparation(buildings)[0]   
         drop_table(con,'buildings_osm')
-        df2database(buildings, 'buildings_osm')             
+        df2database(buildings, 'buildings_osm') 
+    elif collect == 'population':
+        process_population_buildings()            
     else:
         print('Please specify a valid preparation type.')
 
@@ -104,7 +107,7 @@ if update or update in(layers_update):
 
 if transfer or transfer in(layers_transfer):
     if transfer == 'pois':
-        print("WARNING! This action overwrite 'poi' table in remote database.")
+        print("WARNING! This action overwrites 'poi' table in remote database.")
         answer = input("Do you still want to replace existed 'poi' table? [yes/no]  ") 
         if answer in ["yes", "Yes", "YES"] : 
             poi_geonode_update()
