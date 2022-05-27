@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd 
-from config.osm_dict import OSM_tags, OSM_germany
-from other.utility_functions import file2df
+from src.config.osm_dict import OSM_tags, OSM_germany
+from src.other.utility_functions import file2df
 
 class Config:
     def __init__(self,name):

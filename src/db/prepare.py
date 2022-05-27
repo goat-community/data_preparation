@@ -44,7 +44,6 @@ class PrepareDB:
     def create_db_tables(self):
         self.db.perform(query = "CREATE TABLE IF NOT EXISTS poi_goat_id (poi_goat_id VARCHAR, index int, osm_id VARCHAR);")
 
-
 # preparation = PrepareDB(Database)
 # preparation.create_db_functions()
 # preparation.create_db_extensions()

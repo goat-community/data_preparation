@@ -1,192 +1,71 @@
 import json
 import sys
-sys.path.insert(0,"..")
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
-from config.config import Config
+import subprocess
+from src.config.config import Config
+from src.db.config import DATABASE
+from src.db.db import Database
+
 
 config_ways = Config("ways")
 variable_container_ways = config_ways.preparation
 
+
+class FirstNetworkPreparation:
+	"""Class to compute to identify network islands from the ways table."""
+	def __init__(self, db):
+		self.db = db  
+		self.root_dir = os.path.abspath(os.curdir)
+		self.dbname, self.host, self.username, self.port = DATABASE['dbname'], DATABASE['host'], DATABASE['user'], DATABASE['port']
+
+
+	def create_table_schemas(self):
+		self.db.perform(query = "CREATE SCHEMA IF NOT EXISTS basic;")
+		# Restore node table
+		self.db.perform(query = "DROP TABLE IF EXISTS basic.node;")
+		subprocess.run(f'PGPASSFILE=~/.pgpass_{self.dbname} pg_restore -U {self.username} --schema-only -h {self.host} -n basic -d {self.dbname} -t node {self.root_dir + "/src/data/input/dump.tar"}', shell=True, check=True)
+		# Restore node table
+		self.db.perform(query = "DROP TABLE IF EXISTS basic.edge;")
+		subprocess.run(f'PGPASSFILE=~/.pgpass_{self.dbname} pg_restore -U {self.username} --schema-only -h {self.host} -n basic -d {self.dbname} -t edge {self.root_dir + "/src/data/input/dump.tar"}', shell=True, check=True)
+
+	def create_street_crossings(self):
+		sql_street_crossings = '''
+			--Create table that stores all street crossings
+			DROP TABLE IF EXISTS street_crossings;
+			CREATE TABLE street_crossings AS 
+			SELECT osm_id, NULL as key, highway,
+			CASE WHEN (tags -> 'crossing_ref') IS NOT NULL THEN (tags -> 'crossing_ref') ELSE (tags -> 'crossing') END AS crossing, 
+			(tags -> 'traffic_signals') AS traffic_signals, (tags -> 'kerb') AS kerb, 
+			(tags -> 'segregated') AS segregated, (tags -> 'supervised') AS supervised, 
+			(tags -> 'tactile_paving') AS tactile_paving, (tags -> 'wheelchair') AS wheelchair, way AS geom, 'osm' as source
+			FROM planet_osm_point p
+			WHERE (tags -> 'crossing') IS NOT NULL 
+			OR highway IN('crossing','traffic_signals')
+			OR (tags -> 'traffic_signals') = 'pedestrian_crossing';
+
+			ALTER TABLE street_crossings ADD COLUMN gid serial;
+			ALTER TABLE street_crossings ADD PRIMARY key(gid);
+
+			UPDATE street_crossings 
+			SET crossing = 'traffic_signals'
+			WHERE traffic_signals = 'crossing' 
+			OR traffic_signals = 'pedestrian_crossing';
+
+			UPDATE street_crossings 
+			SET crossing = highway 
+			WHERE crossing IS NULL AND highway IS NOT NULL; 
+
+			CREATE INDEX ON street_crossings USING GIST(geom);
+		'''
+		self.db.perform(query = sql_street_crossings)
+
+db = Database()
+preparation = FirstNetworkPreparation(db)
+preparation.create_table_schemas()
+db.conn.close()
+
+
 network_preparation1 = f'''
-ALTER TABLE ways
-DROP COLUMN RULE,DROP COLUMN x1,DROP COLUMN x2,DROP COLUMN y1,DROP COLUMN y2, DROP COLUMN priority,
-DROP COLUMN length,DROP COLUMN cost,DROP COLUMN reverse_cost, DROP COLUMN cost_s, DROP COLUMN reverse_cost_s, 
-DROP COLUMN source_osm, DROP COLUMN target_osm;
-
-ALTER TABLE ways_vertices_pgr DROP COLUMN chk, DROP COLUMN ein, DROP COLUMN eout, DROP COLUMN lon, DROP COLUMN lat;
-
-ALTER TABLE ways rename column gid to id;
-ALTER TABLE ways rename column the_geom to geom;
-ALTER TABLE ways_vertices_pgr rename column the_geom to geom;
-ALTER TABLE ways alter column target type int4;
-ALTER TABLE ways alter column source type int4;
-
-CREATE INDEX ON ways USING GIST(geom);
-
-ALTER TABLE ways 
-ADD COLUMN bicycle text, ADD COLUMN foot TEXT, ADD COLUMN length_3857 float, ADD COLUMN coordinates_3857 json; /*, ADD COLUMN oneway TEXT;*/ 
-
-UPDATE ways 
-SET foot = p.foot
-FROM planet_osm_line p
-WHERE ways.osm_id = p.osm_id
-AND p.highway NOT IN('bridleway','cycleway','footway');
-
-UPDATE ways 
-SET bicycle = p.bicycle
-FROM planet_osm_line p
-WHERE ways.osm_id = p.osm_id;
-
-UPDATE ways
-SET length_3857 = ST_LENGTH(ST_TRANSFORM(geom, 3857));
-
-UPDATE ways
-SET coordinates_3857 = ST_ASGEOJSON(ST_TRANSFORM(geom, 3857))::jsonb -> 'coordinates';
-
---	ADD COLUMN crossing TEXT, ADD COLUMN one_link_crossing boolean;
-
---Create table that stores all street crossings
-DROP TABLE IF EXISTS street_crossings;
-CREATE TABLE street_crossings AS 
-SELECT osm_id, NULL as key, highway,(tags -> 'crossing') AS crossing, 
-(tags -> 'traffic_signals') AS traffic_signals,(tags -> 'crossing_ref') AS crossing_ref, (tags -> 'kerb') AS kerb, 
-(tags -> 'segregated') AS segregated, (tags -> 'supervised') AS supervised, 
-(tags -> 'tactile_paving') AS tactile_paving, (tags -> 'wheelchair') AS wheelchair, way AS geom, 'osm' as source
-FROM planet_osm_point p
-WHERE (tags -> 'crossing') IS NOT NULL 
-OR highway IN('crossing','traffic_signals')
-OR (tags -> 'traffic_signals') = 'pedestrian_crossing';
-
-UPDATE street_crossings 
-SET crossing = crossing_ref 
-WHERE crossing_ref IS NOT NULL;
-
-UPDATE street_crossings 
-SET crossing = 'traffic_signals'
-WHERE traffic_signals = 'crossing' 
-OR traffic_signals = 'pedestrian_crossing';
-
-UPDATE street_crossings 
-SET crossing = highway 
-WHERE crossing IS NULL AND highway IS NOT NULL; 
-
-ALTER TABLE street_crossings ADD COLUMN gid serial;
-ALTER TABLE street_crossings ADD PRIMARY key(gid);
-CREATE INDEX ON street_crossings USING GIST(geom);
-
---Identify ways that intersect with street crossings
-DROP TABLE IF EXISTS ways_crossed;
-CREATE TABLE ways_crossed AS 
-SELECT w.*, c.gid AS crossing_gid, c.crossing
-FROM street_crossings c, ways w 
-WHERE ST_Intersects(c.geom,w.geom)
-AND w.tag_id::text NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["excluded_class_id_walking"]}::text[]))
-AND w.tag_id::text NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["excluded_class_id_cycling"]}::text[]))
-AND (
-(w.foot NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["categories_no_foot"]})) OR foot IS NULL)
-OR
-(w.bicycle NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["categories_no_bicycle"]})) OR bicycle IS NULL))
-AND c.crossing = 'traffic_signals';
-
---Check if crossing intersects on or more ways
-ALTER TABLE ways_crossed ADD COLUMN one_link_crossing boolean; 
-
-UPDATE ways_crossed w
-SET one_link_crossing = x.one_link_crossing
-FROM
-(
-	SELECT CASE WHEN count(*) = 1 THEN TRUE ELSE FALSE END AS one_link_crossing, crossing_gid
-	FROM ways_crossed
-	GROUP BY crossing_gid
-) x 
-WHERE w.crossing_gid = x.crossing_gid;
-
---Create a temporary composite type
-DROP TYPE IF EXISTS temp_composite CASCADE;
-CREATE TYPE temp_composite 
-AS (
-	new_geom1 geometry,
-	source1 integer,
-	target1 integer, 
-	new_geom2 geometry,
-	source2 integer,
-	target2 integer, 
-	new_vgeom geometry
-);
-
---Split ways where length_m > 20m at intersection and derive new geometries 
-DROP TABLE IF EXISTS w_split;
-CREATE TEMP TABLE w_split AS  
-SELECT w.id, 
-CASE WHEN ST_Intersects(st_startpoint(w.geom),c.geom)
-THEN ROW(ST_LINESUBSTRING(w.geom,0,(1/length_m)),w.SOURCE,NULL,ST_LINESUBSTRING(w.geom,(1/w.length_m),1),NULL,w.target,ST_endpoint(ST_LINESUBSTRING(w.geom,0,(1/w.length_m))))::temp_composite  
-WHEN ST_Intersects(st_endpoint(w.geom),c.geom) 
-THEN ROW(ST_LINESUBSTRING(w.geom,1-(1/length_m),1),NULL,w.target,ST_LINESUBSTRING(w.geom,0,1-(1/length_m)),w.SOURCE,NULL,ST_startpoint(ST_LINESUBSTRING(w.geom,1-(1/length_m),1)))::temp_composite 
-ELSE NULL END AS features,1 AS length1, (length_m - 1) AS length2 
-FROM ways_crossed w, street_crossings c
-WHERE one_link_crossing = FALSE 
-AND length_m > 20
-AND ST_INTERSECTS(w.geom,c.geom);
-
-ALTER TABLE ways ADD COLUMN crossing text; 
-ALTER TABLE ways ADD COLUMN one_link_crossing boolean; 
-
---Insert new vertices into table
-INSERT INTO ways_vertices_pgr(geom) 
-SELECT (features).new_vgeom
-FROM w_split;
-
---Insert routing network into ways table 
-INSERT INTO ways(tag_id,length_m,name,SOURCE,target,one_way,maxspeed_forward,maxspeed_backward,osm_id,geom,bicycle,foot,crossing,one_link_crossing)
-WITH new_ways AS (
-	SELECT id,(features).new_geom1 AS geom,(features).source1 AS SOURCE,(features).target1 AS target, length1 AS length_m, (features).new_vgeom AS v_geom
-	FROM w_split s
-	UNION ALL 
-	SELECT id,(features).new_geom2 AS geom, (features).source2 AS SOURCE,(features).target2 AS target, length2 AS length_m, (features).new_vgeom AS v_geom
-	FROM w_split s
-)
-SELECT w.tag_id, n.length_m, w.name, 
-CASE WHEN n.SOURCE IS NULL THEN v.id ELSE n.SOURCE END AS SOURCE, 
-CASE WHEN n.target IS NULL THEN v.id ELSE n.target END AS target, 
-w.one_way, w.maxspeed_forward, w.maxspeed_backward, w.osm_id, n.geom, w.bicycle, w.foot, 'traffic_signals',FALSE
-FROM new_ways n, ways w, ways_vertices_pgr v
-WHERE n.id = w.id
-AND n.geom IS NOT NULL
-AND n.v_geom = v.geom;
-
---Delete original ways that were split
-DELETE FROM ways w 
-USING w_split s 
-WHERE w.id = s.id;
-
---Assign crossing mode of link
-UPDATE ways w SET crossing = c.crossing, one_link_crossing = c.one_link_crossing
-FROM ways_crossed c
-WHERE w.id = c.id;
-
-ALTER TABLE ways ADD COLUMN crossing_delay_category SMALLINT; 
-UPDATE ways 
-SET crossing_delay_category = 1
-WHERE crossing = 'traffic_signals' 
-AND one_link_crossing IS FALSE;
-
-UPDATE ways 
-SET crossing_delay_category = 2
-WHERE crossing = 'traffic_signals' 
-AND one_link_crossing IS TRUE;
-
-DROP TYPE IF EXISTS temp_composite CASCADE;
-DROP TABLE IF EXISTS ways_crossed;
---Create columns for further way attributes
-ALTER TABLE ways 
-ADD COLUMN bicycle_road text, ADD COLUMN cycleway text, 
-ADD COLUMN highway text, ADD COLUMN incline text, ADD COLUMN incline_percent integer,
-ADD COLUMN lanes NUMERIC, ADD COLUMN lit text, ADD COLUMN lit_classified text, ADD COLUMN parking text, 
-ADD COLUMN parking_lane_both text, ADD COLUMN parking_lane_right text, ADD COLUMN parking_lane_left text, 
-ADD COLUMN segregated text, ADD COLUMN sidewalk text, ADD COLUMN sidewalk_both_width NUMERIC, 
-ADD COLUMN sidewalk_left_width NUMERIC, ADD COLUMN sidewalk_right_width NUMERIC, ADD COLUMN smoothness text, 
-ADD COLUMN surface text, ADD COLUMN wheelchair text, ADD COLUMN wheelchair_classified text, ADD COLUMN width NUMERIC;
 
 UPDATE ways_vertices_pgr v SET cnt = y.cnt
 FROM (
@@ -201,101 +80,7 @@ FROM (
 ) y
 WHERE v.id = y.SOURCE;
 
-UPDATE ways 
-SET highway = p.highway, surface = p.surface, width = (CASE WHEN p.width ~ '^[0-9.]*$' THEN p.width::numeric ELSE NULL END),
-	bicycle_road = (tags -> 'bicycle_road'), cycleway = (tags -> 'cycleway'), incline = (tags -> 'incline'), lit = (tags -> 'lit'), parking = (tags -> 'parking'), 
-	parking_lane_both = (tags -> 'parking:lane:both') , parking_lane_right = (tags -> 'parking:lane:right'), 
-	parking_lane_left = (tags -> 'parking:lane:left'), segregated = (tags -> 'segregated'),
-	sidewalk = (tags -> 'sidewalk'), smoothness = (tags -> 'smoothness'), wheelchair = (tags -> 'wheelchair'),
-	lanes = (tags -> 'lanes')::numeric, sidewalk_both_width = (case when (tags -> 'sidewalk:both:width') ~ '^[0-9.]*$' then (tags -> 'sidewalk:both:width')::numeric else null end),
-	sidewalk_left_width = (case when (tags -> 'sidewalk:left:width') ~ '^[0-9.]*$' then (tags -> 'sidewalk:left:width')::numeric else null end),
-	sidewalk_right_width = (case when (tags -> 'sidewalk:right:width') ~ '^[0-9.]*$' then (tags -> 'sidewalk:right:width')::numeric else null end)
-FROM planet_osm_line p
-WHERE ways.osm_id = p.osm_id;
 
-UPDATE ways
-SET incline_percent=xx.incline_percent::integer 
-FROM (
-	SELECT id, regexp_REPLACE(incline,'[^0-9]+','','g') AS incline_percent
-	FROM ways
-) xx 
-WHERE xx.incline_percent IS NOT NULL AND xx.incline_percent <> '' 
-AND ways.id = xx.id;
-
---Updating default speed limits for living_streets
-UPDATE ways
-SET maxspeed_forward = 7, maxspeed_backward = 7
-WHERE highway = 'living_street' AND maxspeed_forward = 50;
-
---Precalculation of visualized features for wheelchair
-WITH variables AS
-(
-    SELECT '{json.dumps(variable_container_ways["wheelchair"])}'::jsonb  AS wheelchair,
-    ARRAY{variable_container_ways["excluded_class_id_walking"]}::text[] AS excluded_class_id_walking,
-    ARRAY{variable_container_ways["categories_no_foot"]} AS categories_no_foot,
-    ARRAY{variable_container_ways["categories_sidewalk_no_foot"]} AS categories_sidewalk_no_foot
-) 
-UPDATE ways w SET wheelchair_classified = x.wheelchair_classified
-FROM
-    (SELECT w.id,
-    CASE WHEN 
-        wheelchair IN ('yes','Yes') 
-        OR (wheelchair IS NULL 
-			AND sidewalk IN ('both','left','right')
-            AND (sidewalk_both_width >= 1.80 OR sidewalk_left_width >= 1.80 OR sidewalk_right_width >= 1.80)
-			AND (incline_percent IS NULL OR incline_percent < 6) 
-			)
-        OR (wheelchair IS NULL AND width >= 1.80 AND highway <> 'steps' 
-            AND (smoothness IS NULL 
-				OR (smoothness NOT IN (SELECT jsonb_array_elements_text((wheelchair ->> 'smoothness_no')::jsonb) FROM variables)
-            		AND smoothness NOT IN (SELECT jsonb_array_elements_text((wheelchair ->> 'smoothness_limited')::jsonb) FROM variables)
-           			)
-				)
-            AND (surface IS NULL 
-				OR (surface NOT IN (SELECT jsonb_array_elements_text((wheelchair ->> 'surface_no')::jsonb) FROM variables)
-					AND surface NOT IN (SELECT jsonb_array_elements_text((wheelchair ->> 'surface_limited')::jsonb) FROM variables)
-					)
-				)
-            AND (incline_percent IS NULL OR incline_percent < 6)
-            )
-        OR (wheelchair IS NULL AND highway IN (SELECT jsonb_array_elements_text((wheelchair ->> 'highway_onstreet_yes')::jsonb) FROM variables))
-        THEN 'yes'
-    WHEN
-        wheelchair IN ('limited','Limited')
-        OR ( sidewalk IN ('both','left','right')
-            AND (
-                (sidewalk_both_width < 1.80 OR sidewalk_left_width < 1.80 OR sidewalk_right_width < 1.80 OR 
-                (sidewalk_both_width IS NULL AND sidewalk_left_width IS NULL AND sidewalk_right_width IS NULL)
-                )
-            ) 
-            OR (wheelchair IS NULL AND width >= 0.90 AND highway <> 'steps' 
-            AND (smoothness IS NULL OR smoothness NOT IN (SELECT jsonb_array_elements_text((wheelchair ->> 'smoothness_no')::jsonb) FROM variables)) 
-            AND (surface IS NULL OR surface NOT IN (SELECT jsonb_array_elements_text((wheelchair ->> 'surface_no')::jsonb) FROM variables))
-            AND (incline_percent IS NULL OR incline_percent < 6)
-            ))
-        OR (wheelchair IS NULL AND highway IN (SELECT jsonb_array_elements_text((wheelchair ->> 'highway_onstreet_limited')::jsonb) FROM variables))
-        THEN 'limited'
-    WHEN
-        wheelchair IN ('no','No')
-            OR (wheelchair IS NULL AND (width < 0.90 OR highway = 'steps' 
-                OR smoothness IN (SELECT jsonb_array_elements_text((wheelchair ->> 'smoothness_no')::jsonb) FROM variables) 
-                OR surface IN (SELECT jsonb_array_elements_text((wheelchair ->> 'surface_no')::jsonb) FROM variables)
-                OR (incline_percent IS NOT NULL AND incline_percent > 6))
-            )
-			OR tag_id::text IN (SELECT UNNEST(excluded_class_id_walking) FROM variables)
-			OR foot IN (SELECT UNNEST(categories_no_foot) FROM variables)
-        THEN 'no'
-    ELSE 'unclassified'
-    END AS wheelchair_classified
-    FROM ways w
-    ) x
-WHERE w.id = x.id;
-
-ALTER TABLE ways_vertices_pgr ADD COLUMN tag_ids int[];
-ALTER TABLE ways_vertices_pgr ADD COLUMN foot text[];
-ALTER TABLE ways_vertices_pgr ADD COLUMN bicycle text[];
-ALTER TABLE ways_vertices_pgr ADD COLUMN lit_classified text[];
-ALTER TABLE ways_vertices_pgr ADD COLUMN wheelchair_classified text[];
 
 WITH ways_attributes AS (
 	SELECT vv.id, array_remove(array_agg(DISTINCT x.tag_id),NULL) tag_ids,
@@ -331,44 +116,4 @@ SET foot = 'no'  FROM (
 ) x 
 WHERE w.osm_id = x.osm_id;
 
--- Mark underground cycle lanes as foot = 'no' this is for the specific case of BOG
---UPDATE ways
---SET foot = 'yes' WHERE bicycle != 'no'AND foot = 'no';
---
-ALTER TABLE ways ADD COLUMN s_imp FLOAT;
-ALTER TABLE ways ADD COLUMN rs_imp FLOAT;
-
 '''
-
-# removed after CREATE INDEX ON street_crossings USING GIST(geom); and before --Identify ways that intersect with street crossings
-
-# --Remove duplicates from OSM & Mapillary
-# --Table of just duplicates
-# DROP TABLE IF EXISTS dups;
-# CREATE TABLE dups AS
-# SELECT p.*, ST_Distance(p.geom, s.geom) AS distance
-# FROM points p  --rename to: mapillary_features 
-# LEFT JOIN street_crossings s ON ST_DWithin(p.geom, s.geom, 0.0005)
-# WHERE p.value = s.crossing AND ST_Distance(p.geom, s.geom)>0;
-
-# --Table of no duplicates
-# DROP TABLE IF EXISTS no_dups;
-# CREATE TABLE no_dups AS SELECT p.*
-# FROM points p --rename to: mapillary_features 
-# LEFT JOIN dups ON p.id = dups.id
-# WHERE dups.id IS NULL;
-
-# --Insert data from Mapillary 
-# INSERT INTO street_crossings
-# SELECT NULL AS osm_id, p.key, NUll as highway, 'zebra' as crossing, NULL AS traffic_signals, 
-# NULL AS crossing_ref, NULL AS kerb, NULL AS segregated, NULL AS supervised, NULL AS tactile_paving, NULL AS wheelchair, 
-# geom, 'mapillary' AS SOURCE
-# FROM no_dups p --rename to: mapillary_features 
-# WHERE value IN ('zebra');
-
-
-# test = f'''
-# (SELECT UNNEST(ARRAY{variable_container_ways["categories_no_foot"]}))
-# '''
-
-# print(test)

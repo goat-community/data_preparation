@@ -522,7 +522,23 @@ VARIABLES_SET :
 
   # temporary variable container to generate ways table
   ways:
-    region_pbf: ["oberbayern","freiburg"]
+    region_pbf: [
+      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf", 
+      "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
+      "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
+      "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+    ]
     collection: 
     preparation:
       excluded_class_id_walking: [0,101,102,103,104,105,106,107,501,502,503,504,701,801]

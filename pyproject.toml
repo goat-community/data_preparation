@@ -26,6 +26,7 @@ python-decouple = "^3.6"
 mkdocs = "^1.2.3"
 mkdocs-material = "^8.2.2"
 psutil = "^5.9.0"
+rich = "^12.4.4"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.770"
