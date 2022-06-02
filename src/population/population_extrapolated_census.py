@@ -136,11 +136,50 @@ to_reduce_pop AS (
 	AND s.distributed_pop <> 0
 )
 UPDATE census_prepared
-SET new_pop=new_pop-(new_pop::float/cc.distributed_pop::float)::float*cc.difference::float 
+SET new_pop= CASE 
+		WHEN difference < 0 THEN new_pop-(new_pop::float/cc.distributed_pop::float)::float*cc.difference::float
+		ELSE new_pop
+		END 
 FROM to_reduce_pop cc
 WHERE ST_Intersects(ST_Centroid(census_prepared.geom), cc.geom)
-AND number_buildings_now > {variable_container_population['census_minimum_number_new_buildings']}::integer
+AND number_buildings_now > 1::integer
 AND pop < 1; 
+
+--################Reduce residents number#################################
+
+WITH comparison_pop AS (
+	SELECT s.name, s.sum_pop,sum(c.new_pop) sum_new_pop, s.geom, sum(pop) s_pop
+	FROM census_prepared c, temporal.study_area s
+	WHERE ST_Intersects(ST_Centroid(c.geom),s.geom)
+	AND c.new_pop > 0
+	GROUP BY s.name, s.sum_pop, s.geom
+),
+sum_distributed_pop AS (
+	SELECT s.name, sum(c.new_pop) distributed_pop
+	FROM census_prepared c, temporal.study_area s
+	WHERE c.pop < 1 
+	AND c.number_buildings_now >= {variable_container_population['census_minimum_number_new_buildings']}::integer
+	AND ST_Intersects(ST_Centroid(c.geom), s.geom)
+	GROUP BY s.name
+) 
+,
+to_reduce_pop AS (
+	SELECT s.name, c.sum_pop, c.sum_new_pop, -(sum_pop-sum_new_pop) AS difference, s.distributed_pop, c.geom
+	FROM comparison_pop c, sum_distributed_pop s 
+	WHERE s.name = c.name
+	AND sum_new_pop > sum_pop
+	AND s.distributed_pop <> 0
+)
+UPDATE census_prepared
+SET new_pop= CASE 
+				WHEN difference > 0 THEN cp.sum_pop::float/100 * ((new_pop::float/cp.sum_new_pop)::float * 100)::float
+				ELSE new_pop
+				END 
+FROM to_reduce_pop cc, comparison_pop cp
+WHERE ST_Intersects(ST_Centroid(census_prepared.geom), cc.geom)
+AND new_pop > 0; 
+
+--############################END##########
 
 WITH new_comparison_pop AS (
 	SELECT s.name, s.sum_pop,sum(c.new_pop) sum_new_pop, s.geom
