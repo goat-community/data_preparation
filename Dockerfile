@@ -1,4 +1,4 @@
-FROM goatcommunity/data-preparation-base:0.01
+FROM goatcommunity/data-preparation-base:0.02
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml ./poetry.lock* /app/
