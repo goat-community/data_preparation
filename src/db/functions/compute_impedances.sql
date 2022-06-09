@@ -1,6 +1,6 @@
-DROP FUNCTION IF EXISTS compute_impedances;
+DROP FUNCTION IF EXISTS public.compute_impedances;
 CREATE OR REPLACE FUNCTION public.compute_impedances(elevs float[], linkLength float, lengthInterval float)
- RETURNS TABLE (imp float, rs_imp float)
+ RETURNS TABLE (imp float, rs_imp float, avg_slope integer)
  LANGUAGE plpgsql
 AS $function$
 DECLARE
@@ -15,7 +15,11 @@ DECLARE
 	lengthLastSection float;
 	sumImpedance float := 0.0;
 	sumImpedanceReverse float := 0.0;
+	sum_slopes float := 0; 
 BEGIN
+	IF elevs IS NULL THEN 
+		RETURN; 
+	END IF; 
 	IF linkLength > (2*lengthInterval) THEN
 		lengthLastSection = linkLength - ((len_array - 2) * lengthInterval);
 	ELSEIF linkLength > lengthInterval AND linkLength < (2*lengthInterval) THEN
@@ -32,7 +36,9 @@ BEGIN
 			lengthSection = lengthLastSection;
 		END IF; 
 		
-		slope = ((elevs[i+1] - elevs[i])/lengthSection)*100;
+		slope = COALESCE(((elevs[i+1] - elevs[i])/lengthSection) * 100);
+		sum_slopes = sum_slopes + abs(slope);
+	
 		v = 1;
 	    FOREACH j in ARRAY ARRAY[slope,-slope]
 	    LOOP
@@ -68,7 +74,7 @@ BEGIN
 	   	EXIT WHEN i = len_array - 1;
 	   	i = i + 1;
    END LOOP;   
-   RETURN query SELECT sumImpedance-1, sumImpedanceReverse-1;
+   RETURN query SELECT sumImpedance-1, sumImpedanceReverse-1, (sum_slopes / (len_array - 1))::integer;
 
 END ;
 $function$ IMMUTABLE;

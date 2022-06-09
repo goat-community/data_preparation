@@ -1,4 +1,4 @@
-DROP FUNCTION IF EXISTS meter_degree();
+DROP FUNCTION IF EXISTS public.meter_degree();
 CREATE OR REPLACE FUNCTION public.meter_degree()
 RETURNS NUMERIC AS
 $$

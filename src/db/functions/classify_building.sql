@@ -12,8 +12,8 @@ SELECT classify_building(1,'[{"table": "landuse", "landuse_gid": [14484, 14595, 
 */
 
 
-DROP FUNCTION IF EXISTS classify_building;
-CREATE OR REPLACE FUNCTION classify_building(bgid integer, categorization jsonb)
+DROP FUNCTION IF EXISTS public.classify_building;
+CREATE OR REPLACE FUNCTION public.classify_building(bgid integer, categorization jsonb)
  RETURNS integer
 AS $$
 DECLARE
