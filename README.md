@@ -18,7 +18,7 @@ This is a repository containing the data preparation steps for GOAT.
 # (Optional) Fuse Custom Data with Stored One
 
 8. Configure fusion settings in `src/config/config.yaml` *See documentation
-9. In case of use of data from geonode, specify credidentials defined in .env for remote database
+9. In case of use of data from a remote database, specify credidentials defined in .env for remote database
 10. Use command line to fuse data and store in layers in database tables `python prepare.py -fuse LAYERNAME` (pois)
 
 

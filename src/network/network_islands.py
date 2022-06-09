@@ -33,7 +33,7 @@ class NetworkIslands:
 		DROP TABLE IF EXISTS starting_links; 
 		CREATE TABLE starting_links AS
 		SELECT w.id, w.source, w.target  
-		FROM ways w
+		FROM basic.edge w
 		LEFT JOIN ways_no_islands n
 		ON w.id = n.id
 		WHERE w.class_id NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["excluded_class_id_walking"]}))
@@ -58,7 +58,7 @@ class NetworkIslands:
 			WITH to_filter AS 
 			(
 				SELECT DISTINCT w.id, w.source, w.target 
-				FROM starting_links s, ways w
+				FROM starting_links s, basic.edge w
 				WHERE (s.source = w.target OR s.target = w.SOURCE OR s.source = w.source OR s.target = w.target)
 				AND w.class_id NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["excluded_class_id_walking"]}))
 				AND w.class_id NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["excluded_class_id_cycling"]}))
@@ -116,7 +116,7 @@ class NetworkIslands:
 			DROP TABLE IF EXISTS network_islands;
 			CREATE TABLE network_islands AS
 			SELECT w.id
-			FROM ways w
+			FROM basic.edge w
 			LEFT JOIN ways_no_islands n
 			ON w.id = n.id
 			WHERE n.id IS NULL
@@ -125,11 +125,8 @@ class NetworkIslands:
 			AND (w.foot NOT IN (SELECT UNNEST(ARRAY{variable_container_ways["categories_no_foot"]})) OR foot IS NULL); 
 		
 			ALTER TABLE network_islands ADD PRIMARY KEY(id);
-			UPDATE ways w SET tag_id = 701
+			UPDATE basic.edge w SET class_id = 701
 			FROM network_islands n
 			WHERE w.id = n.id; 
 		"""
 		self.db.perform(sql_classify_network_islands)
-
-#NetworkIslands().find_network_islands()
-

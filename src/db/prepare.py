@@ -19,16 +19,18 @@ class PrepareDB:
         """This function prepares the database to run the function produce_population_points()."""
         path = "src/db/functions/"
 
-        self.db.perform(query = self.read_as_str(path, 'get_id_for_max_val.sql'))
+        self.db.perform(query = self.read_as_str(path,'get_id_for_max_val.sql'))
         self.db.perform(query = self.read_as_str(path,'classify_building.sql'))
-        self.db.perform(query = self.read_as_str(path, 'jsonb_array_int_array.sql'))
+        self.db.perform(query = self.read_as_str(path,'jsonb_array_int_array.sql'))
         self.db.perform(query = self.read_as_str(path,'derive_dominant_class.sql'))
-        #network preparation functions
+        
         self.db.perform(query = self.read_as_str(path,'get_idw_values.sql'))
         self.db.perform(query = self.read_as_str(path,'get_slope_profile.sql'))
-        self.db.perform(query = self.read_as_str(path,'compute_impendances.sql'))
+        self.db.perform(query = self.read_as_str(path,'compute_impedances.sql'))
+        self.db.perform(query = self.read_as_str(path,'classify_way.sql'))
+        self.db.perform(query = self.read_as_str(path,'create_equal_area_split_polygon.sql'))
 
-        print("==== preparation function finished ====")
+        print("==== Importing functions finished ====")
         
     def create_db_extensions(self):
         # Create db extensions (should be added when creating the database?)
@@ -43,7 +45,3 @@ class PrepareDB:
 
     def create_db_tables(self):
         self.db.perform(query = "CREATE TABLE IF NOT EXISTS poi_goat_id (poi_goat_id VARCHAR, index int, osm_id VARCHAR);")
-
-# preparation = PrepareDB(Database)
-# preparation.create_db_functions()
-# preparation.create_db_extensions()

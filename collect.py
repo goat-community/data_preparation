@@ -8,9 +8,9 @@ from src.collection.collection import osm_collection
 from src.collection.preparation import pois_preparation, landuse_preparation, buildings_preparation
 from src.collection.fusion import pois_fusion
 from src.collection.update import pois_update, poi_geonode_update
-from src.network.network_collection import network_collection
-from src.network.ways import PrepareLayers
-from src.network.network_islands import NetworkIslands
+from src.network.network_preparation import perform_network_preparation
+
+
 from src.export.export_tables2basic import sql_queries_goat
 from src.population.process_population_buildings import process_population_buildings
 from src.network.conversion_dem import conversion_dem
@@ -31,7 +31,7 @@ con = db.connect()
 
 parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-db',help='Create neccesary extensions and functions for fresh database', action='store_true')
+parser.add_argument('-db',help='Create neccessary extensions and functions for fresh database', action='store_true')
 parser.add_argument('-c','--collect',help='Please specify layer name for data collection from osm (e.g. pois, network)')
 parser.add_argument('-f', '--fuse',help='Please specify layer name for data fusion from osm (e.g. pois, network)')
 parser.add_argument('-u', '--update',help='Please specify layer name for data update from osm')
@@ -51,17 +51,9 @@ if args.db == True:
     prepare_db.create_db_tables()
     prepare_db.create_db_schemas()
 
-# if args.i == True:
-
 if collect or collect in(layers_collect):
     if collect == 'network':
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Network collection started.')
-        network_collection()
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Network collection has been finished.')
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Starting network preparation..')
-        prep_layers = PrepareLayers('ways')
-        prep_layers.ways()
-        NetworkIslands().find_network_islands()
+        perform_network_preparation(db)
     elif collect == 'pois':
         pois = osm_collection('pois')[0]
         pois = pois_preparation(pois)[0]
