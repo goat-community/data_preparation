@@ -213,7 +213,7 @@ def table_restore(source, filename):
 
 
 def migrate_table2localdb(tablename):
-    db = Database()
+    db = Database('reading')
     table_dump("remote", tablename)
     db.perform_rd(query=f"DROP TABLE IF EXISTS temporal.{tablename};")
     db.perform(query = f"DROP TABLE IF EXISTS temporal.{tablename} CASCADE;")
@@ -228,7 +228,7 @@ def GetTableList(t_schema, source='remote'):
     # Retrieve the table list
     s = "SELECT table_schema, table_name FROM information_schema.tables WHERE (table_schema = '" + t_schema + "') ORDER BY table_schema, table_name;"
 
-    db = Database()
+    db = Database('reading')
     if source == 'remote':
         db_cursor = db.cursor_rd()
     elif source == 'local':
@@ -246,6 +246,7 @@ def GetTableList(t_schema, source='remote'):
 def migrate_all_tables2localdb():
     tables = GetTableList('temporal')
     for t in tables:
+        print("Migrating..." + t)
         migrate_table2localdb(t)
 
 def create_sql_dumps():

@@ -202,7 +202,7 @@ OSM_tags = {
 
 OSM_germany = {
     'regions':             ["brandenburg", "bremen", "hamburg", "hessen","mecklenburg-vorpommern",
-                            "niedersachsen", "rheinland-pfalz", "saarland", "sachsen-anhalt", "sachsen",
+                            "rheinland-pfalz", "saarland",  "sachsen", "sachsen-anhalt","niedersachsen", 
                             "schleswig-holstein", "thueringen"],
     'baden-wuerttemberg' : ['freiburg-regbez', 'karlsruhe-regbez', 'stuttgart-regbez', 'tuebingen-regbez'],
     'bayern' :             ["mittelfranken", "niederbayern", "oberbayern", "oberfranken", "oberpfalz", "schwaben", "unterfranken"],

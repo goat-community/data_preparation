@@ -136,15 +136,13 @@ to_reduce_pop AS (
 	AND s.distributed_pop <> 0
 )
 UPDATE census_prepared
-SET new_pop= CASE 
-		WHEN difference < 0 THEN new_pop-(new_pop::float/cc.distributed_pop::float)::float*cc.difference::float
-		ELSE new_pop
-		END 
+SET new_pop=new_pop-(new_pop::float/cc.distributed_pop::float)::float*cc.difference::float 
 FROM to_reduce_pop cc
 WHERE ST_Intersects(ST_Centroid(census_prepared.geom), cc.geom)
-AND number_buildings_now > 1::integer
+AND number_buildings_now > {variable_container_population['census_minimum_number_new_buildings']}::integer
 AND pop < 1; 
 
+/*
 --################Reduce residents number#################################
 
 WITH comparison_pop AS (
@@ -180,6 +178,8 @@ WHERE ST_Intersects(ST_Centroid(census_prepared.geom), cc.geom)
 AND new_pop > 0; 
 
 --############################END##########
+*/
+
 
 WITH new_comparison_pop AS (
 	SELECT s.name, s.sum_pop,sum(c.new_pop) sum_new_pop, s.geom
@@ -242,6 +242,6 @@ CREATE INDEX ON population USING GIST (geom);
 DELETE FROM population 
 WHERE population < 0;
 
-DROP TABLE IF EXISTS census_sum_built_up;
+--DROP TABLE IF EXISTS census_sum_built_up;
 
 '''
