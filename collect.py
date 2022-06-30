@@ -87,7 +87,7 @@ if fuse or fuse in(layers_fuse):
         db.perform(query = 'ALTER TABLE pois_goat RENAME COLUMN geometry TO geom;')
         db.perform(query = 'ALTER TABLE pois_goat ALTER COLUMN osm_id TYPE float USING osm_id::double precision')        
         db.perform(query = 'ALTER TABLE pois_goat ALTER COLUMN osm_id TYPE bigint USING osm_id::bigint')
-        db.perform(sql_queries_goat['pois2goatschema'])
+        db.perform(sql_queries_goat['pois_old'])
     else:
         print('Error ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '  Please specify a valid fusion type.')
 

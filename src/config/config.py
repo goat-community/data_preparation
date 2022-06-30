@@ -113,7 +113,7 @@ class Config:
 
         # Returns study area as df from remote db (germany_municipalities) according to rs code 
         def study_area_remote2df(con,rs):
-            query = "SELECT * FROM germany_municipalities WHERE rs = '%s'" % rs
+            query = "SELECT * FROM sub_study_area WHERE rs = '%s'" % rs
             df_area = gpd.read_postgis(con=con,sql=query, geom_col='geom')
             df_area = df_area.filter(['geom'], axis=1)
             
@@ -145,7 +145,7 @@ class Config:
                 df_area_union = study_area_file2df(rs_set)
                 print('File extraction..')
             except:
-                print("Please make sure that in remote DB is table 'germany_municipalities' or in folder data/input is 'germany_municipalities.gpkg' file.")
+                print("Please make sure that in remote DB is table 'sub_study_area' or in folder data/input is 'germany_municipalities.gpkg' file.")
                 sys.exit()
         # if column geometry rename to geom
         try:
@@ -180,22 +180,24 @@ class Config:
                         collect.append(f"https://download.geofabrik.de/europe/germany/{name}-latest.osm.pbf")
                     else:
                         collect.append(f"https://download.geofabrik.de/europe/germany/{v}-latest.osm.pbf")   
-
-        elif regions == ['Germany']:
-            collect.append("https://download.geofabrik.de/europe/germany-latest.osm.pbf")
         elif regions == ['Bayern']:
             collect.append("https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf")
         else:
             for r in regions:
-                for key, value in OSM_germany.items():
-                    for v in value:
-                        if r.lower() in v:
-                            if key != "regions":
-                                name = key + "/" + v
-                                collect.append(f"https://download.geofabrik.de/europe/germany/{name}-latest.osm.pbf")
-                            else:
-                                collect.append(f"https://download.geofabrik.de/europe/germany/{v}-latest.osm.pbf")
-                 
+                if r == 'Germany':
+                    collect.append("https://download.geofabrik.de/europe/germany-latest.osm.pbf")
+                elif r == 'Belgium':
+                    collect.append("https://download.geofabrik.de/europe/belgium-latest.osm.pbf")
+                else: 
+                    for key, value in OSM_germany.items():
+                        for v in value:
+                            if r.lower() == v:
+                                if key != "regions":
+                                    name = key + "/" + v
+                                    collect.append(f"https://download.geofabrik.de/europe/germany/{name}-latest.osm.pbf")
+                                else:
+                                    collect.append(f"https://download.geofabrik.de/europe/germany/{v}-latest.osm.pbf")
+         
         return collect
 
 def classify_osm_tags(name):
