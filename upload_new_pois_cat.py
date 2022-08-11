@@ -5,7 +5,7 @@ from src.population.produce_population_points import Population
 from src.export.export_goat import getDataFromSql
 from src.export.export_tables2basic import sql_queries_goat
 from src.network.network_islands_municip import network_islands_mun
-from src.collection.preparation import kindergarten_deaggrgation
+from preparation.pois_preparation import kindergarten_deaggrgation
 from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
 from src.db.db import Database
@@ -14,7 +14,7 @@ from src.config.config import Config
 import json
 import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
-from src.collection.preparation import pois_preparation, landuse_preparation, buildings_preparation
+from preparation.pois_preparation import pois_preparation, landuse_preparation, buildings_preparation
 from src.collection.fusion import df2area, pois_fusion, fuse_data_area
 from src.network.ways import PrepareLayers, Profiles
 from src.network.conversion_dem import conversion_dem

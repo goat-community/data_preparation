@@ -7,11 +7,10 @@ import time
 from src.config.config import Config
 from src.db.config import DATABASE
 from src.db.db import Database
-from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump
+from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link
 from multiprocessing.pool import Pool
-from src.network.network_collection import NetworkCollection
+from collection.osm_collection import OsmCollection
 from src.network.network_islands import NetworkIslands
-
 
 
 class NetworkPreparation:
@@ -223,13 +222,15 @@ def prepare_ways(db):
 
 
 def perform_network_preparation(db):
-    network_collection = NetworkCollection(DATABASE)
+    osm_collection = OsmCollection(DATABASE)
 
     # Import needed data into the database
-    network_collection.network_collection(db)
-    network_collection.create_osm_extract_boundaries(db)
-    network_collection.import_dem()
-    # Prepare network
+    # osm_collection.network_collection(db)
+    # osm_collection.create_osm_extract_boundaries(db)
+    # osm_collection.import_dem()
+    
+    #Prepare network
+    Config("ways").download_db_schema()
     preparation = NetworkPreparation(db)
     preparation.create_table_schemas()
     preparation.create_processing_units()
@@ -241,3 +242,5 @@ def perform_network_preparation(db):
     db.conn.close()
 
 
+db = Database()
+perform_network_preparation(db)

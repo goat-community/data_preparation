@@ -5,12 +5,10 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from src.other.utility_functions import database_table2df, df2database, drop_table
 from src.collection.collection import osm_collection
-from src.collection.preparation import pois_preparation, landuse_preparation, buildings_preparation
+from preparation.pois_preparation import pois_preparation, landuse_preparation, buildings_preparation
 from src.collection.fusion import pois_fusion
 from src.collection.update import pois_update, poi_geonode_update
-from src.network.network_preparation import perform_network_preparation
-
-
+from preparation.network_preparation import perform_network_preparation
 from src.export.export_tables2basic import sql_queries_goat
 from src.population.process_population_buildings import process_population_buildings
 from src.network.conversion_dem import conversion_dem

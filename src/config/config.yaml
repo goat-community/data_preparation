@@ -1,5 +1,6 @@
 # VARIABLES_SET 
 VARIABLES_SET : 
+  db_schema: "https://s3.eu-central-1.amazonaws.com/goat-db-schemas/main/dump.tar"
   landuse:
     region_pbf : ["freiburg", "Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz","Schwaben","Unterfranken"]
     collection:
@@ -30,10 +31,10 @@ VARIABLES_SET :
 
       additional_columns: ["tourism", "name"]
 
-          # define which geometry types should be collected from OSM (do not turn off lines -> not all data will be collected)
-      points    : True
-      polygons  : True
-      lines     : True
+      # define which geometry types should be collected from OSM (do not turn off lines -> not all data will be collected) 
+      nodes : True
+      ways : True
+      relations : True
 
     preparation:
       region_pbf :
@@ -58,7 +59,10 @@ VARIABLES_SET :
     update :
   
   pois:
-    region_pbf : ["freiburg", "Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz","Schwaben","Unterfranken"]
+    region_pbf : [
+      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" #, 
+      #"https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf"
+    ]
     collection:
       osm_tags:
         amenity : ["fuel", "post_office", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
@@ -70,14 +74,14 @@ VARIABLES_SET :
         railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
         leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", 'sports_hall', "fitness_centre"]
         sport   : ["yoga", "fitness"]
-        highway          : ["bus_stop"]
+        highway : ["bus_stop"]
         public_transport : ["stop_position", "station"]
 
       additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
                            "opening_hours", "operator", "origin", "organic", "subway"]
-      points    : True
-      polygons  : True
-      lines     : True
+      nodes : True
+      ways : True
+      relations : True
       
     preparation:
       bank: 
@@ -428,9 +432,10 @@ VARIABLES_SET :
       osm_tags: 
         building: [True]
       additional_columns : ["amenity", "leisure", "addr:street", "addr:housenumber", "building:levels", "roof:levels"]
-      points: True
-      polygons: True
-      lines: True
+      nodes : False
+      ways : True
+      relations : False
+
     preparation:
     fusion:
     update :
@@ -523,21 +528,21 @@ VARIABLES_SET :
   # temporary variable container to generate ways table
   ways:
     region_pbf: [
-      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf", 
-      "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
-      "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
-      "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" , 
+      "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf" #,
+      # "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
+      # "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
+      # "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+      # "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
     ]
     collection: 
     preparation:

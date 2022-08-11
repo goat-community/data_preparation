@@ -3,7 +3,7 @@ from src.population.population_data_preparation import population_data_preparati
 from src.population.produce_population_points import Population
 from src.export.export_goat import getDataFromSql
 from src.export.export_tables2basic import sql_queries_goat
-from src.collection.preparation import kindergarten_deaggrgation
+from preparation.pois_preparation import kindergarten_deaggrgation
 from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
 from src.db.db import Database
@@ -13,7 +13,7 @@ import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from src.other.utility_functions import database_table2df, df2database, drop_table, file2df, gdf_conversion
 #from src.collection.collection import osm_collection
-from src.collection.preparation import pois_preparation, landuse_preparation, buildings_preparation
+from preparation.pois_preparation import pois_preparation, landuse_preparation, buildings_preparation
 from src.collection.fusion import pois_fusion
 #from src.network.network_collection import network_collection
 from src.network.ways import PrepareLayers, Profiles

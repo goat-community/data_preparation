@@ -4,7 +4,9 @@ import subprocess
 from rich import print as print
 from urllib.request import urlopen, Request
 from pathlib import Path
-
+import geopandas as gpd
+import pandas as pd
+import numpy as np
 
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
@@ -27,19 +29,23 @@ def print_hashtags():
         "#################################################################################################################"
     )
 
-
 def print_info(message: str):
     print(f"INFO: {message}")
-
 
 def print_warning(message: str):
     print(f"WARNING: {message}")
 
 
-def download_link(directory, link):
-    download_path = Path(directory) / os.path.basename(link)
+def download_link(directory, link, new_filename=None):
+    if new_filename is not None:
+        filename = new_filename
+    else: 
+        filename = os.path.basename(link)
+        
+    download_path = Path(directory) / filename
     with urlopen(link) as image, download_path.open("wb") as f:
         f.write(image.read())
+
     print_info(f"Downloaded ended for {link}")
 
 
@@ -66,7 +72,6 @@ def create_pgpass_for_db(db_config):
     )
     os.system(f"""chmod 600  ~/.pgpass_{db_config["dbname"]}""")
 
-
 def create_table_dump(db_config, table_name):
     """Create a dump from a table
 
@@ -89,3 +94,17 @@ def create_table_dump(db_config, table_name):
         )
     except Exception as e:
         print_warning(f"The following exeption happened when dumping {table_name}: {e}")
+
+def return_tables_as_gdf(db, tables: list):
+
+    df_combined = gpd.GeoDataFrame()
+    for table in tables:
+        df = gpd.read_postgis(db, "SELECT * FROM %s" % table, geometry_column='way')
+        df_combined = pd.concat([df_combined,df], sort=False).reset_index(drop=True)
+    
+    df_combined["osm_id"] = abs(df_combined["osm_id"])
+    df_combined = df_combined.replace({np.nan: None})
+
+    return df_combined
+
+
