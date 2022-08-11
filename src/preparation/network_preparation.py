@@ -7,7 +7,7 @@ import time
 from src.config.config import Config
 from src.db.config import DATABASE
 from src.db.db import Database
-from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link
+from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link, create_table_schema
 from multiprocessing.pool import Pool
 from collection.osm_collection import OsmCollection
 from src.network.network_islands import NetworkIslands
@@ -62,17 +62,6 @@ class NetworkPreparation:
         self.db.perform(sql_fill_table)
         self.db.perform(sql_create_index)
         self.db.perform(sql_add_ways_status_column)
-    
-    def create_table_schemas(self):
-        self.db.perform(query="CREATE SCHEMA IF NOT EXISTS basic;")
-        self.db.perform(query="CREATE SCHEMA IF NOT EXISTS extra;")
-        # Restore node table
-        self.db.perform(query="DROP TABLE IF EXISTS basic.edge;")
-        subprocess.run(
-            f'PGPASSFILE=~/.pgpass_{self.dbname} pg_restore -U {self.username} --schema-only -h {self.host} -n basic -d {self.dbname} -t edge {self.root_dir + "/src/data/input/dump.tar"}',
-            shell=True,
-            check=True,
-        )
     
     def create_edge_indizes(self):
         sql_create_index = """
@@ -225,14 +214,15 @@ def perform_network_preparation(db):
     osm_collection = OsmCollection(DATABASE)
 
     # Import needed data into the database
-    # osm_collection.network_collection(db)
-    # osm_collection.create_osm_extract_boundaries(db)
-    # osm_collection.import_dem()
+    osm_collection.network_collection(db)
+    osm_collection.create_osm_extract_boundaries(db)
+    osm_collection.import_dem()
     
     #Prepare network
     Config("ways").download_db_schema()
     preparation = NetworkPreparation(db)
-    preparation.create_table_schemas()
+    preparation.create_table_schema(db, DATABASE, 'basic.edge')
+    preparation.create_table_schema(db, DATABASE, 'basic.node')
     preparation.create_processing_units()
     prepare_ways(db)
     preparation.create_edge_indizes()

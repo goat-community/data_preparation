@@ -7,6 +7,8 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+from src.db.db import Database
+from sqlalchemy.engine.base import Engine
 
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
@@ -15,14 +17,12 @@ def delete_file(file_path: str) -> None:
     except OSError as e:
         pass
 
-
 def delete_dir(dir_path: str) -> None:
     """Delete file from disk."""
     try:
         shutil.rmtree(dir_path)
     except OSError as e:
         pass
-
 
 def print_hashtags():
     print(
@@ -35,8 +35,7 @@ def print_info(message: str):
 def print_warning(message: str):
     print(f"WARNING: {message}")
 
-
-def download_link(directory, link, new_filename=None):
+def download_link(directory: str, link: str, new_filename: str = None):
     if new_filename is not None:
         filename = new_filename
     else: 
@@ -48,12 +47,11 @@ def download_link(directory, link, new_filename=None):
 
     print_info(f"Downloaded ended for {link}")
 
-
-def create_pgpass_for_db(db_config):
+def create_pgpass_for_db(db_config: dict):
     """Creates pgpass file for specified DB config
 
     Args:
-        db_config (str): Pass a database config specified using the DATABASE object.
+        db_config (str): Database configuration dictionary.
     """
 
     delete_file(f"""~/.pgpass_{db_config["dbname"]}""")
@@ -72,11 +70,11 @@ def create_pgpass_for_db(db_config):
     )
     os.system(f"""chmod 600  ~/.pgpass_{db_config["dbname"]}""")
 
-def create_table_dump(db_config, table_name):
+def create_table_dump(db_config: dict, table_name: str):
     """Create a dump from a table
 
     Args:
-        db_config (str): Pass a database config specified using the DATABASE object.
+        db_config (str): Database configuration dictionary.
         table_name (str): Specify the table name including the schema.
     """
     try:
@@ -95,11 +93,29 @@ def create_table_dump(db_config, table_name):
     except Exception as e:
         print_warning(f"The following exeption happened when dumping {table_name}: {e}")
 
-def return_tables_as_gdf(db, tables: list):
+def create_table_schema(db: Database, db_config: dict, table_full_name: str):
+    """Function that creates a table schema from a database dump.
+
+    Args:
+        db (Database): Database connection class.
+        db_conf (dict): Database configuration dictionary.
+        table_full_name (str): Name with the schema of the table (e.g. basic.poi).
+    """
+    db.perform(query="CREATE SCHEMA IF NOT EXISTS basic;")
+    db.perform(query="CREATE SCHEMA IF NOT EXISTS extra;")
+    db.perform(query="DROP TABLE IF EXISTS %s" % table_full_name)
+    table_name = table_full_name.split('.')[1]
+    subprocess.run(
+        f'PGPASSFILE=~/.pgpass_{db_config["dbname"]} pg_restore -U {db_config["user"]} --schema-only -h {db_config["host"]} -n basic -d {db_config["dbname"]} -t {table_name} {"/app/src/data/input/dump.tar"}',
+        shell=True,
+        check=True,
+    )
+
+def return_tables_as_gdf(db_engine: Engine, tables: list):
 
     df_combined = gpd.GeoDataFrame()
     for table in tables:
-        df = gpd.read_postgis(db, "SELECT * FROM %s" % table, geometry_column='way')
+        df = gpd.read_postgis(sql="SELECT * FROM %s" % table, con=db_engine, geom_col='way')
         df_combined = pd.concat([df_combined,df], sort=False).reset_index(drop=True)
     
     df_combined["osm_id"] = abs(df_combined["osm_id"])

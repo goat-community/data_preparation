@@ -17,7 +17,7 @@ from src.other.utils import (
 from shapely.geometry import MultiPolygon, Polygon
 
 from src.config.config import Config
-from db.config import DATABASE
+from src.db.config import DATABASE
 from src.db.db import Database
 
 from src.other.utility_functions import create_pgpass
@@ -211,7 +211,7 @@ class OsmCollection:
             check=True,
         )
 
-    def download_bulk_osm(self, db, region_links: list):
+    def download_bulk_osm(self, region_links: list):
         # Cleanup
         delete_dir(self.temp_data_dir)
         os.mkdir(self.temp_data_dir)
@@ -229,7 +229,7 @@ class OsmCollection:
         pool.join()
 
     def prepare_bulk_osm(
-        self, db, region_links: list, dataset_type: str, osm_filter: str
+        self, region_links: list, dataset_type: str, osm_filter: str
     ):
         pool = Pool(processes=self.available_cpus)
 
@@ -269,8 +269,8 @@ class OsmCollection:
         if conf.collection["relations"] == False:
             osm_filter += "--drop-relations "
 
-        self.download_bulk_osm(db, region_links)
-        self.prepare_bulk_osm(db, region_links, "pois", osm_filter=osm_filter)
+        self.download_bulk_osm(region_links)
+        self.prepare_bulk_osm(region_links, "pois", osm_filter=osm_filter)
 
         # Merge all osm files
         print_info("Merging files")
@@ -291,17 +291,12 @@ class OsmCollection:
             check=True,
         )
         
-        created_tables = ['osm_pois_line', 'osm_pois_point', 'osm_pois_polygon', 'osm_pois_roads']
-        for table in created_tables:
-            db.execute(f'ALTER TABLE {table} ALTER COLUMN tags TYPE jsonb USING tags::jsonb;')
-        
-        return_tables_as_gdf(db, created_tables)
         
     def network_collection(self, db):
         """Creates and imports the network using osm2pgsql into the database"""
         conf = Config("ways")
         region_links = conf.pbf_data
-        self.download_bulk_osm(db, region_links)
+        self.download_bulk_osm(region_links)
         self.prepare_bulk_osm(
             db,
             region_links,

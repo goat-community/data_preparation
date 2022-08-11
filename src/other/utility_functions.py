@@ -3,13 +3,11 @@ import sys
 import time
 import json
 import subprocess
-from pathlib import Path
 import geopandas as gp
 from decouple import config
 import sqlalchemy
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
-from db.db import Database, DATABASE_RD, DATABASE
+from src.db.db import Database
+from src.db.config import DATABASE_RD, DATABASE
 
 # Function for creation backupfiles
 # Convert and save dataframe as GPKG or GeoJSON file formats
