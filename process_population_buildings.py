@@ -4,7 +4,7 @@ from src.population.produce_population_points import Population
 from src.export.export_goat import getDataFromSql
 from src.export.export_tables2basic import sql_queries_goat
 from preparation.pois_preparation import kindergarten_deaggrgation
-from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
+from other.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
 from src.db.db import Database
 

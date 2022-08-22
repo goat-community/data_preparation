@@ -10,7 +10,7 @@ from src.db.db import Database
 from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link, create_table_schema
 from multiprocessing.pool import Pool
 from collection.osm_collection import OsmCollection
-from src.network.network_islands import NetworkIslands
+from preparation.network_islands import NetworkIslands
 
 
 class NetworkPreparation:

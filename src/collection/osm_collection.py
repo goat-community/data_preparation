@@ -17,7 +17,7 @@ from src.other.utils import (
 from shapely.geometry import MultiPolygon, Polygon
 
 from src.config.config import Config
-from src.db.config import DATABASE
+from src.db.config import DATABASE, DATABASE_RD
 from src.db.db import Database
 
 from src.other.utility_functions import create_pgpass
@@ -248,7 +248,30 @@ class OsmCollection:
         pool.close()
         pool.join()
 
-    def pois_collection(self, db):
+           
+    def merge_osm_and_import(self, region_links: list, conf: Config):
+        # Merge all osm files
+        print_info("Merging files")
+        file_names = [
+            f.split("/")[-1].split(".")[0] + f"_{conf.name}.osm" for f in region_links
+        ]
+        subprocess.run(
+            f'osmium merge {" ".join(file_names)} -o merged.osm',
+            shell=True,
+            check=True,
+        )
+        
+        # Import merged osm file using customer osm2pgsql style
+        conf.osm2pgsql_create_style()
+        subprocess.run(
+            f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
+            + "merged.osm"
+            + f" -s --drop -C {self.cache} --style /app/src/data/temp/{conf.name}_p4b.style --prefix osm_{conf.name}",
+            shell=True,
+            check=True,
+        )
+        
+    def pois_collection(self):
         """Collects all POIs from OSM."""
         conf = Config("pois")
         region_links = conf.pbf_data
@@ -271,27 +294,18 @@ class OsmCollection:
 
         self.download_bulk_osm(region_links)
         self.prepare_bulk_osm(region_links, "pois", osm_filter=osm_filter)
-
-        # Merge all osm files
-        print_info("Merging files")
-        file_names = [
-            f.split("/")[-1].split(".")[0] + "_pois.osm" for f in region_links
-        ]
-        subprocess.run(
-            f'osmium merge {" ".join(file_names)} -o merged.osm',
-            shell=True,
-            check=True,
-        )
-        conf.osm2pgsql_create_style()
-        subprocess.run(
-            f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
-            + "merged.osm"
-            + f" -s --drop -C {self.cache} --style /app/src/data/temp/{conf.name}_p4b.style --prefix osm_{conf.name}",
-            shell=True,
-            check=True,
-        )
+        self.merge_osm_and_import(region_links, conf)
         
+    def building_collection(self):
+        """Collects all building from OSM"""
+        conf = Config("buildings")
+        region_links = conf.pbf_data
+        osm_filter = "building= --drop-nodes --drop-relations"
         
+        self.download_bulk_osm(region_links)
+        self.prepare_bulk_osm(region_links, "buildings", osm_filter=osm_filter)
+        self.merge_osm_and_import(region_links, conf)
+                
     def network_collection(self, db):
         """Creates and imports the network using osm2pgsql into the database"""
         conf = Config("ways")
@@ -361,3 +375,44 @@ class OsmCollection:
         db.perform(query="CREATE INDEX ON planet_osm_point (osm_id);")
         db.perform(query="CREATE INDEX ON planet_osm_line USING GIST(way);")
         db.perform(query="CREATE INDEX ON planet_osm_point USING GIST(way);")
+
+    
+    def clip_osm_by_bbox(self, bbox: str, filename: str):
+        """Clips the OSM data by the polygon file"""
+        
+        raw_path = os.path.join(self.temp_data_dir,'raw.osm.pbf')
+        clipped_filename = os.path.join(self.temp_data_dir, filename)
+        print_info("Clipping OSM data by polygon.")
+        subprocess.run(
+            f'osmconvert {raw_path} -b={bbox} -o={clipped_filename}',
+            shell=True,
+            check=True,
+        )
+        
+    def clip_osm_network_for_r5(self, db):
+        """Clips a large OSM file into the R5 regions"""
+        conf = Config("ways")
+        download_url = conf.config["ways"]["region_pbf_r5"]
+        download_link(directory=self.temp_data_dir, link=download_url, new_filename="raw.osm.pbf")
+        
+        regions = db.select(
+            """SELECT id, CONCAT(ST_XMin(geom)::TEXT, ',', ST_YMin(geom)::text,',', ST_XMax(geom)::text, ',', ST_YMax(geom)) AS bbox
+            FROM 
+            (
+	            SELECT id, st_envelope(geom_buffer) AS geom  
+	            FROM region_gtfs rg 
+                WHERE id < 7 
+            ) x """
+        )
+
+        # TODO: Run this in parallel  
+        for region in regions:
+            self.clip_osm_by_bbox(bbox=region[1], filename=f"region{region[0]}.osm.pbf")
+
+
+# db = Database(DATABASE_RD)
+# osm_collection = OsmCollection(DATABASE_RD)
+# osm_collection.clip_osm_network_for_r5(db)
+
+# osm_collection.building_collection()
+# db.conn.close()

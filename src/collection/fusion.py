@@ -96,56 +96,6 @@ def find_nearest(gdA, gdB, max_dist):
 
     return gdf_fus, gdf_not_fus
 
-# Indexing data in dataframe with goat indexes
-def dataframe_goat_index(df):
-    db = Database('reading')
-    con = db.connect_rd()
-    cur = con.cursor()
-    df = df[df['amenity'].notna()]
-    df['id_x'] = df.centroid.x * 1000
-    df['id_y'] = df.centroid.y * 1000
-    df['id_x'] = df['id_x'].apply(np.floor)
-    df['id_y'] = df['id_y'].apply(np.floor)
-    df = df.astype({'id_x': int, 'id_y': int})
-    df['poi_goat_id'] = df['id_x'].map(str) + '-' + df['id_y'].map(str) + '-' + df['amenity']
-    df = df.drop(columns=['id_x','id_y'])
-    df["osm_id"] = df["osm_id"].fillna(value=0)
-    df_poi_goat_id = df[['poi_goat_id','osm_id', 'name', 'origin_geometry']]
-
-    cols = ','.join(list(df_poi_goat_id.columns))
-    tuples = [tuple(x) for x in df_poi_goat_id.to_numpy()]
-
-    cnt = 0
-
-    cur.execute("DROP TABLE IF EXISTS poi_goat_id_temp; \
-                 CREATE TABLE poi_goat_id_temp AS TABLE poi_goat_id;") 
-
-    for tup in tuples:
-        tup_l = list(tup)
-        id_number = tup_l[0]
-        query_select = f"SELECT max(index) FROM poi_goat_id_temp WHERE poi_goat_id = '{id_number}';"
-        last_number = db.select_rd(query_select)
-        if (list(last_number[0])[0]) is None:
-            tup_new = tup_l
-            tup_new.append(0)
-            tup_new = tuple(tup_new)
-            cur.execute("""INSERT INTO poi_goat_id_temp(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
-            con.commit()
-            df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-0000'
-        else:
-            new_ind = list(last_number[0])[0] + 1
-            tup_new = tup_l
-            tup_l.append(new_ind)
-            tup_new = tuple(tup_new)
-            cur.execute("""INSERT INTO poi_goat_id_temp(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",tup_new)
-            con.commit()
-            df.iloc[cnt, df.columns.get_loc('poi_goat_id')] = f'{id_number}-{new_ind:04}'
-        cnt += 1
-        
-    cur.execute("DROP TABLE poi_goat_id_temp;")
-    con.close()
-    df = df.astype({'osm_id': int})
-    return df
 # POIs fusion function for fusion custom pois data with osm data, referenced to table "germany_municipalities" with regions 
 # RETURNS tuple(df,name) and saves data as file if is specified
 # - df_base2area - df with base data  (osm) 

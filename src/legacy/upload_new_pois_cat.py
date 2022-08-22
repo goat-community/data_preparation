@@ -6,7 +6,7 @@ from src.export.export_goat import getDataFromSql
 from src.export.export_tables2basic import sql_queries_goat
 from src.network.network_islands_municip import network_islands_mun
 from preparation.pois_preparation import kindergarten_deaggrgation
-from src.processing.geocoding_functions import addLocationOfAdressToJson, GeoAddress
+from other.geocoding_functions import addLocationOfAdressToJson, GeoAddress
 
 from src.db.db import Database
 from src.config.config import Config

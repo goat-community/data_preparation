@@ -427,7 +427,23 @@ VARIABLES_SET :
 
   # config to collect buildings from OSM
   buildings :
-    region_pbf: ["freiburg","Mittelfranken","Niederbayern","Oberbayern","Oberfranken","Oberpfalz","Schwaben","Unterfranken"]
+    region_pbf: [
+      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" , 
+      "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
+      "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
+      "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+    ]
     collection:
       osm_tags: 
         building: [True]
@@ -544,6 +560,7 @@ VARIABLES_SET :
       # "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
       # "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
     ]
+    region_pbf_r5: "http://download.openstreetmap.fr/extracts/europe/germany-latest.osm.pbf"
     collection: 
     preparation:
       excluded_class_id_walking: [0,101,102,103,104,105,106,107,501,502,503,504,701,801]
@@ -573,6 +590,3 @@ VARIABLES_SET :
         grass: '0.25'
         mud: '0.4'
       one_meter_degree : 0.000009
-    fusion:
-      rs_codes: ['']
-    update :
