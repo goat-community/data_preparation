@@ -11,8 +11,12 @@
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
 		"ms-python.python",
-		"ms-python.vscode-pylance",
-		"ms-toolsai.jupyter-keymap"
+		"github.copilot",
+		"ms-vscode.cpptools",
+		"twxs.cmake",
+		"ms-vscode.cmake-tools",
+		"donjayamanne.python-extension-pack",
+		"njpwerner.autodocstring"
 	],
     "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
