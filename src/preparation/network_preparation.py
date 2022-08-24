@@ -9,9 +9,9 @@ from src.db.config import DATABASE
 from src.db.db import Database
 from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link, create_table_schema
 from multiprocessing.pool import Pool
-from collection.osm_collection import OsmCollection
-from preparation.network_islands import NetworkIslands
-
+from src.collection.osm_collection import OsmCollection
+from src.preparation.network_islands import NetworkIslands
+from src.other.utils import create_table_schema
 
 class NetworkPreparation:
     """Class to prepare the routing network. It processs the network in chunks and prepares the different attributes (e.g., slopes)."""
@@ -210,27 +210,27 @@ def prepare_ways(db):
     print_hashtags()
 
 
-def perform_network_preparation(db):
+def perform_network_preparation(db, use_poly=True):
     osm_collection = OsmCollection(DATABASE)
 
     # Import needed data into the database
     osm_collection.network_collection(db)
-    osm_collection.create_osm_extract_boundaries(db)
+    osm_collection.create_osm_extract_boundaries(db, use_poly)
     osm_collection.import_dem()
     
-    #Prepare network
+    # Prepare network
     Config("ways").download_db_schema()
     preparation = NetworkPreparation(db)
-    preparation.create_table_schema(db, DATABASE, 'basic.edge')
-    preparation.create_table_schema(db, DATABASE, 'basic.node')
+    create_table_schema(db, DATABASE, 'basic.edge')
+    create_table_schema(db, DATABASE, 'basic.node')
     preparation.create_processing_units()
     prepare_ways(db)
     preparation.create_edge_indizes()
-    NetworkIslands().find_network_islands()
+    NetworkIslands(DATABASE).find_network_islands()
     preparation.create_street_crossings()
     preparation.dump_network()
     db.conn.close()
 
 
-db = Database()
-perform_network_preparation(db)
+# db = Database(DATABASE)
+# perform_network_preparation(db, use_poly=True)

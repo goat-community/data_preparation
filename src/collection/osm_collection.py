@@ -3,7 +3,7 @@ import os
 import sys
 import time
 import psutil
-
+import geopandas as gpd
 from urllib import request
 from src.other.utils import (
     print_info,
@@ -120,19 +120,24 @@ class OsmCollection:
 
             return MultiPolygon(coords)
 
-    def create_osm_extract_boundaries(self, db):
+
+    def create_osm_extract_boundaries(self, db, use_poly=True):
         """Create OSM extract boundaries.
         Args:
             db (Database): Database object.
         """
-
+        if use_poly is True:
+            file_ending = ".poly"
+        else:
+            file_ending = ".geojson"
+            
         region_poly_links = []
         for link in Config("ways").pbf_data:
             region_poly_links.append(
                 os.path.dirname(link)
                 + "/"
                 + os.path.basename(link).split("-latest")[0]
-                + ".poly"
+                + file_ending
             )
 
         download = partial(download_link, self.temp_data_dir)
@@ -159,10 +164,15 @@ class OsmCollection:
 
         for link in region_poly_links:
             file_dir = self.temp_data_dir + os.path.basename(link)
-            geom = self.parse_poly(file_dir)
+            if use_poly is True:
+                geom = self.parse_poly(file_dir)
+            else:
+                gdf = gpd.read_file(file_dir)
+                geom = gdf.iloc[0]["geometry"]
+                
             sql_insert = """
                 INSERT INTO osm_extract_boundaries(name, geom)
-                SELECT %s, ST_GEOMFROMTEXT(%s);
+                SELECT %s, ST_MULTI(ST_GEOMFROMTEXT(%s));
             """
             db.perform(
                 query=sql_insert,
@@ -312,8 +322,7 @@ class OsmCollection:
         region_links = conf.pbf_data
         self.download_bulk_osm(region_links)
         self.prepare_bulk_osm(
-            db,
-            region_links,
+            region_links=region_links,
             dataset_type="network",
             osm_filter="highway= cycleway= junction=",
         )

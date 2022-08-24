@@ -19,7 +19,7 @@ class H3Grid:
         """
         return {'type': 'Polygon', 'coordinates': [[[bottom, left], [bottom, right], [top, right], [top, left], [bottom, left]]]}
 
-    def create_grid(self, study_area, polygon, resolution):
+    def create_grid(self, polygon, resolution, layer_name):
         """
         Creates a h3 grid for passed bounding box in SRID 4326
         """
@@ -43,34 +43,16 @@ class H3Grid:
         # Create series from hex_ids array
         hex_ids = pd.Series(hex_ids)
         gdf = gpd.GeoDataFrame(pd.concat([hex_ids,hex_parents,hex_polygons], keys=['id','parent_id','geometry'], axis=1))
-        gdf['id'] = gdf['id'].astype(np.int64)
-        gdf['study_area_id'] = int(study_area.lstrip('0'))
-        # Save as Geopackage
-        # gdf.to_file('%s/%s.gpkg' % (self.data_dir,layer_name), driver='GPKG')
-        # Return gdf
-        return gdf
-
-    def create_grids_study_area_table(self,municipality):
-        db = Database()
-        con = db.connect()
-        df = database_table2df(con, 'temporal.study_area', attribute='rs', value=f"'{municipality}'", geometry_column="geom")
-        df = df.to_crs(31468)
-        df_ds = df.dissolve()
-        df_ds["geom"] = df_ds["geom"].buffer(1000)
-        df_ds = df_ds.to_crs(4326)
-        bounds = df_ds.geometry.bounds
-        top = bounds['maxy'][0]
-        left = bounds['minx'][0]
-        bottom = bounds['miny'][0]
-        right = bounds['maxx'][0]
-        return [top,left,bottom,right]
         
+        # Save as Geopackage
+        gdf.to_file('%s/%s.gpkg' % (self.data_dir,layer_name), driver='GPKG')
+       
 
 # Create grid from bouding box example
 #bbox = H3Grid().create_geojson_from_bbox(top=48.352598707539315, left=11.255493164062498, bottom=47.92738566360356, right=11.8927001953125)
-#bbox = H3Grid().create_geojson_from_bbox(top=48.05924, left=7.68083, bottom=47.92881, right=7.96208)
-#H3Grid().create_grid(polygon=bbox, resolution=9, layer_name='grid_visualization')
-#H3Grid().create_grid(polygon=bbox, resolution=10, layer_name='grid_calculation')
+bbox = H3Grid().create_geojson_from_bbox(top=26.33345, left=-80.17602, bottom=26.22792, right=-80.06851)
+H3Grid().create_grid(polygon=bbox, resolution=9, layer_name='grid_visualization')
+H3Grid().create_grid(polygon=bbox, resolution=10, layer_name='grid_calculation')
 
 
 # bbox = H3Grid().create_geojson_from_bbox(top=48.0710465709655708, left=7.6619009582867594, bottom=47.9035964575060191, right=7.9308570081842120)

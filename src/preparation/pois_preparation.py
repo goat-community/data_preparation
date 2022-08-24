@@ -4,18 +4,18 @@ from difflib import SequenceMatcher
 import numpy as np
 import pandas as pd
 import geopandas as gp
-from src.db.config import DATABASE
+from src.db.config import DATABASE, DATABASE_RD
 from src.db.db import Database
 
 # from pandas.core.accessor import PandasDelegate
 from src.config.config import Config
-from src.other.utility_functions import gdf_conversion
+from src.other.utility_functions import gdf_conversion, table_dump
 from src.other.utils import return_tables_as_gdf
 from src.collection.osm_collection import OsmCollection
 from sqlalchemy.sql import text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from src.other.utils import create_table_schema
+from src.other.utils import create_table_schema, create_table_dump
 
 
 # ================================== POIs preparation =============================================#
@@ -695,15 +695,18 @@ class PoisPreparation:
         self.config_pois = Config("pois")
         self.config_pois_preparation = self.config_pois.preparation
 
-    def perform_pois_preparation(self):
-        """Performs the POIs preparation
+    def perform_pois_preparation(self, db_reading):
+        """_summary_
+
+        Args:
+            db_reading (Database): Database object to read the custom POI data.
 
         Returns:
             GeoDataFrame: the prepared POIs
         """
 
-        # osm_collection = OsmCollection(self.db_config)
-        # osm_collection.pois_collection()
+        osm_collection = OsmCollection(self.db_config)
+        osm_collection.pois_collection()
 
         created_tables = ["osm_pois_point", "osm_pois_polygon"]
         for table in created_tables:
@@ -714,31 +717,7 @@ class PoisPreparation:
         poi_gdf = return_tables_as_gdf(self.sqlalchemy_engine, created_tables)
         poi_gdf = osm_poi_classification(poi_gdf, self.config_pois)
         create_table_schema(self.db, self.db_config, "basic.poi")
-        
-        # TODO: Temp fix here only to convert poi.id a serial instead of integer
-        self.db.perform(
-            """
-            DROP SEQUENCE IF EXISTS poi_serial;
-            CREATE SEQUENCE poi_serial;
-            ALTER TABLE basic.poi ALTER COLUMN id SET DEFAULT nextval('poi_serial');
-            """ 
-        )
-        
-        # Create preliminary GOAT UID 
-        poi_gdf["uid"] = (
-            (poi_gdf.centroid.x * 1000).apply(np.floor).astype(int).astype(str)
-            + "-"
-            + (poi_gdf.centroid.y * 1000).apply(np.floor).astype(int).astype(str)
-            + "-"
-            + poi_gdf.amenity
-        )
-        poi_gdf["uid"] = (
-            poi_gdf["uid"]
-            + "-"
-            + (
-                ((poi_gdf.groupby("uid").cumcount() + 1) / 1000).astype(str)
-            ).str.replace(".", "", regex=False)
-        )
+
         poi_gdf = poi_gdf.reset_index(drop=True)
         copy_gdf = poi_gdf.copy()
         keys_for_tags = [
@@ -752,17 +731,6 @@ class PoisPreparation:
             "origin_geometry",
             "osm_id",
         ]
-        # Match schema and put remaining attributes in tags
-        loc_tags = poi_gdf.columns.get_loc("tags")
-        for i in range(len(poi_gdf.index)):
-            row = copy_gdf.iloc[i]
-
-            new_tags = row["tags"]
-            for key in keys_for_tags:
-                if row[key] is not None:
-                    new_tags[key] = str(row[key])
-
-            poi_gdf.iat[i, loc_tags] = json.dumps(new_tags)
 
         poi_gdf.rename(
             columns={
@@ -776,6 +744,50 @@ class PoisPreparation:
             columns=keys_for_tags,
             inplace=True,
         )
+        # Replace category with the custom data
+        custom_table = self.config_pois.config["pois"]["replace"]["table_name"]
+        if custom_table is not None:
+
+            categories = db_reading.select(
+                f"""
+                SELECT DISTINCT category 
+                FROM {custom_table}
+                """
+            )
+            categories = [i[0] for i in categories]
+            poi_gdf = self.replace_osm_pois_by_custom(
+                poi_gdf, db_reading, custom_table, categories
+            )
+
+        # Create preliminary GOAT UID
+        poi_gdf["uid"] = (
+            (poi_gdf.centroid.x * 1000).apply(np.floor).astype(int).astype(str)
+            + "-"
+            + (poi_gdf.centroid.y * 1000).apply(np.floor).astype(int).astype(str)
+            + "-"
+            + poi_gdf.category
+        )
+        poi_gdf["uid"] = (
+            poi_gdf["uid"]
+            + "-"
+            + (
+                ((poi_gdf.groupby("uid").cumcount() + 1) / 1000).astype(str)
+            ).str.replace(".", "", regex=False)
+        )
+        
+        # Match schema and put remaining attributes in tags
+        loc_tags = poi_gdf.columns.get_loc("tags")
+        for i in range(len(poi_gdf.index)):
+            row = copy_gdf.iloc[i]
+
+            new_tags = row["tags"]
+            for key in keys_for_tags:
+                if row[key] is not None:
+                    new_tags[key] = str(row[key])
+
+            poi_gdf.iat[i, loc_tags] = json.dumps(new_tags)
+
+        
         # Upload to PostGIS
         poi_gdf.to_postgis(
             name="poi",
@@ -783,8 +795,40 @@ class PoisPreparation:
             schema="basic",
             if_exists="append",
             index=False,
-            dtype={"tags": JSONB}
+            dtype={"tags": JSONB},
         )
+        return poi_gdf
+
+    def replace_osm_pois_by_custom(
+        self, poi_gdf, db_reading, custom_table: str, categories: list[str]
+    ):
+        """Replaces the OSM POIs by the custom POIs.
+
+        Args:
+            gdf (GeoDataFrame): The prepared OSM POIs
+            db_reading (Database): The database to read the custom POIs from
+            custom_table (str): The name of the custom POIs table
+            categories (list): The categories of the custom POIs to be replaced
+
+        Returns:
+            gdf: _description_
+        """ """"""
+
+        sql_select_table = f"""
+            SELECT * FROM {custom_table} 
+            WHERE category IN (SELECT UNNEST(ARRAY{categories}));
+        """
+
+        custom_poi_gdf = gp.GeoDataFrame.from_postgis(
+            sql_select_table, db_reading.return_sqlalchemy_engine()
+        )
+
+        if bool(set(list(poi_gdf.category.unique())) & set(categories)):
+            poi_gdf = poi_gdf[~poi_gdf.category.isin(categories)]
+            columns_to_drop = list(set(custom_poi_gdf.columns) - set(poi_gdf.columns))
+            custom_poi_gdf.drop(columns_to_drop, axis=1, inplace=True)
+            poi_gdf = pd.concat([poi_gdf, custom_poi_gdf], ignore_index=True)
+
         return poi_gdf
 
     # Indexing data in dataframe with goat indexes
@@ -851,5 +895,34 @@ class PoisPreparation:
         return df
 
 
-pois_preparation = PoisPreparation(DATABASE)
-pois_preparation.perform_pois_preparation()
+# pois_preparation = PoisPreparation(DATABASE)
+# db_reading = Database(DATABASE_RD)
+# pois_preparation.perform_pois_preparation(db_reading)
+
+#db = Database(DATABASE)
+#create_table_schema(db, DATABASE, "basic.aoi")
+
+
+# create_table_schema(db, DATABASE, "basic.building")
+# create_table_schema(db, DATABASE, "basic.population")
+# create_table_schema(db, DATABASE, "basic.study_area")
+# create_table_schema(db, DATABASE, "basic.sub_study_area")
+
+
+# create_table_schema(db, DATABASE, "basic.grid_calculation")
+# create_table_schema(db, DATABASE, "basic.grid_visualization")
+# create_table_schema(db, DATABASE, "basic.study_area_grid_visualization")
+
+
+# create_table_dump(db_config=DATABASE, table_name="basic.building", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.population", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.study_area", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.sub_study_area", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.grid_calculation", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.grid_visualization", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.study_area_grid_visualization", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.edge", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.node", data_only=True)
+# create_table_dump(db_config=DATABASE, table_name="basic.poi", data_only=True)
+
+create_table_schema(db, DATABASE, "basic.aoi")

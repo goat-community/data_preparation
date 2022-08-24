@@ -11,8 +11,8 @@ variable_container_ways = config_ways.preparation
 
 class NetworkIslands:
 	"""Class to compute to identify network islands from the ways table."""
-	def __init__(self):
-		self.db = Database()  
+	def __init__(self, db_config):
+		self.db = Database(db_config)  
 
 	def prepare_table(self):
 

@@ -70,23 +70,28 @@ def create_pgpass_for_db(db_config: dict):
     )
     os.system(f"""chmod 600  ~/.pgpass_{db_config["dbname"]}""")
 
-def create_table_dump(db_config: dict, table_name: str):
+def create_table_dump(db_config: dict, table_name: str, data_only: bool = False):
     """Create a dump from a table
 
     Args:
         db_config (str): Database configuration dictionary.
         table_name (str): Specify the table name including the schema.
     """
+    if data_only == True:
+        data_only_tag = "--data-only"
+    else:
+        data_only_tag = ""
+        
     try:
         dir_output = (
             os.path.abspath(os.curdir)
             + "/src/data/output/"
             + table_name.split(".")[1]
-            + ".tar"
+            + ".sql"
         )
 
         subprocess.run(
-            f"""PGPASSFILE=~/.pgpass_{db_config["dbname"]} pg_dump -h {db_config["host"]} -t {table_name} -F t --no-owner -U {db_config["user"]} {db_config["dbname"]} > {dir_output}""",
+            f"""PGPASSFILE=~/.pgpass_{db_config["dbname"]} pg_dump -h {db_config["host"]} -t {table_name} {data_only_tag} --no-owner -U {db_config["user"]} {db_config["dbname"]} > {dir_output}""", #-F t
             shell=True,
             check=True,
         )
@@ -109,6 +114,13 @@ def create_table_schema(db: Database, db_config: dict, table_full_name: str):
         f'PGPASSFILE=~/.pgpass_{db_config["dbname"]} pg_restore -U {db_config["user"]} --schema-only -h {db_config["host"]} -n basic -d {db_config["dbname"]} -t {table_name} {"/app/src/data/input/dump.tar"}',
         shell=True,
         check=True,
+    )
+    # TODO: Temp fix here only to convert poi.id a serial instead of integer
+    db.perform(
+        f"""
+        CREATE SEQUENCE IF NOT EXISTS {table_name}_serial;
+        ALTER TABLE {table_full_name} ALTER COLUMN id SET DEFAULT nextval('{table_name}_serial');
+        """
     )
 
 def return_tables_as_gdf(db_engine: Engine, tables: list):
