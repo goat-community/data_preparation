@@ -481,18 +481,20 @@ class OsmCollection:
                 outfile.write(json_data)
 
     def modify_osm_data():
-        data = etree.parse('../data/temp/cropped.osm')
+        data = etree.parse('../data/temp/filter.osm')
         
         with open('../data/temp/trafficMonday8am_9am.json', 'r') as file:
             allTrafficDatas = json.load(file)
             for trafficData in allTrafficDatas:
                 nodes = trafficData['nodeIDs']
-                for node in nodes:
-                    ref = data.findall(f"//nd[@ref='{node}']")
-                    if(len(ref) > 0):
-                        for way in ref:
-                            parentElement = way.getparent()
+                ref = data.findall(f"//nd[@ref='{nodes[0]}']")
+                ref2 = data.findall(f"//nd[@ref='{nodes[1]}']")
+                
+                for way in ref:
+                    for end in ref2:
+                        if(way.getparent() == end.getparent()):
                             iterator = 0
+                            parentElement = way.getparent()
                             for element in parentElement.getiterator("tag"):
                                 if(element.get('k') == 'maxspeed'):
                                     iterator = 1
@@ -508,7 +510,7 @@ class OsmCollection:
         
         f = open('../data/temp/trafficOSMModified.osm', 'wb')
         f.write(etree.tostring(data, pretty_print=True))
-        f.close()   
+        f.close() 
 
 
 # db = Database(DATABASE_RD)
