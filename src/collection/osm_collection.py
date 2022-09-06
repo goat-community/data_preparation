@@ -28,6 +28,7 @@ from decouple import config
 from functools import partial
 from multiprocessing.pool import Pool
 from time import time
+import numpy as np
 
 
 class OsmCollection:
@@ -484,9 +485,10 @@ class OsmCollection:
         data = etree.parse('../data/temp/filter.osm')
         
         with open('../data/temp/trafficMonday8am_9am.json', 'r') as file:
-            allTrafficDatas = json.load(file)
-            for trafficData in allTrafficDatas:
-                nodes = trafficData['nodeIDs']
+            allTrafficDatas = np.array(json.load(file))
+            for trafficData in np.nditer(allTrafficDatas, flags=["refs_ok"]):
+                traffdata = trafficData[()]
+                nodes = traffdata['nodeIDs']
                 ref = data.findall(f"//nd[@ref='{nodes[0]}']")
                 ref2 = data.findall(f"//nd[@ref='{nodes[1]}']")
                 
@@ -499,14 +501,16 @@ class OsmCollection:
                                 if(element.get('k') == 'maxspeed'):
                                     iterator = 1
                                     attributes = element.attrib
-                                    attributes['v'] = str(int(trafficData['trafficAverage']))
+                                    attributes['v'] = str(int(traffdata['trafficAverage']))
                                     print(element.get('v'))
                             
                             if(iterator == 0):
                                 elem = etree.SubElement(parentElement, 'tag')
                                 attributes = elem.attrib
                                 attributes['k'] = 'maxspeed'
-                                attributes['v'] = str(int(trafficData['trafficAverage']))
+                                attributes['v'] = str(int(traffdata['trafficAverage']))
+                                print(elem.get('v'))
+                                
         
         f = open('../data/temp/trafficOSMModified.osm', 'wb')
         f.write(etree.tostring(data, pretty_print=True))
