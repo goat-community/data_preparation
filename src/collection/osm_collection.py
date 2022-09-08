@@ -2,6 +2,10 @@ import subprocess
 import os
 import sys
 import time
+import csv
+from lxml import etree
+import json
+from unittest import FunctionTestCase
 import psutil
 import geopandas as gpd
 from urllib import request
@@ -15,7 +19,6 @@ from src.other.utils import (
     return_tables_as_gdf
 )
 from shapely.geometry import MultiPolygon, Polygon
-
 from src.config.config import Config
 from src.db.config import DATABASE, DATABASE_RD
 from src.db.db import Database
@@ -25,6 +28,7 @@ from decouple import config
 from functools import partial
 from multiprocessing.pool import Pool
 from time import time
+import numpy as np
 
 
 class OsmCollection:
@@ -120,7 +124,6 @@ class OsmCollection:
 
             return MultiPolygon(coords)
 
-
     def create_osm_extract_boundaries(self, db, use_poly=True):
         """Create OSM extract boundaries.
         Args:
@@ -130,7 +133,7 @@ class OsmCollection:
             file_ending = ".poly"
         else:
             file_ending = ".geojson"
-            
+
         region_poly_links = []
         for link in Config("ways").pbf_data:
             region_poly_links.append(
@@ -169,7 +172,7 @@ class OsmCollection:
             else:
                 gdf = gpd.read_file(file_dir)
                 geom = gdf.iloc[0]["geometry"]
-                
+
             sql_insert = """
                 INSERT INTO osm_extract_boundaries(name, geom)
                 SELECT %s, ST_MULTI(ST_GEOMFROMTEXT(%s));
@@ -258,7 +261,6 @@ class OsmCollection:
         pool.close()
         pool.join()
 
-           
     def merge_osm_and_import(self, region_links: list, conf: Config):
         # Merge all osm files
         print_info("Merging files")
@@ -270,7 +272,7 @@ class OsmCollection:
             shell=True,
             check=True,
         )
-        
+
         # Import merged osm file using customer osm2pgsql style
         conf.osm2pgsql_create_style()
         subprocess.run(
@@ -280,14 +282,15 @@ class OsmCollection:
             shell=True,
             check=True,
         )
-        
+
     def pois_collection(self):
         """Collects all POIs from OSM."""
         conf = Config("pois")
         region_links = conf.pbf_data
 
         # Create OSM filter for POIs
-        osm_filter = " ".join([i + "=" for i in conf.collection["osm_tags"].keys()])
+        osm_filter = " ".join(
+            [i + "=" for i in conf.collection["osm_tags"].keys()])
         osm_filter = ""
         for tag in conf.collection["osm_tags"]:
             osm_filter += tag
@@ -305,17 +308,17 @@ class OsmCollection:
         self.download_bulk_osm(region_links)
         self.prepare_bulk_osm(region_links, "pois", osm_filter=osm_filter)
         self.merge_osm_and_import(region_links, conf)
-        
+
     def building_collection(self):
         """Collects all building from OSM"""
         conf = Config("buildings")
         region_links = conf.pbf_data
         osm_filter = "building= --drop-nodes --drop-relations"
-        
+
         self.download_bulk_osm(region_links)
         self.prepare_bulk_osm(region_links, "buildings", osm_filter=osm_filter)
         self.merge_osm_and_import(region_links, conf)
-                
+
     def network_collection(self, db):
         """Creates and imports the network using osm2pgsql into the database"""
         conf = Config("ways")
@@ -385,11 +388,10 @@ class OsmCollection:
         db.perform(query="CREATE INDEX ON planet_osm_line USING GIST(way);")
         db.perform(query="CREATE INDEX ON planet_osm_point USING GIST(way);")
 
-    
-    def clip_osm_by_bbox(self, bbox: str, filename: str):
+    def clip_osm_by_bbox(self, bbox: str, filename: str, fileToClip: str):
         """Clips the OSM data by the polygon file"""
-        
-        raw_path = os.path.join(self.temp_data_dir,'raw.osm.pbf')
+
+        raw_path = os.path.join(self.temp_data_dir, fileToClip)
         clipped_filename = os.path.join(self.temp_data_dir, filename)
         print_info("Clipping OSM data by polygon.")
         subprocess.run(
@@ -397,13 +399,14 @@ class OsmCollection:
             shell=True,
             check=True,
         )
-        
+
     def clip_osm_network_for_r5(self, db):
         """Clips a large OSM file into the R5 regions"""
         conf = Config("ways")
         download_url = conf.config["ways"]["region_pbf_r5"]
-        download_link(directory=self.temp_data_dir, link=download_url, new_filename="raw.osm.pbf")
-        
+        download_link(directory=self.temp_data_dir,
+                      link=download_url, new_filename="raw.osm.pbf")
+
         regions = db.select(
             """SELECT id, CONCAT(ST_XMin(geom)::TEXT, ',', ST_YMin(geom)::text,',', ST_XMax(geom)::text, ',', ST_YMax(geom)) AS bbox
             FROM 
@@ -414,9 +417,104 @@ class OsmCollection:
             ) x """
         )
 
-        # TODO: Run this in parallel  
+        # TODO: Run this in parallel
         for region in regions:
-            self.clip_osm_by_bbox(bbox=region[1], filename=f"region{region[0]}.osm.pbf")
+            self.clip_osm_by_bbox(
+                bbox=region[1], filename=f"region{region[0]}.osm.pbf", fileToClip="raw.osm.pbf")
+
+    def clip_data_to_osm(self, filename: str, fileToClip: str):
+        """Clips data from a certain file to osm."""
+        raw_path = os.path.join(self.temp_data_dir, fileToClip)
+        clipped_filename = os.path.join(self.temp_data_dir, filename)
+        print_info("Clipping to OSM")
+        subprocess.run(
+            f'osmconvert {raw_path} --complete-ways --drop-relations --drop-author --drop-version -o={clipped_filename}',
+            shell=True,
+            check=True,
+        )
+
+    # Clip osm by features to get only the roads
+    def clip_osm_by_roads(self, filename: str, fileToClip: str):
+        """Clips a large OSM file to get all the roads"""
+        raw_path = os.path.join(self.temp_data_dir, fileToClip)
+        clipped_filename = os.path.join(self.temp_data_dir, filename)
+        print_info("Clipping OSM data by roads.")
+        subprocess.run(
+            f'osmfilter {raw_path} --keep="highway= public_transport=platform railway=platform park_ride=" -o={clipped_filename}',
+            shell=True,
+            check=True,
+        )
+
+        self.clip_osm_by_bbox(
+            bbox='-122.9723,37.4768,-121.8789,38.3044', filename='filtered_path.osm', fileToClip=filename)
+
+    def clip_traffic_data_to_certain_time(self, filename: str, fileToClip: str):
+        """
+            Clips the traffic data to a specific time, so we can save space
+            For now it is static since there is no need to have different
+            time data since it will slow the server
+        """
+        raw_path = os.path.join(self.temp_data_dir, fileToClip)
+        clipped_filename = os.path.join(self.temp_data_dir, filename)
+        print_info("Clipping OSM data bycicle")
+
+        with open(raw_path, 'r') as file:
+            csvreader = csv.reader(file)
+            allData = []
+            for index, row in enumerate(csvreader):
+                singleElement = {
+                    "nodeIDs": [],
+                    "trafficAverage": 0
+                }
+                singleElement['nodeIDs'] = [row[0], row[1]]
+                totalTrafficSum = 0
+                for item in range(12):
+                    totalTrafficSum = totalTrafficSum + int(row[384 + item])
+
+                    singleElement['trafficAverage'] = totalTrafficSum/12
+
+                    allData.append(singleElement)
+                    print(f'{index} - {singleElement}')
+
+            json_data = json.dumps(allData)
+
+            with open(clipped_filename, "w") as outfile:
+                outfile.write(json_data)
+
+    def modify_osm_data():
+        data = etree.parse('../data/temp/filter.osm')
+        
+        with open('../data/temp/trafficMonday8am_9am.json', 'r') as file:
+            allTrafficDatas = np.array(json.load(file))
+            for trafficData in np.nditer(allTrafficDatas, flags=["refs_ok"]):
+                traffdata = trafficData[()]
+                nodes = traffdata['nodeIDs']
+                ref = data.findall(f"//nd[@ref='{nodes[0]}']")
+                ref2 = data.findall(f"//nd[@ref='{nodes[1]}']")
+                
+                for way in ref:
+                    for end in ref2:
+                        if(way.getparent() == end.getparent()):
+                            iterator = 0
+                            parentElement = way.getparent()
+                            for element in parentElement.getiterator("tag"):
+                                if(element.get('k') == 'maxspeed'):
+                                    iterator = 1
+                                    attributes = element.attrib
+                                    attributes['v'] = str(int(traffdata['trafficAverage']))
+                                    print(element.get('v'))
+                            
+                            if(iterator == 0):
+                                elem = etree.SubElement(parentElement, 'tag')
+                                attributes = elem.attrib
+                                attributes['k'] = 'maxspeed'
+                                attributes['v'] = str(int(traffdata['trafficAverage']))
+                                print(elem.get('v'))
+                                
+        
+        f = open('../data/temp/trafficOSMModified.osm', 'wb')
+        f.write(etree.tostring(data, pretty_print=True))
+        f.close() 
 
 
 # db = Database(DATABASE_RD)
