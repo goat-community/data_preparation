@@ -8,6 +8,7 @@ import json
 from unittest import FunctionTestCase
 import psutil
 import geopandas as gpd
+import pandas as pd
 from urllib import request
 from src.other.utils import (
     print_info,
@@ -483,34 +484,37 @@ class OsmCollection:
 
     def modify_osm_data():
         data = etree.parse('../data/temp/filter.osm')
+        df = pd.read_csv('../data/temp/data.csv')
+            
+        ways = data.findall('//way')
         
-        with open('../data/temp/trafficMonday8am_9am.json', 'r') as file:
-            allTrafficDatas = np.array(json.load(file))
-            for trafficData in np.nditer(allTrafficDatas, flags=["refs_ok"]):
-                traffdata = trafficData[()]
-                nodes = traffdata['nodeIDs']
-                ref = data.findall(f"//nd[@ref='{nodes[0]}']")
-                ref2 = data.findall(f"//nd[@ref='{nodes[1]}']")
+        for indx,way in enumerate(ways):
+            print(f'{indx} out of {len(ways)}')
+            segments = way.findall('.//nd')
+            if(len(segments) > 1):
+                segmentsRefs = []
+                for segment in segments:
+                    segmentsRefs.append(segment.attrib['ref'])
                 
-                for way in ref:
-                    for end in ref2:
-                        if(way.getparent() == end.getparent()):
-                            iterator = 0
-                            parentElement = way.getparent()
-                            for element in parentElement.getiterator("tag"):
-                                if(element.get('k') == 'maxspeed'):
-                                    iterator = 1
-                                    attributes = element.attrib
-                                    attributes['v'] = str(int(traffdata['trafficAverage']))
-                                    print(element.get('v'))
-                            
-                            if(iterator == 0):
+                for ref in segmentsRefs:
+                    dataFound = df.loc[df['NodeOne'] == int(ref)]
+                    if(not dataFound.empty):
+                        nodeIDs = [str(int(dataFound.values[0][0])), str(int(dataFound.values[0][1]))]
+                        if(nodeIDs[0] in segmentsRefs and nodeIDs[1] in segmentsRefs):
+                            seg = way.findall(f".//nd[@ref='{nodeIDs[0]}']")[0]
+                            parentElement = seg.getparent()
+                            tagElement = parentElement.findall(".//tag[@k='maxspeed']")
+                            if(len(tagElement) > 0):
+                                maxSpeedElement = tagElement[0]
+                                attributes = maxSpeedElement.attrib
+                                attributes['v'] = str(int(dataFound.values[0][2])) +  ' mph'
+                            else:
                                 elem = etree.SubElement(parentElement, 'tag')
                                 attributes = elem.attrib
                                 attributes['k'] = 'maxspeed'
-                                attributes['v'] = str(int(traffdata['trafficAverage']))
-                                print(elem.get('v'))
+                                attributes['v'] = str(int(dataFound.values[0][2])) +  ' mph'
                                 
+                            break
         
         f = open('../data/temp/trafficOSMModified.osm', 'wb')
         f.write(etree.tostring(data, pretty_print=True))
