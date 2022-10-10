@@ -136,8 +136,8 @@ FROM
     WHERE t.route_id = r.route_id
  ) t, gtfs_new.calendar c
 WHERE t.service_id = c.service_id
-AND '2022-05-16' >= start_date
-AND '2022-05-22' <= end_date;
+AND '2022-02-07' >= start_date
+AND '2022-02-13' <= end_date;
 ALTER TABLE gtfs_new.trips_weekday ADD PRIMARY KEY (id);
 CREATE INDEX ON gtfs_new.trips_weekday (trip_id);
 CREATE TABLE gtfs_new.stop_times_optimized (
