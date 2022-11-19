@@ -4,7 +4,7 @@ import os
 from src.other.create_h3_grid import H3Grid
 import subprocess
 import datetime
-from src.export.export_sql_queries import *
+from legacy.export_sql_queries import *
 from src.other.utility_functions import create_pgpass
 
 create_pgpass()

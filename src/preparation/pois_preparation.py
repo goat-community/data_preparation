@@ -830,7 +830,7 @@ class PoisPreparation:
             poi_gdf = pd.concat([poi_gdf, custom_poi_gdf], ignore_index=True)
 
         return poi_gdf
-
+    
     # Indexing data in dataframe with goat indexes
     def dataframe_goat_index(df):
         db = Database("reading")

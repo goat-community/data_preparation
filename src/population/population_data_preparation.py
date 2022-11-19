@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 from src.other.utility_functions import migrate_all_tables2localdb, drop_table, df2database
-from src.export.export_goat import getDataFromSql
+from legacy.export_goat import getDataFromSql
 #from src.config.osm_dict import gms_keys
 
 def population_data_preparation(municipalities):

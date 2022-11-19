@@ -267,9 +267,9 @@ def perform_network_preparation(db, use_poly=True, data_only=False):
     osm_collection = OsmCollection(DATABASE)
 
     # Import needed data into the database
-    # osm_collection.network_collection(db)
-    # osm_collection.create_osm_extract_boundaries(db, use_poly)
-    # osm_collection.import_dem()
+    osm_collection.network_collection(db)
+    osm_collection.create_osm_extract_boundaries(db, use_poly)
+    osm_collection.import_dem()
     
     # Prepare network
     Config("ways").download_db_schema()

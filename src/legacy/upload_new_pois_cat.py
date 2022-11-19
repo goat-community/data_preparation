@@ -2,8 +2,8 @@
 from src.other.utility_functions import database_table2df, df2database, drop_table, migrate_table2localdb, file2df, gdf_conversion
 from src.population.population_data_preparation import population_data_preparation
 from src.population.produce_population_points import Population
-from src.export.export_goat import getDataFromSql
-from src.export.export_tables2basic import sql_queries_goat
+from legacy.export_goat import getDataFromSql
+from legacy.export_tables2basic import sql_queries_goat
 from src.network.network_islands_municip import network_islands_mun
 from preparation.pois_preparation import kindergarten_deaggrgation
 from other.geocoding_functions import addLocationOfAdressToJson, GeoAddress
