@@ -29,4 +29,8 @@ END
 $$ LANGUAGE plpgsql;
 
 /*SELECT ST_MULTI(create_equal_area_split_polygon(b.geom, 1))
-FROM boundaries b*/
+FROM boundaries b
+
+Area Size in km²
+
+*/
