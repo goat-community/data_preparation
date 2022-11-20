@@ -15,3 +15,14 @@ DATABASE_RD = {
     'port':     config("PORT_RD"),
     'dbname':   config("DB_NAME_RD")
 }
+
+S3 = {
+    'bucket': config("S3_BUCKET"),
+    'access_key_id': config("ACCESS_KEY_ID"),
+    'secret_access_key': config("SECRET_ACCESS_KEY")
+}
+
+REMOTE_SERVER = {
+    'host': config("REMOTE_SERVER"),
+    'user': config("REMOTE_SERVER_USER")
+}

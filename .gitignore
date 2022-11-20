@@ -6,3 +6,4 @@ src/data/output/*
 !src/data/input/.gitkeep
 !src/data/output/.gitkeep
 __pycache__
+src/config/remote_server.pem

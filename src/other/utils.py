@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 from src.db.db import Database
 from sqlalchemy.engine.base import Engine
+import sys
+import threading
 
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
@@ -30,10 +32,10 @@ def print_hashtags():
     )
 
 def print_info(message: str):
-    print(f"INFO: {message}")
+    print(f"\nINFO: {message}")
 
 def print_warning(message: str):
-    print(f"WARNING: {message}")
+    print(f"\nWARNING: {message}")
 
 def download_link(directory: str, link: str, new_filename: str = None):
     if new_filename is not None:
@@ -136,3 +138,22 @@ def return_tables_as_gdf(db_engine: Engine, tables: list):
     return df_combined
 
 
+# Based on: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-uploading-files.html
+class ProgressPercentage(object):
+
+    def __init__(self, filename):
+        self._filename = filename
+        self._size = float(os.path.getsize(filename))
+        self._seen_so_far = 0
+        self._lock = threading.Lock()
+
+    def __call__(self, bytes_amount):
+        # To simplify, assume this is hooked up to a single filename
+        with self._lock:
+            self._seen_so_far += bytes_amount
+            percentage = (self._seen_so_far / self._size) * 100
+            sys.stdout.write(
+                "\r%s  %s / %s  (%.2f%%)" % (
+                    self._filename, self._seen_so_far, self._size,
+                    percentage))
+            sys.stdout.flush()

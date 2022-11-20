@@ -46,7 +46,7 @@ class OsmCollection:
         self.cache = round(self.memory / 1073741824 * 1000 * 0.75)
         create_pgpass()
 
-    def prepare_osm_data(self, link: str, dataset_type: str, osm_filter: str):
+    def prepare_osm_data(self, link: str, dataset_type: str, osm_filter: str = None):
         """Prepare OSM data for import into PostGIS database.
 
         Args:
@@ -61,16 +61,26 @@ class OsmCollection:
             shell=True,
             check=True,
         )
-        subprocess.run(
-            f'osmfilter {only_name}.o5m -o={only_name + "_" + dataset_type}.o5m --keep="{osm_filter}"',
-            shell=True,
-            check=True,
-        )
+        delete_file(full_name)
+        if osm_filter is not None:
+            subprocess.run(
+                f'osmfilter {only_name}.o5m -o={only_name + "_" + dataset_type}.o5m --keep="{osm_filter}"',
+                shell=True,
+                check=True,
+            )
+        else: 
+            subprocess.run(
+                f'osmfilter {only_name}.o5m -o={only_name + "_" + dataset_type}.o5m',
+                shell=True,
+                check=True,
+            )
+        delete_file(only_name + ".o5m")
         subprocess.run(
             f'osmconvert {only_name + "_" + dataset_type}.o5m -o={only_name + "_" + dataset_type}.osm',
             shell=True,
             check=True,
         )
+        delete_file(only_name + "_" + dataset_type + ".o5m")
         print_info(f"Preparing file {full_name}")
 
     @staticmethod
@@ -261,7 +271,7 @@ class OsmCollection:
         pool.close()
         pool.join()
 
-    def merge_osm_and_import(self, region_links: list, conf: Config):
+    def merge_osm_and_import(self, region_links: list, conf: Config, full_import: bool = False):
         # Merge all osm files
         print_info("Merging files")
         file_names = [
@@ -274,15 +284,24 @@ class OsmCollection:
         )
 
         # Import merged osm file using customer osm2pgsql style
-        conf.osm2pgsql_create_style()
-        subprocess.run(
-            f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
-            + "merged.osm"
-            + f" -s --drop -C {self.cache} --style /app/src/data/temp/{conf.name}_p4b.style --prefix osm_{conf.name}",
-            shell=True,
-            check=True,
-        )
-
+        if full_import == False:
+            conf.osm2pgsql_create_style()
+            subprocess.run(
+                f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
+                + "merged.osm"
+                + f" -s --drop -C {self.cache} --style /app/src/data/temp/{conf.name}_p4b.style --prefix osm_{conf.name}",
+                shell=True,
+                check=True,
+            )
+        else:
+            subprocess.run(
+                f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
+                + "merged.osm"
+                + f" -s --drop -C {self.cache}",
+                shell=True,
+                check=True,
+            )
+            
     def pois_collection(self):
         """Collects all POIs from OSM."""
         conf = Config("pois")
@@ -518,8 +537,14 @@ class OsmCollection:
 
 
 # db = Database(DATABASE_RD)
-# osm_collection = OsmCollection(DATABASE_RD)
+osm_collection = OsmCollection(DATABASE)
 # osm_collection.clip_osm_network_for_r5(db)
 
 # osm_collection.building_collection()
 # db.conn.close()
+
+conf = Config("ways")
+region_links = conf.pbf_data
+osm_collection.download_bulk_osm(region_links=region_links)
+osm_collection.prepare_bulk_osm(region_links=region_links, dataset_type="ways", osm_filter=None)
+osm_collection.merge_osm_and_import(region_links=region_links, conf=conf, full_import=True)
