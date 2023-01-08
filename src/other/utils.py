@@ -24,16 +24,17 @@ def delete_dir(dir_path: str) -> None:
     except OSError as e:
         pass
 
+
 def print_hashtags():
     print(
         "#################################################################################################################"
     )
 
 def print_info(message: str):
-    print(f"INFO: {message}")
+    print(f"[bold green]INFO[/bold green]: {message}")
 
 def print_warning(message: str):
-    print(f"WARNING: {message}")
+    print(f"[red magenta]WARNING[/red magenta]: {message}")
 
 def download_link(directory: str, link: str, new_filename: str = None):
     if new_filename is not None:
