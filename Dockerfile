@@ -19,6 +19,11 @@ RUN ./aws/install
 RUN apt update
 RUN apt install -y s3fs
 
+# Install kart 
+RUN apt-get install -y libtinfo5
+RUN wget "https://github.com/koordinates/kart/releases/download/v0.11.5/kart_0.11.5-1_amd64.deb"
+RUN dpkg -i kart_0.11.5-1_amd64.deb
+
 WORKDIR /app/
 
 ENTRYPOINT ["tail"]
