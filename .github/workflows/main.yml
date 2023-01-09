@@ -16,5 +16,5 @@ jobs:
           # to the issue
           project-url: https://github.com/orgs/goat-community/projects/1
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
-          labeled: bug
-          label-operator: OR
+          #labeled: bug
+          #label-operator: OR
