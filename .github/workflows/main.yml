@@ -11,20 +11,20 @@ jobs:
     name: Add issue to project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v0.4.0
+      - uses: actions/checkout@v2
+      - uses: austenstone/project-add@main
         with:
-          # You can target a repository in a different organization
-          # to the issue
-          project-url: https://github.com/orgs/goat-community/projects/1
+          user: ${{ github.repository_owner }}
+          project-number: 5
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
-          id: add-to-project
+        id: project-add
           
       - uses: austenstone/project-update@main
         with:
           user: ${{ github.repository_owner }}
           project-number: 1
           github-token:  ${{ secrets.ADD_TO_PROJECT_PAT }}
-          item-id: ${{ steps.add-to-project.outputs.id }}
+          item-id: ${{ steps.project-add.outputs.id }}
           field-names: status
           field-values: done
           
