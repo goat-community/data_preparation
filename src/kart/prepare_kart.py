@@ -192,7 +192,7 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT website_check CHECK (website ~* 'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,255}\.[a-z]{2,9}\y([-a-zA-Z0-9@:%_\+.~#?&//=]*)$' :: text);
+            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT website_check CHECK (website ~* '^[a-z](?:[-a-z0-9\+\.])*:(?:\/\/(?:(?:%[0-9a-f][0-9a-f]|[-a-z0-9\._~!\$&''\(\)\*\+,;=:@])|[\/\?])*)?' :: text);
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT uid_count_check CHECK (uid_count BETWEEN 0 AND 9999);
@@ -200,6 +200,7 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT poi_uid_key UNIQUE (uid);
             ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (uid) REFERENCES {self.schema_name}.poi_uid(uid) ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
+            ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.poi OWNER TO {self.maintainer};
             """
         self.db.perform(sql_constraints_poi_category)
