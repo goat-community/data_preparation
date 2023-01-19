@@ -26,11 +26,23 @@ RUN node -v
 # Install GTFS-VIA-POSTGRES
 RUN bash -c "cd /home && apt-get update && apt install npm -y && git clone https://github.com/majkshkurti/gtfs-via-postgres.git && cd gtfs-via-postgres && npm install --production && npm cache clean --force && ln -s /home/gtfs-via-postgres/cli.js /usr/local/bin/gtfs-via-postgres"
 
+# Install libpostal
+WORKDIR /tmp/
+RUN apt-get install -y git curl autoconf automake libtool python-dev pkg-config
+RUN git clone https://github.com/openvenues/libpostal
+WORKDIR /tmp/libpostal/
+RUN ./bootstrap.sh
+RUN ./configure
+RUN make
+RUN make install
+RUN ldconfig
+WORKDIR /tmp/
+RUN rm -rf /tmp/libpostal
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml ./poetry.lock* /app/
 ENV PYTHONPATH "${PYTHONPATH}:."
-WORKDIR /app
+WORKDIR /app/
 
 # Allow installing dev dependencies to run tests
 ARG INSTALL_DEV=false
