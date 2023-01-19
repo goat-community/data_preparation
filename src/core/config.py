@@ -1,16 +1,11 @@
 from typing import Any, Dict, Optional
 
+import boto3
 from pydantic import BaseSettings, PostgresDsn, validator
 
 
 class SyncPostgresDsn(PostgresDsn):
     allowed_schemes = {"postgresql", "postgresql+psycopg2", "postgresql+pg8000"}
-
-
-# AWS_BUCKET_NAME=plan4better-rawfiles
-# AWS_ACCESS_KEY_ID=AKIATWC7ATNYGXL7GUVP
-# AWS_SECRET_ACCESS_KEY=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
-# AWS_DEFAULT_REGION=eu-central-1
 
 class Settings(BaseSettings):
     # Local Database Settings
@@ -54,6 +49,16 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: str = None
     AWS_SECRET_ACCESS_KEY: str = None
     AWS_DEFAULT_REGION: str = None
-    S3_CLIENT: Any = None
+    S3_CLIENT: Optional[Any] = None
+    @validator("S3_CLIENT", pre=True)
+    def assemble_s3_client(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+        if isinstance(v, str):
+            return v
+        return boto3.client(
+            's3',
+            aws_access_key_id=values.get("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=values.get("AWS_SECRET_ACCESS_KEY"),
+            region_name=values.get("AWS_DEFAULT_REGION")
+        )
     
 settings = Settings()

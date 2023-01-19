@@ -146,11 +146,11 @@ def return_tables_as_gdf(db_engine: Engine, tables: list):
 
 def download_dir(self, prefix, local, bucket, client):
     """ Downloads data directory from AWS S3
-    params:
-    - prefix: pattern to match in s3
-    - local: local path to folder in which to place files
-    - bucket: s3 bucket with target contents
-    - client: initialized s3 client object
+    Args:
+        prefix (str): Path to the directory in S3
+        local (str): Path to the local directory
+        bucket (str): Name of the S3 bucket
+        client (obj): S3 client object
     """
     keys = []
     dirs = []
@@ -182,9 +182,13 @@ def download_dir(self, prefix, local, bucket, client):
             os.makedirs(os.path.dirname(dest_pathname))
         client.download_file(bucket, k, dest_pathname)
 
+
 def prepare_mask(mask_config: str, buffer_distance: int = 0, db: Any = None):
     """Prepare mask geometries
-
+    Args:
+        mask_config (str): Path to a GeoJSON file or a PostGIS query
+        buffer_distance (int, optional): Buffer distance in meters. Defaults to 0.
+        db (Any, optional): Database connection. Defaults to None.
     Returns:
         [GeoDataFrame]: Returns a GeoDataFrame with the mask geometries as polygons
     """
