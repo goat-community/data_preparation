@@ -32,6 +32,7 @@ from time import time
 import numpy as np
 
 
+
 class OSMBaseCollection:
     def __init__(self, db_config):
         self.dbname = db_config["dbname"]

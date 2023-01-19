@@ -32,7 +32,7 @@ pydantic = "1.4"
 geojson-pydantic = "0.3.1"
 pyarrow = "^10.0.1"
 shapely = "2.0.0"
-postal = "^1.1.10"
+
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.770"

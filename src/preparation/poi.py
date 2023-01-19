@@ -678,6 +678,10 @@ def buildings_preparation(dataframe, config=None, filename=None, return_type=Non
     return gdf_conversion(df, filename, return_type)
 
 
+import geopandas as gpd
+from sqlalchemy.engine.base import Connection as SQLAlchemyConnectionType
+
+
 class PoisPreparation:
     """Class to preprare the POIs."""
 
@@ -695,18 +699,15 @@ class PoisPreparation:
         self.config_pois = Config("pois")
         self.config_pois_preparation = self.config_pois.preparation
 
-    def perform_pois_preparation(self, db_reading):
+    def perform_pois_preparation(self, db: SQLAlchemyConnectionType):
         """_summary_
 
         Args:
-            db_reading (Database): Database object to read the custom POI data.
+            db_reading (SQLAlchemyConnectionType): Database object to read the custom POI data.
 
         Returns:
             GeoDataFrame: the prepared POIs
         """
-
-        osm_collection = OsmCollection(self.db_config)
-        osm_collection.pois_collection()
 
         created_tables = ["osm_pois_point", "osm_pois_polygon"]
         for table in created_tables:
@@ -714,7 +715,14 @@ class PoisPreparation:
                 f"ALTER TABLE {table} ALTER COLUMN tags TYPE jsonb USING tags::jsonb;"
             )
 
-        poi_gdf = return_tables_as_gdf(self.sqlalchemy_engine, created_tables)
+        df_combined = gpd.GeoDataFrame()
+        for table in created_tables:
+            df = gpd.read_postgis(sql="SELECT * FROM %s" % table, con=db_engine, geom_col='way')
+            df_combined = pd.concat([df_combined,df], sort=False).reset_index(drop=True)
+        
+        df_combined["osm_id"] = abs(df_combined["osm_id"])
+        df_combined = df_combined.replace({np.nan: None})
+            
         poi_gdf = osm_poi_classification(poi_gdf, self.config_pois)
         create_table_schema(self.db, self.db_config, "basic.poi")
 
@@ -744,36 +752,6 @@ class PoisPreparation:
             columns=keys_for_tags,
             inplace=True,
         )
-        # Replace category with the custom data
-        custom_table = self.config_pois.config["pois"]["replace"]["table_name"]
-        if custom_table is not None:
-
-            categories = db_reading.select(
-                f"""
-                SELECT DISTINCT category 
-                FROM {custom_table}
-                """
-            )
-            categories = [i[0] for i in categories]
-            poi_gdf = self.replace_osm_pois_by_custom(
-                poi_gdf, db_reading, custom_table, categories
-            )
-
-        # Create preliminary GOAT UID
-        poi_gdf["uid"] = (
-            (poi_gdf.centroid.x * 1000).apply(np.floor).astype(int).astype(str)
-            + "-"
-            + (poi_gdf.centroid.y * 1000).apply(np.floor).astype(int).astype(str)
-            + "-"
-            + poi_gdf.category
-        )
-        poi_gdf["uid"] = (
-            poi_gdf["uid"]
-            + "-"
-            + (
-                ((poi_gdf.groupby("uid").cumcount() + 1) / 1000).astype(str)
-            ).str.replace(".", "", regex=False)
-        )
         
         # Match schema and put remaining attributes in tags
         loc_tags = poi_gdf.columns.get_loc("tags")
@@ -799,100 +777,11 @@ class PoisPreparation:
         )
         return poi_gdf
 
-    def replace_osm_pois_by_custom(
-        self, poi_gdf, db_reading, custom_table: str, categories: list[str]
-    ):
-        """Replaces the OSM POIs by the custom POIs.
 
-        Args:
-            gdf (GeoDataFrame): The prepared OSM POIs
-            db_reading (Database): The database to read the custom POIs from
-            custom_table (str): The name of the custom POIs table
-            categories (list): The categories of the custom POIs to be replaced
+def main():
+    db = Database(DATABASE)
+    poi_preparation = PoiPreparation()
 
-        Returns:
-            gdf: _description_
-        """ 
-
-        sql_select_table = f"""
-            SELECT * FROM {custom_table} 
-            WHERE category IN (SELECT UNNEST(ARRAY{categories}));
-        """
-
-        custom_poi_gdf = gp.GeoDataFrame.from_postgis(
-            sql_select_table, db_reading.return_sqlalchemy_engine()
-        )
-
-        if bool(set(list(poi_gdf.category.unique())) & set(categories)):
-            poi_gdf = poi_gdf[~poi_gdf.category.isin(categories)]
-            columns_to_drop = list(set(custom_poi_gdf.columns) - set(poi_gdf.columns))
-            custom_poi_gdf.drop(columns_to_drop, axis=1, inplace=True)
-            poi_gdf = pd.concat([poi_gdf, custom_poi_gdf], ignore_index=True)
-
-        return poi_gdf
-
-    # Indexing data in dataframe with goat indexes
-    def dataframe_goat_index(df):
-        db = Database("reading")
-        con = db.connect_rd()
-        cur = con.cursor()
-        df = df[df["amenity"].notna()]
-        df["id_x"] = df.centroid.x * 1000
-        df["id_y"] = df.centroid.y * 1000
-        df["id_x"] = df["id_x"].apply(np.floor)
-        df["id_y"] = df["id_y"].apply(np.floor)
-        df = df.astype({"id_x": int, "id_y": int})
-        df["poi_goat_id"] = (
-            df["id_x"].map(str) + "-" + df["id_y"].map(str) + "-" + df["amenity"]
-        )
-        df = df.drop(columns=["id_x", "id_y"])
-        df["osm_id"] = df["osm_id"].fillna(value=0)
-        df_poi_goat_id = df[["poi_goat_id", "osm_id", "name", "origin_geometry"]]
-
-        cols = ",".join(list(df_poi_goat_id.columns))
-        tuples = [tuple(x) for x in df_poi_goat_id.to_numpy()]
-
-        cnt = 0
-
-        cur.execute(
-            "DROP TABLE IF EXISTS poi_goat_id_temp; \
-                    CREATE TABLE poi_goat_id_temp AS TABLE poi_goat_id;"
-        )
-
-        for tup in tuples:
-            tup_l = list(tup)
-            id_number = tup_l[0]
-            query_select = f"SELECT max(index) FROM poi_goat_id_temp WHERE poi_goat_id = '{id_number}';"
-            last_number = db.select_rd(query_select)
-            if (list(last_number[0])[0]) is None:
-                tup_new = tup_l
-                tup_new.append(0)
-                tup_new = tuple(tup_new)
-                cur.execute(
-                    """INSERT INTO poi_goat_id_temp(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",
-                    tup_new,
-                )
-                con.commit()
-                df.iloc[cnt, df.columns.get_loc("poi_goat_id")] = f"{id_number}-0000"
-            else:
-                new_ind = list(last_number[0])[0] + 1
-                tup_new = tup_l
-                tup_l.append(new_ind)
-                tup_new = tuple(tup_new)
-                cur.execute(
-                    """INSERT INTO poi_goat_id_temp(poi_goat_id, osm_id, name, origin_geometry, index) VALUES (%s,%s,%s,%s,%s)""",
-                    tup_new,
-                )
-                con.commit()
-                df.iloc[
-                    cnt, df.columns.get_loc("poi_goat_id")
-                ] = f"{id_number}-{new_ind:04}"
-            cnt += 1
-
-        cur.execute("DROP TABLE poi_goat_id_temp;")
-        con.close()
-        df = df.astype({"osm_id": int})
-        return df
 
 
 # pois_preparation = PoisPreparation(DATABASE)
