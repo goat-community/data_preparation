@@ -812,7 +812,7 @@ class PoisPreparation:
 
         Returns:
             gdf: _description_
-        """ """"""
+        """ 
 
         sql_select_table = f"""
             SELECT * FROM {custom_table} 
@@ -899,7 +899,7 @@ class PoisPreparation:
 # db_reading = Database(DATABASE_RD)
 # pois_preparation.perform_pois_preparation(db_reading)
 
-#db = Database(DATABASE)
+# db = Database(DATABASE)
 #create_table_schema(db, DATABASE, "basic.aoi")
 
 
@@ -912,7 +912,7 @@ class PoisPreparation:
 # create_table_schema(db, DATABASE, "basic.grid_calculation")
 # create_table_schema(db, DATABASE, "basic.grid_visualization")
 # create_table_schema(db, DATABASE, "basic.study_area_grid_visualization")
-
+ # create_table_schema(db, DATABASE, "basic.poi")
 
 # create_table_dump(db_config=DATABASE, table_name="basic.building", data_only=True)
 # create_table_dump(db_config=DATABASE, table_name="basic.population", data_only=True)
@@ -925,4 +925,4 @@ class PoisPreparation:
 # create_table_dump(db_config=DATABASE, table_name="basic.node", data_only=True)
 # create_table_dump(db_config=DATABASE, table_name="basic.poi", data_only=True)
 
-create_table_schema(db, DATABASE, "basic.aoi")
+# create_table_schema(db, DATABASE, "basic.aoi")

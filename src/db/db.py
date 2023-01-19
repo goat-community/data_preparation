@@ -5,14 +5,12 @@ import logging as LOGGER
 import psycopg2
 from sqlalchemy import create_engine
 
-
 class Database:
     """PostgreSQL Database class."""
     def __init__(self, db_config: dict):
         self.db_config = db_config
-        self.connection_string = " ".join(("{}={}".format(*i) for i in db_config.items()))
         try:
-            self.conn = psycopg2.connect(self.connection_string)
+            self.conn = psycopg2.connect(self.db_config)
         except psycopg2.DatabaseError as e:
             LOGGER.error(e)
             raise e
@@ -22,8 +20,7 @@ class Database:
             
     def return_sqlalchemy_engine(self):  
         """This will create SQLAlchemy engine for the database"""
-        conf = self.db_config
-        return create_engine(f'postgresql://{conf["user"]}:{conf["password"]}@{conf["host"]}:{conf["port"]}/{conf["dbname"]}', future=False)
+        return create_engine(self.db_config, future=False)
                 
     def select(self, query, params=None):
         """Run a SQL query to select rows from table."""

@@ -97,6 +97,20 @@ BEGIN
     rec_way.smoothness, rec_way.wheelchair, rec_way.lanes, rec_way.incline_percent, rec_way.length_m, rec_way.length_3857, rec_way.coordinates_3857, 
     rec_way.crossing_delay_category, rec_way.s_imp, rec_way.rs_imp, rec_way.impedance_surface;
 	
+	--Insert nodes into node table
+	IF (SELECT n.id FROM basic.node n WHERE n.id = rec_way.source) IS NULL THEN  
+		INSERT INTO basic.node(id, geom)
+		SELECT v.id, v.the_geom
+		FROM ways_vertices_pgr v
+		WHERE v.id = rec_way.source;
+	END IF; 
+	IF (SELECT n.id FROM basic.node n WHERE n.id = rec_way.target) IS NULL THEN  
+		INSERT INTO basic.node(id, geom)
+		SELECT v.id, v.the_geom
+		FROM ways_vertices_pgr v
+		WHERE v.id = rec_way.target;
+	END IF; 
+
 END
 $$ LANGUAGE plpgsql;
 /*

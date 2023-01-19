@@ -72,9 +72,63 @@ class NetworkPreparation:
         CREATE INDEX ix_basic_edge_foot ON basic.edge USING btree (foot);
         CREATE INDEX ix_basic_edge_source ON basic.edge USING btree (source);
         CREATE INDEX ix_basic_edge_target ON basic.edge USING btree (target);
+        CREATE INDEX ix_basic_node_geom ON basic.node USING gist (geom);
         """
         self.db.perform(sql_create_index)
 
+    def update_network_ids(self):
+        """Update the network ids with preset values from existing network to be unique.
+        """        
+        previous_node_id = self.config_ways_preparation['node_previous_id']
+        previous_edge_id = self.config_ways_preparation['edge_previous_id']
+        # Update the node ids to match the ids from existing network tables
+        sql_create_node_columns = f"""
+            ALTER TABLE basic.node 
+            ADD COLUMN new_id integer, ADD COLUMN cnt serial;
+
+        """
+        db.perform(sql_create_node_columns)
+        
+        sql_update_node_id = f"""
+            UPDATE basic.node
+            SET new_id = cnt + {previous_node_id};
+        """
+        db.perform(sql_update_node_id)
+        
+        sql_update_edge_nodes = f"""
+            UPDATE basic.edge e 
+            SET source = n.new_id
+            FROM basic.node n  
+            WHERE n.id = e.source;
+
+            UPDATE basic.edge e 
+            SET target = n.new_id
+            FROM basic.node n  
+            WHERE n.id = e.target;
+
+            ALTER TABLE basic.node
+            DROP COLUMN id;
+            ALTER TABLE basic.node 
+            RENAME COLUMN new_id TO id;
+            ALTER TABLE basic.node
+            DROP COLUMN cnt;
+        """
+        db.perform(sql_update_edge_nodes)
+        
+        # Update the edge ids to match the ids from existing network tables
+        sql_create_edge_columns = """ALTER TABLE basic.edge
+        ADD COLUMN new_id integer, ADD COLUMN cnt serial;
+        """
+        db.perform(sql_create_edge_columns)
+        
+        sql_update_edge_ids = f"""
+        UPDATE basic.edge
+        SET id = cnt + {previous_edge_id};
+        ALTER TABLE basic.edge
+        DROP COLUMN cnt; 
+        """
+        db.perform(sql_update_edge_ids)
+        
     def create_street_crossings(self):
         sql_street_crossings = """
             --Create table that stores all street crossings
@@ -106,12 +160,11 @@ class NetworkPreparation:
         """
         self.db.perform(query=sql_street_crossings)
 
-    def dump_network(self):
+    def dump_network(self, data_only=False):
         """Dump the network tables individual files."""
-
         create_pgpass_for_db(self.DATABASE)
-        create_table_dump(self.DATABASE, 'basic.edge')
-        create_table_dump(self.DATABASE, 'extra.street_crossings')
+        create_table_dump(self.DATABASE, 'basic.edge', data_only)
+        create_table_dump(self.DATABASE, 'basic.node', data_only)
 
 
 # These functions are not in the class as there where difficulaties when running it in parallel
@@ -210,27 +263,30 @@ def prepare_ways(db):
     print_hashtags()
 
 
-def perform_network_preparation(db, use_poly=True):
+def perform_network_preparation(db, use_poly=True, data_only=False):
     osm_collection = OsmCollection(DATABASE)
 
     # Import needed data into the database
-    osm_collection.network_collection(db)
-    osm_collection.create_osm_extract_boundaries(db, use_poly)
-    osm_collection.import_dem()
+    # osm_collection.network_collection(db)
+    # osm_collection.create_osm_extract_boundaries(db, use_poly)
+    # osm_collection.import_dem()
     
     # Prepare network
     Config("ways").download_db_schema()
     preparation = NetworkPreparation(db)
     create_table_schema(db, DATABASE, 'basic.edge')
     create_table_schema(db, DATABASE, 'basic.node')
+    db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);") 
+    
     preparation.create_processing_units()
     prepare_ways(db)
     preparation.create_edge_indizes()
     NetworkIslands(DATABASE).find_network_islands()
     preparation.create_street_crossings()
-    preparation.dump_network()
+    preparation.update_network_ids()
+    preparation.dump_network(data_only=data_only)
     db.conn.close()
 
 
-# db = Database(DATABASE)
-# perform_network_preparation(db, use_poly=True)
+db = Database(DATABASE)
+perform_network_preparation(db, use_poly=True, data_only=True)
