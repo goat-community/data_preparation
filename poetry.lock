@@ -667,6 +667,17 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "postal"
+version = "1.1.10"
+description = "Python bindings to libpostal for fast international address parsing/normalization"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 name = "psutil"
 version = "5.9.1"
 description = "Cross-platform lib for process and system monitoring in Python."
@@ -1119,7 +1130,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "4c73c5938a6fa2bb330f158c913d617d10b2c4b8dd3cf56221742d091dc4ec70"
+content-hash = "d538153955ccb136c95ec29861fe699baa9cdf882512c6fb13cbbc9d6a198ddf"
 
 [metadata.files]
 argparse = []
@@ -1177,6 +1188,7 @@ pandas = []
 pathspec = []
 platformdirs = []
 pluggy = []
+postal = []
 psutil = []
 psycopg2 = []
 py = []
