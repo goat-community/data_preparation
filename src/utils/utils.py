@@ -1,14 +1,18 @@
 import os
 import shutil
 import subprocess
-from rich import print as print
-from urllib.request import urlopen, Request
 from pathlib import Path
+from typing import Any
+from urllib.request import Request, urlopen
+
 import geopandas as gpd
-import pandas as pd
 import numpy as np
-from src.db.db import Database
+import pandas as pd
+from rich import print as print
 from sqlalchemy.engine.base import Engine
+
+from src.db.db import Database
+
 
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
@@ -32,6 +36,9 @@ def print_hashtags():
 
 def print_info(message: str):
     print(f"[bold green]INFO[/bold green]: {message}")
+
+def print_error(message: str):
+    print(f"[bold red]ERROR[/bold red]: {message}")
 
 def print_warning(message: str):
     print(f"[red magenta]WARNING[/red magenta]: {message}")
@@ -137,3 +144,60 @@ def return_tables_as_gdf(db_engine: Engine, tables: list):
     return df_combined
 
 
+def download_dir(self, prefix, local, bucket, client):
+    """ Downloads data directory from AWS S3
+    params:
+    - prefix: pattern to match in s3
+    - local: local path to folder in which to place files
+    - bucket: s3 bucket with target contents
+    - client: initialized s3 client object
+    """
+    keys = []
+    dirs = []
+    next_token = ""
+    base_kwargs = {
+        "Bucket": bucket,
+        "Prefix": prefix,
+    }
+    while next_token is not None:
+        kwargs = base_kwargs.copy()
+        if next_token != "":
+            kwargs.update({"ContinuationToken": next_token})
+        results = client.list_objects_v2(**kwargs)
+        contents = results.get("Contents")
+        for i in contents:
+            k = i.get("Key")
+            if k[-1] != "/":
+                keys.append(k)
+            else:
+                dirs.append(k)
+        next_token = results.get("NextContinuationToken")
+    for d in dirs:
+        dest_pathname = os.path.join(local, d)
+        if not os.path.exists(os.path.dirname(dest_pathname)):
+            os.makedirs(os.path.dirname(dest_pathname))
+    for k in keys:
+        dest_pathname = os.path.join(local, k)
+        if not os.path.exists(os.path.dirname(dest_pathname)):
+            os.makedirs(os.path.dirname(dest_pathname))
+        client.download_file(bucket, k, dest_pathname)
+
+def prepare_mask(mask_config: str, buffer_distance: int = 0, db: Any = None):
+    """Prepare mask geometries
+
+    Returns:
+        [GeoDataFrame]: Returns a GeoDataFrame with the mask geometries as polygons
+    """
+    if Path(mask_config).is_file():
+        mask_geom = gpd.read_file(mask_config)
+    else:
+        try:                
+            mask_geom = gpd.GeoDataFrame.from_postgis(mask_config, db)
+        except Exception as e:
+            print_error(f"Error while reading mask geometry")
+    mask_gdf = gpd.GeoDataFrame.from_features(mask_geom, crs="EPSG:4326")
+    mask_gdf = mask_gdf.to_crs("EPSG:3857")
+    mask_gdf.geometry = mask_gdf.geometry.buffer(buffer_distance)
+    mask_gdf = mask_gdf.to_crs("EPSG:4326")
+    mask_gdf = mask_gdf.explode(index_parts=True)
+    return mask_gdf
