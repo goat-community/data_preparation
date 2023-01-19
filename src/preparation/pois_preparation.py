@@ -11,7 +11,7 @@ from src.db.db import Database
 from src.config.config import Config
 from src.other.utility_functions import gdf_conversion, table_dump
 from src.other.utils import return_tables_as_gdf
-from src.collection.osm_collection import OsmCollection
+from collection.osm_collection_base import OsmCollection
 from sqlalchemy.sql import text
 from sqlalchemy.dialects.postgresql import JSONB
 

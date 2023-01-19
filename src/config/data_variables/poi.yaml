@@ -1,0 +1,89 @@
+region_pbf : [
+  "https://download.geofabrik.de/europe/germany/bayern/oberpfalz-latest.osm.pbf"
+]
+collection:
+  osm_tags:
+    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                "charging_station", "bus_station"]
+    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+    tourism : ["hotel", "museum", "hostel", "guest_house"]
+    railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+    leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", 'sports_hall', "fitness_centre"]
+    sport   : ["yoga", "fitness"]
+    highway : ["bus_stop"]
+    public_transport : ["stop_position", "station"]
+
+  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                        "opening_hours", "operator", "origin", "organic", "subway"]
+  nodes : True
+  ways : True
+  relations : True
+  
+preparation:
+  bank: 
+    sparkasse       : ["kreissparkasse", "sparkasse", "stadtsparkasse"]
+    raiffeisenbank  : ["raiffeisenbank", "vr bank", "vr-bank", "volksbank", "volks", "münchner"]
+    hypovereinsbank : ["hypo vereinsbank", "hypovereinsbank"]
+    commerzbank : ["commerzbank"]
+
+  chemist: 
+    dm       : ["dm"]
+    rossmann : ["rossmann"]
+    müller   : ["müller", "mueller"] 
+
+  fast_food: 
+    mcdonalds : ["mcdonald"]
+  
+  organic :
+    denn's Biomarkt : ["denn's", "denns", "denn"]
+    alnatura : ["alnatura"]
+
+  health_food: 
+    vitalia   : ["vitalia"]
+    reformhaus : ["reformhaus"]
+
+  hypermarket: 
+    hit       : ["hit"]
+    real      : ["real"]
+    v-markt   : ["v-markt"]
+    kaufland  : ["kaufland"]
+    marktkauf : ["marktkauf"]
+
+  supermarket: 
+    rewe     : ["rewe", "rewe city"]
+    tegut    : ["tegut"]
+    feneberg : ["feneberg"]
+    nahkauf  : ["nahkauf"]
+    kupsch   : ["kupsch"]
+    aez      : ["aez"]
+
+  discount_gym: 
+    fitx           : ["fitx"]
+    mcfit          : ["mcfit"]
+    fitstar        : ["fitstar","fit-star", "fit star"]
+    cleverfit      : ["cleverfit" ,"clever fit"]
+    jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
+
+  discount_supermarket: 
+    aldi  : ["aldi"]
+    lidl  : ["lidl"]
+    netto : ["netto"]
+    norma : ["norma"]
+    penny : ["penny"]
+
+  no_end_consumer_store: 
+    metro     : ["metro"]
+    hamberger : ["hamberger"]
+
+  community_sport_centre: ["bezirkssportanlage"]
+
+  # Not used (operators for various cities in Germany are too different)
+  operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
+
+  sport:
+    sport_var_disc   : ["table_tennis"]
+    leisure_var_add  : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
+    leisure_var_disc : ["fitness_station"]
+    

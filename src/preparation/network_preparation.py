@@ -9,7 +9,7 @@ from src.db.config import DATABASE
 from src.db.db import Database
 from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link, create_table_schema
 from multiprocessing.pool import Pool
-from src.collection.osm_collection import OsmCollection
+from collection.osm_collection_base import OsmCollection
 from src.preparation.network_islands import NetworkIslands
 from src.other.utils import create_table_schema
 

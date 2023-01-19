@@ -4,8 +4,9 @@ import sys
 import time
 import psutil
 import geopandas as gpd
+import shutil
 from urllib import request
-from src.other.utils import (
+from src.utils.utils import (
     print_info,
     download_link,
     delete_dir,
@@ -20,14 +21,14 @@ from src.config.config import Config
 from src.db.config import DATABASE, DATABASE_RD
 from src.db.db import Database
 
-from src.other.utility_functions import create_pgpass
+from src.utils.utility_functions import create_pgpass
 from decouple import config
 from functools import partial
 from multiprocessing.pool import Pool
 from time import time
 
 
-class OsmCollection:
+class OSMBaseCollection:
     def __init__(self, db_config):
         self.dbname = db_config["dbname"]
         self.host = db_config["host"]
@@ -52,6 +53,7 @@ class OsmCollection:
 
         full_name = link.split("/")[-1]
         only_name = full_name.split(".")[0]
+        print_info(f"Preparing file {full_name}")
         subprocess.run(
             f"osmconvert {full_name} --drop-author --drop-version --out-osm -o={only_name}.o5m",
             shell=True,
@@ -67,7 +69,7 @@ class OsmCollection:
             shell=True,
             check=True,
         )
-        print_info(f"Preparing file {full_name}")
+        
 
     @staticmethod
     def parse_poly(dir):
@@ -265,12 +267,12 @@ class OsmCollection:
         file_names = [
             f.split("/")[-1].split(".")[0] + f"_{conf.name}.osm" for f in region_links
         ]
+
         subprocess.run(
             f'osmium merge {" ".join(file_names)} -o merged.osm',
             shell=True,
             check=True,
         )
-        
         # Import merged osm file using customer osm2pgsql style
         conf.osm2pgsql_create_style()
         subprocess.run(
@@ -280,31 +282,6 @@ class OsmCollection:
             shell=True,
             check=True,
         )
-        
-    def pois_collection(self):
-        """Collects all POIs from OSM."""
-        conf = Config("pois")
-        region_links = conf.pbf_data
-
-        # Create OSM filter for POIs
-        osm_filter = " ".join([i + "=" for i in conf.collection["osm_tags"].keys()])
-        osm_filter = ""
-        for tag in conf.collection["osm_tags"]:
-            osm_filter += tag
-            for tag_value in conf.collection["osm_tags"][tag]:
-                osm_filter += "=" + tag_value + " "
-
-        # Remove not needed osm feature categories
-        if conf.collection["nodes"] == False:
-            osm_filter += "--drop-nodes "
-        if conf.collection["ways"] == False:
-            osm_filter += "--drop-ways "
-        if conf.collection["relations"] == False:
-            osm_filter += "--drop-relations "
-
-        self.download_bulk_osm(region_links)
-        self.prepare_bulk_osm(region_links, "pois", osm_filter=osm_filter)
-        self.merge_osm_and_import(region_links, conf)
         
     def building_collection(self):
         """Collects all building from OSM"""

@@ -26,6 +26,6 @@ RUN dpkg -i kart_0.11.5-1_amd64.deb
 
 WORKDIR /app/
 
-ENTRYPOINT ["tail"]
+ENTRYPOINT ["python /src/db/prepare.py | tail"]
 CMD ["-f","/dev/null"]
 
