@@ -16,7 +16,8 @@
 		"twxs.cmake",
 		"ms-vscode.cmake-tools",
 		"donjayamanne.python-extension-pack",
-		"njpwerner.autodocstring"
+		"njpwerner.autodocstring",
+		"gencay.vscode-chatgpt"
 	],
     "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
