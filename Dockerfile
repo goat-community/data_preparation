@@ -1,4 +1,4 @@
-FROM goatcommunity/data-preparation-base:0.02
+FROM goatcommunity/data-preparation-base:0.03
 
 # Install GTFSTIDY 
 RUN bash -c "cd /home && wget https://go.dev/dl/go1.19.2.linux-amd64.tar.gz && rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.2.linux-amd64.tar.gz"
