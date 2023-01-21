@@ -6,6 +6,8 @@ import subprocess
 
 import boto3
 
+from utils.utils import download_dir
+
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
@@ -26,7 +28,7 @@ class GTFS:
         data_dir = "./src/data"
         
         print("Download GTFS files from S3")
-        self.download_dir("gtfs", data_dir, os.environ["AWS_BUCKET_NAME"])
+        download_dir("gtfs", data_dir, os.environ["AWS_BUCKET_NAME"], boto3=s3_client )
         with os.scandir(data_dir + "/gtfs") as it:
             for feed in it:
                 if feed.name.endswith(".zip") and feed.is_file():

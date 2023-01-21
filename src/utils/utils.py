@@ -182,6 +182,19 @@ def download_dir(self, prefix, local, bucket, client):
             os.makedirs(os.path.dirname(dest_pathname))
         client.download_file(bucket, k, dest_pathname)
 
+def upload_dir(self, prefix, local, bucket, client):
+    """ Uploads data directory to AWS S3
+    Args:
+        prefix (str): Path to the directory in S3
+        local (str): Path to the local directory
+        bucket (str): Name of the S3 bucket
+        client (obj): S3 client object
+    """
+    for root, dirs, files in os.walk(local):
+        for filename in files:
+            # construct the full local path
+            local_path = os.path.join(root, filename)
+            
 
 def prepare_mask(mask_config: str, buffer_distance: int = 0, db: Any = None):
     """Prepare mask geometries
