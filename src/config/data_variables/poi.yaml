@@ -1,5 +1,19 @@
 region_pbf : [
-  "https://download.geofabrik.de/europe/germany/bayern/oberpfalz-latest.osm.pbf"
+    "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" , 
+    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
+    "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
+    "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
 ]
 collection:
   osm_tags:
@@ -22,6 +36,61 @@ collection:
   relations : True
   
 preparation:
+  supermarket:
+    classify_by_name:
+      supermarket: 
+        children:
+          rewe     : ["rewe", "rewe city"]
+          tegut    : ["tegut"]
+          feneberg : ["feneberg"]
+          nahkauf  : ["nahkauf"]
+          kupsch   : ["kupsch"]
+          aez      : ["aez"]
+        string_similarity: 0.7
+
+      discount_supermarket: 
+        children:
+          aldi  : ["aldi"]
+          lidl  : ["lidl"]
+          netto : ["netto"]
+          norma : ["norma"]
+          penny : ["penny"]
+        string_similarity: 0.7
+
+      hypermarket: 
+        children:
+          real      : ["real"]
+          v-markt   : ["v-markt"]
+          kaufland  : ["kaufland"]
+          marktkauf : ["marktkauf"]
+        string_similarity: 0.7
+
+      wholesale: 
+        children:
+          metro     : ["metro"]
+          hamberger : ["hamberger"]
+        string_similarity: 0.7
+      
+      organic_supermarket:
+        children:
+          denn's Biomarkt : ["denn's", "denns", "denn"]
+          alnatura : ["alnatura"]
+        string_similarity: 0.7
+
+    classify_by_tag:
+      international_supermarket:
+        origin: True 
+      organic_supermarket:
+        organic: True
+
+
+  health_food: 
+    health_food: 
+      children:
+        vitalia   : ["vitalia"]
+        reformhaus : ["reformhaus"]
+      string_similarity: 0.7
+
   bank: 
     sparkasse       : ["kreissparkasse", "sparkasse", "stadtsparkasse"]
     raiffeisenbank  : ["raiffeisenbank", "vr bank", "vr-bank", "volksbank", "volks", "münchner"]
@@ -35,29 +104,6 @@ preparation:
 
   fast_food: 
     mcdonalds : ["mcdonald"]
-  
-  organic :
-    denn's Biomarkt : ["denn's", "denns", "denn"]
-    alnatura : ["alnatura"]
-
-  health_food: 
-    vitalia   : ["vitalia"]
-    reformhaus : ["reformhaus"]
-
-  hypermarket: 
-    hit       : ["hit"]
-    real      : ["real"]
-    v-markt   : ["v-markt"]
-    kaufland  : ["kaufland"]
-    marktkauf : ["marktkauf"]
-
-  supermarket: 
-    rewe     : ["rewe", "rewe city"]
-    tegut    : ["tegut"]
-    feneberg : ["feneberg"]
-    nahkauf  : ["nahkauf"]
-    kupsch   : ["kupsch"]
-    aez      : ["aez"]
 
   discount_gym: 
     fitx           : ["fitx"]
@@ -65,17 +111,6 @@ preparation:
     fitstar        : ["fitstar","fit-star", "fit star"]
     cleverfit      : ["cleverfit" ,"clever fit"]
     jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
-
-  discount_supermarket: 
-    aldi  : ["aldi"]
-    lidl  : ["lidl"]
-    netto : ["netto"]
-    norma : ["norma"]
-    penny : ["penny"]
-
-  no_end_consumer_store: 
-    metro     : ["metro"]
-    hamberger : ["hamberger"]
 
   community_sport_centre: ["bezirkssportanlage"]
 
