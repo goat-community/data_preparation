@@ -1,14 +1,15 @@
 from osm_collection_base import OSMBaseCollection
+from src.core.config import settings
+from src.db.db import Database
 from src.config.config import Config
-from src.db.config import DATABASE, DATABASE_RD
 
 class OSMPOICollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
-    def __init__(self, db_config):
-        super().__init__(db_config)
+    def __init__(self, db):
+        super().__init__(db)
         self.config = Config("poi")
         
-    def pois_collection(self):
+    def poi_collection(self):
         """Collects all POIs from OSM."""
         region_links = self.config.pbf_data
         # Create OSM filter for POIs
@@ -34,8 +35,9 @@ class OSMPOICollection(OSMBaseCollection):
 
 def main():
     """Main function."""
-    osm_poi_collection = OSMPOICollection(db_config=DATABASE)
-    osm_poi_collection.pois_collection()
+    db = Database(settings.LOCAL_DATABASE_URI)
+    osm_poi_collection = OSMPOICollection(db=db.db_config)
+    osm_poi_collection.poi_collection()
     
 if __name__ == "__main__":
     main()

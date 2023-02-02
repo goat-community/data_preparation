@@ -1,6 +1,5 @@
 import time
 import json
-from difflib import SequenceMatcher
 import numpy as np
 import pandas as pd
 import geopandas as gp
@@ -21,66 +20,14 @@ from src.other.utils import create_table_schema, create_table_dump
 # ================================== POIs preparation =============================================#
 #!!!!!!!!!!!!!!! This codebase needs to be rewritten !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
-    def similar(a, b):
-        return SequenceMatcher(None, a, b).ratio()
 
-    # Function search in config
-    def poi_return_search_condition(name, var_dict):
-        # Func asses probability of string similarity
-
-        for key, value in var_dict.items():
-            for v in value:
-                if (similar(name, v) > 0.8 or (name in v or v in name)) and name != "":
-                    return key
-                else:
-                    pass
 
     # Timer start
     print("Preparation started...")
     start_time = time.time()
 
-    df["id"] = df["osm_id"]
-    df = df.rename(columns={"way": "geom"})
-    df = df.rename(
-        columns={"addr:housenumber": "housenumber"}
-    )  # , "osm_type" : "origin_geometry"
-    df = df.assign(source="osm")
 
-    # Replace None values with empty strings in "name" column and dict in "tags" column
-    # To be able to search within the values
-    df["name"] = df["name"].fillna(value="")
-    df["amenity"] = df["amenity"].fillna(value="")
-
-    # variables for preparation
-    # !!! Some columns could be not in the list
-    # REVISE it (probabaly check columns - if value from config is not there - create column)
-
-    i_amenity = df.columns.get_loc("amenity")
-    i_tourism = df.columns.get_loc("tourism")
-    i_shop = df.columns.get_loc("shop")
-    i_name = df.columns.get_loc("name")
-    i_leisure = df.columns.get_loc("leisure")
-    i_sport = df.columns.get_loc("sport")
-    i_organic = df.columns.get_loc("organic")
-    i_operator = df.columns.get_loc("operator")
-    i_highway = df.columns.get_loc("highway")
-    i_public_transport = df.columns.get_loc("public_transport")
-    i_railway = df.columns.get_loc("railway")
-    i_tags = df.columns.get_loc("tags")
-
-    # Depending on zone "origin" can be not presented
-    try:
-        i_origin = df.columns.get_loc("origin")
-    except:
-        df = df.assign(origin=None)
-        i_origin = df.columns.get_loc("origin")
-
-    # Try to get location of subway column if it exists
-    try:
-        i_subway = df.columns.get_loc("subway")
-    except:
-        df = df.assign(subway=None)
-        i_subway = df.columns.get_loc("subway")
+  
 
     # This section getting var from conf class (variables container)
     var = config.preparation
@@ -101,29 +48,6 @@ def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
     # Related to Discount Gyms
     discount_gym_var = var["discount_gym"]
 
-    # Convert polygons to points and set origin geometry for all elements
-    df.loc[df["geom"].geom_type == "MultiPolygon", "geom"] = df["geom"].centroid
-    df.loc[df["geom"].geom_type == "Polygon", "geom"] = df["geom"].centroid
-    df.loc[df["geom"].geom_type == "Point", "origin_geometry"] = "point"
-    df.loc[df["geom"].geom_type == "MultiPolygon", "origin_geometry"] = "polygon"
-    df.loc[df["geom"].geom_type == "Polygon", "origin_geometry"] = "polygon"
-
-    df = df.reset_index(drop=True)
-
-    # # Playgrounds
-    df["amenity"] = np.where(
-        (df["leisure"] == "playground")
-        & (df["leisure"] != df["amenity"])
-        & (df["amenity"]),
-        df["leisure"],
-        df["amenity"],
-    )
-    df["amenity"] = np.where(
-        (df["leisure"] == "playground") & (df["amenity"] == ""),
-        df["leisure"],
-        df["amenity"],
-    )
-
     # drop operator value for supermarkets
     df.loc[df["shop"] == "supermarket", "operator"] = ""
 
@@ -134,34 +58,6 @@ def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
     # Iterate through the rows
     for i in df.index:
         df_row = df.iloc[i]
-
-        if (
-            df_row[i_tourism]
-            and df_row[i_amenity] != ""
-            and df_row[i_tourism] != df_row[i_amenity]
-            and df_row[i_tourism] != "yes"
-        ):
-            df_row["amenity"] = df_row["tourism"]
-            df = df.append(df_row)
-        elif (
-            df_row[i_tourism] and df_row[i_amenity] == "" and df_row[i_tourism] != "yes"
-        ):
-            df.iat[i, i_amenity] = df.iat[i, i_tourism]
-
-        # Sport pois from leisure and sport features
-        if (
-            df_row[i_sport]
-            or df_row[i_leisure] in leisure_var_add
-            and df_row[i_leisure] not in leisure_var_disc
-            and df_row[i_sport] not in sport_var_disc
-        ):
-            df.iat[i, i_amenity] = "sport"
-            if df_row[i_sport]:
-                df.iat[i, i_tags]["sport"] = df_row[i_sport]
-            elif df_row[i_leisure]:
-                df.iat[i, i_tags]["leisure"] = df_row[i_leisure]
-        elif df_row[i_leisure] not in leisure_var_add and df_row[i_leisure]:
-            df.iat[i, i_tags]["leisure"] = df_row[i_leisure]
 
         # Gyms and discount gyms -> Fitness centers
         if (
@@ -188,7 +84,6 @@ def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
         if (
             df_row[i_sport] == "yoga"
             or "yoga" in df_row[i_name]
-            or "Yoga" in df_row[i_name]
         ) and not df_row[i_shop]:
             df.iat[i, i_amenity] = "yoga"
             continue
@@ -289,17 +184,6 @@ def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
                 continue
             else:
                 df.iat[i, i_amenity] = "chemist"
-                continue
-        elif df_row[i_shop] == "health_food" and df_row[i_amenity] == "":
-            operator = poi_return_search_condition(
-                df_row[i_name].lower(), health_food_var
-            )
-            if operator:
-                df.iat[i, i_operator] = operator
-                df.iat[i, i_amenity] = "health_food"
-                continue
-            else:
-                df.iat[i, i_amenity] = "health_food"
                 continue
         elif df_row[i_shop] and df_row[i_shop] != "yes" and df_row[i_amenity] == "":
             df.iat[i, i_amenity] = df.iat[i, i_shop]
@@ -413,292 +297,32 @@ def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
     return gp.GeoDataFrame(df, geometry="geom")
 
 
-# Preparation 'jedeschule' table ->> conversion to fusable format
-def school_categorization(df, config, result_name, return_type):
-    var = config.preparation
-    var_schools = var["schools"]
-
-    schule = var_schools["schule"]
-    grundschule = var_schools["grundschule"]
-    hauptschule_mittelschule = var_schools["hauptschule_mittelschule"]
-    exclude = var_schools["exclude"]
-
-    df["name_1"] = df["name"].str.lower()
-    df["name_1"] = df["name"].replace({np.nan: ""})
-
-    for ex in exclude:
-        temp_df = df.loc[df["name_1"].str.contains(ex, case=False)]
-        m = ~df.id.isin(temp_df.id)
-        df = df[m]
-    df = df.drop(columns={"name_1"})
-    df = df.reset_index()
-
-    df.loc[df["school_t_1"].isin(schule), "amenity"] = df["school_t_1"].str.lower()
-    df_base = df[~df["amenity"].isnull()]
-
-    df.loc[df["school_t_1"].isin(grundschule), "amenity"] = "grundschule"
-    df_grund = df[df["school_t_1"].isin(grundschule)]
-
-    df.loc[
-        df["school_t_1"].isin(hauptschule_mittelschule), "amenity"
-    ] = "hauptschule_mittelschule"
-    df_hauptmittel = df[df["school_t_1"].isin(hauptschule_mittelschule)]
-
-    df_result = pd.concat([df_base, df_grund, df_hauptmittel], sort=False)
-
-    # Should return 2 dataframes grundschule and mittel_hauptschule
-    return gdf_conversion(df_result, result_name, return_type)
-
-
-# function deaggregates childacare amenities to four groups according to value in "age_group" column
-def kindergarten_deaggrgation(df, result_name, return_type):
-    df.loc[df["age_group"] == "0-3", "amenity"] = "nursery"
-    df.loc[
-        (df["age_group"] == "3-6") | (df["age_group"] == "2-6"), "amenity"
-    ] = "kindergarten"
-    df.loc[df["age_group"] == "6+", "amenity"] = "kinderhort"
-
-    df_temp = df[(df["age_group"] == "0-6") | (df["age_group"] == "1-6")]
-    df_temp["amenity"] = "nursery"
-
-    df.loc[
-        (df["age_group"] == "0-6") | (df["age_group"] == "1-6"), "amenity"
-    ] = "kindergarten"
-
-    df_result = pd.concat([df, df_temp], sort=False).reset_index(drop=True)
-
-    return gdf_conversion(df_result, result_name, return_type)
-
-
-# ================================ Landuse preparation ============================================#
-
-
-def landuse_preparation(dataframe, config=None, filename=None, return_type=None):
-    """introduces the landuse_simplified column and classifies it according to the config input"""
-
-    df = dataframe
-
-    if not config:
-        config = Config("landuse")
-
-    # Timer start
-    print("Preparation started...")
-    start_time = time.time()
-
-    df = df.rename(columns={"id": "osm_id"})
-
-    # Preprocessing: removing, renaming and reordering of columns
-    # df = df.drop(columns={"timestamp", "version", "changeset"})
-    if "geometry" in df.columns:
-        df = df.rename(columns={"geometry": "geom"})
-    if "way" in df.columns:
-        df = df.rename(columns={"way": "geom"})
-
-    # classify by geometry
-    df.at[df["geom"].geom_type == "Point", "origin_geometry"] = "point"
-    df.at[df["geom"].geom_type == "MultiPolygon", "origin_geometry"] = "polygon"
-    df.at[df["geom"].geom_type == "Polygon", "origin_geometry"] = "polygon"
-    df.at[df["geom"].geom_type == "LineString", "origin_geometry"] = "line"
-
-    # remove lines and points from dataset
-    df = df[df.origin_geometry != "line"]
-    df = df.reset_index(drop=True)
-    df = df[df.origin_geometry != "point"]
-    df = df.reset_index(drop=True)
-
-    df["landuse_simplified"] = None
-    df = df[
-        [
-            "landuse_simplified",
-            "landuse",
-            "tourism",
-            "amenity",
-            "leisure",
-            "natural",
-            "name",
-            "tags",
-            "osm_id",
-            "origin_geometry",
-            "geom",
-        ]
-    ]
-
-    df = df.assign(source="osm")
-
-    # Fill landuse_simplified coulmn with values from the other columns
-    custom_filter = config.collection["osm_tags"]
-
-    if custom_filter is None:
-        print(
-            "landuse_simplified can only be generated if the custom_filter of collection\
-               is passed"
-        )
-    else:
-        for i in custom_filter.keys():
-            df["landuse_simplified"] = df["landuse_simplified"].fillna(
-                df[i].loc[df[i].isin(custom_filter[i])]
-            )
-
-        # import landuse_simplified dict from config
-        landuse_simplified_dict = config.preparation["landuse_simplified"]
-
-        # Rename landuse_simplified by grouping
-        # e.g. ["basin","reservoir","salt_pond","waters"] -> "water"
-        for i in landuse_simplified_dict.keys():
-            df["landuse_simplified"] = df["landuse_simplified"].replace(
-                landuse_simplified_dict[i], i
-            )
-
-    if df.loc[
-        ~df["landuse_simplified"].isin(list(landuse_simplified_dict.keys()))
-    ].empty:
-        print("All entries were classified in landuse_simplified")
-    else:
-        print(
-            "The following tags in the landuse_simplified column need to be added to the\
-               landuse_simplified dict in config.yaml:"
-        )
-        print(
-            df.loc[~df["landuse_simplified"].isin(list(landuse_simplified_dict.keys()))]
-        )
-
-    # remove lines from dataset
-    df = df[df.origin_geometry != "line"]
-    df = df.reset_index(drop=True)
-
-    # Convert DataFrame back to GeoDataFrame (important for saving geojson)
-    df = gp.GeoDataFrame(df, geometry="geom")
-    df.crs = "EPSG:4326"
-    df = df.reset_index(drop=True)
-
-    # Timer finish
-    print(f"Preparation took {time.time() - start_time} seconds ---")
-
-    return gdf_conversion(df, filename, return_type)
-
-
-# ================================ Buildings preparation ======================================#
-
-
-def buildings_preparation(dataframe, config=None, filename=None, return_type=None):
-    """introduces the landuse_simplified column and classifies it according to the config input"""
-    if not config:
-        config = Config("buildings")
-
-    df = dataframe
-
-    config_pop = Config("population")
-
-    # Timer start
-    print("Preparation started...")
-    start_time = time.time()
-    # Preprocessing: removing, renaming, reordering and data type adjustments of columns
-
-    if "geometry" in df.columns:
-        df = df.rename(columns={"geometry": "geom"})
-    if "way" in df.columns:
-        df = df.rename(columns={"way": "geom"})
-
-    df = df.rename(
-        columns={
-            "addr:street": "street",
-            "addr:housenumber": "housenumber",
-            "building:levels": "building_levels",
-            "roof:levels": "roof_levels",
-        }
-    )
-    df["residential_status"] = None
-    df["area"] = None
-
-    # classify by geometry
-    df.at[df["geom"].geom_type == "Point", "origin_geometry"] = "point"
-    df.at[df["geom"].geom_type == "MultiPolygon", "origin_geometry"] = "polygon"
-    df.at[df["geom"].geom_type == "Polygon", "origin_geometry"] = "polygon"
-    df.at[df["geom"].geom_type == "LineString", "origin_geometry"] = "line"
-
-    # remove lines and points from dataset
-    df = df[df.origin_geometry != "line"]
-    df = df.reset_index(drop=True)
-    df = df[df.origin_geometry != "point"]
-    df = df.reset_index(drop=True)
-
-    df = df[
-        [
-            "osm_id",
-            "building",
-            "amenity",
-            "leisure",
-            "residential_status",
-            "street",
-            "housenumber",
-            "area",
-            "building_levels",
-            "roof_levels",
-            "origin_geometry",
-            "geom",
-        ]
-    ]
-    df["building_levels"] = pd.to_numeric(
-        df["building_levels"], errors="coerce", downcast="float"
-    )
-    df["roof_levels"] = pd.to_numeric(
-        df["roof_levels"], errors="coerce", downcast="float"
-    )
-    df = df.assign(source="osm")
-
-    # classifying residential_status in 'with_residents', 'potential_residents', 'no_residents'
-    df.loc[
-        (
-            (df.building.str.contains("yes"))
-            & (df.amenity.isnull())
-            & (df.amenity.isnull())
-        ),
-        "residential_status",
-    ] = "potential_residents"
-    df.loc[
-        df.building.isin(config_pop.preparation["building_types_residential"]),
-        "residential_status",
-    ] = "with_residents"
-    df.residential_status.fillna("no_residents", inplace=True)
-
-    # Convert DataFrame back to GeoDataFrame (important for saving geojson)
-    df = gp.GeoDataFrame(df, geometry="geom")
-    df.crs = "EPSG:4326"
-    df = df.reset_index(drop=True)
-
-    # calculating the areas of the building outlines in m^2
-    df = df.to_crs({"init": "epsg:3857"})
-    df["area"] = df["geom"].area.round(2)
-    df = df[df.area != 0]
-    df = df.to_crs({"init": "epsg:4326"})
-
-    # Timer finish
-    print(f"Preparation took {time.time() - start_time} seconds ---")
-
-    return gdf_conversion(df, filename, return_type)
-
 
 import geopandas as gpd
 from sqlalchemy.engine.base import Connection as SQLAlchemyConnectionType
-
+import polars as pl 
 
 class PoisPreparation:
     """Class to preprare the POIs."""
 
-    def __init__(self, db_config: dict):
+    def __init__(self, db):
         self.root_dir = "/app"
-        self.dbname, self.host, self.username, self.port = (
-            db_config["dbname"],
-            db_config["host"],
-            db_config["user"],
-            db_config["port"],
-        )
-        self.db_config = db_config
-        self.db = Database(self.db_config)
+        # self.dbname, self.host, self.username, self.port = (
+        #     db_config["dbname"],
+        #     db_config["host"],
+        #     db_config["user"],
+        #     db_config["port"],
+        # )
+        # self.db_config = db_config
+        # self.db = Database(self.db_config)
         self.sqlalchemy_engine = self.db.return_sqlalchemy_engine()
         self.config_pois = Config("pois")
         self.config_pois_preparation = self.config_pois.preparation
 
+    def read_poi(self):
+        
+    
+    
     def perform_pois_preparation(self, db: SQLAlchemyConnectionType):
         """_summary_
 

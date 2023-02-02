@@ -7,7 +7,7 @@ import geopandas as gp
 from decouple import config
 import sqlalchemy
 from src.db.db import Database
-from src.db.config import DATABASE_RD, DATABASE
+from src.core.config import settings
 
 # Function for creation backupfiles
 # Convert and save dataframe as GPKG or GeoJSON file formats
@@ -89,49 +89,6 @@ def drop_table(conn,table):
     drop_table = """DROP TABLE IF EXISTS {0};""".format(table)
     cur.execute(drop_table)
     conn.commit()
-
-# Create pgpass function
-def create_pgpass():
-    db_name = config("POSTGRES_DB")
-    db_name_rd = config("DB_NAME_RD")
-    try:
-        os.system(f"rm ~/.pgpass_{db_name}")
-    except:
-        pass
-    os.system(
-        "echo "
-        + ":".join(
-            [
-                config("POSTGRES_HOST"),
-                "5432",
-                db_name,
-                config("POSTGRES_USER"),
-                config("POSTGRES_PASSWORD"),
-            ]
-        )
-        + f" > ~/.pgpass_{db_name}"
-    )
-    os.system(f"chmod 600  ~/.pgpass_{db_name}")
-
-    try:
-        os.system(f"rm ~/.pgpass_{db_name_rd}")
-    except:
-        pass
-    os.system(
-        "echo "
-        + ":".join(
-            [
-                config("HOST_RD"),
-                "5432",
-                db_name,
-                config("DB_NAME_RD"),
-                config("PASSWORD_RD"),
-            ]
-        )
-        + f" > ~/.pgpass_{db_name_rd}"
-    )
-    os.system(f"chmod 600  ~/.pgpass_{db_name_rd}")
-
 
 # 'source' could be "remote" or "local". Need to specify
 def table_dump(source, tablename, schema='temporal', prefix ='',data_only=False):
@@ -261,28 +218,3 @@ def create_sql_dumps():
         if tab_e in tables_extra_standard:
             table_dump('local','.'.join(['extra',tab_e]))
 
-
-
-########################TESTS############################
-# create_sql_dumps()
-
-# migrate_all_tables2localdb()
-
-# migrate_table2localdb('accidents', 'accidents')
-
-# table_dump('local','ways_vertices_pgr')
-# table_restore('remote', 'ways_vertices_pgr')
-
-# table_dump('local','ways')
-# table_restore('remote', 'ways')
-
-# table_dump('local','landuse_osm')
-# table_restore('remote', 'landuse_osm')
-
-# table_dump('local','buildings_osm')
-# table_restore('remote', 'buildings_osm')
-
-# table_dump('local','planet_osm_point')
-
-# table_dump('local','pois')
-# table_restore('remote', 'pois')

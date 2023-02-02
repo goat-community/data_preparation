@@ -17,7 +17,7 @@ class Database:
         finally:
             LOGGER.getLogger().setLevel(LOGGER.INFO)   # To show logging.info in the console
             LOGGER.info('Connection opened successfully.')
-            
+    
     def return_sqlalchemy_engine(self):  
         """This will create SQLAlchemy engine for the database"""
         return create_engine(self.db_config, future=False)

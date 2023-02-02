@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: Optional[str] = None
     POSTGRES_HOST: Optional[str] = None
     POSTGRES_DB: Optional[str] = None
+    POSTGRES_PORT: Optional[str] = None
     LOCAL_DATABASE_URI: Optional[SyncPostgresDsn] = None
     @validator("LOCAL_DATABASE_URI", pre=True)
     def assemble_local_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
@@ -24,13 +25,15 @@ class Settings(BaseSettings):
             password=values.get("POSTGRES_PASSWORD"),
             host=values.get("POSTGRES_HOST"),
             path=f"/{values.get('POSTGRES_DB') or ''}",
+            port=values.get("POSTGRES_PORT")
         )
 
     # Remote Database Settings
-    USER_RD: Optional[str] = None
-    PASSWORD_RD: Optional[str] = None
-    HOST_RD: Optional[str] = None
-    DB_NAME_RD: Optional[str] = None
+    POSTGRES_USER_RD: Optional[str] = None
+    POSTGRES_PASSWORD_RD: Optional[str] = None
+    POSTGRES_HOST_RD: Optional[str] = None
+    POSTGRES_DB_RD: Optional[str] = None
+    POSTGRES_PORT_RD: Optional[str] = None
     REMOTE_DATABASE_URI: Optional[SyncPostgresDsn] = None
     @validator("REMOTE_DATABASE_URI", pre=True)
     def assemble_remote_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
@@ -38,10 +41,11 @@ class Settings(BaseSettings):
             return v
         return SyncPostgresDsn.build(
             scheme="postgresql",
-            user=values.get("USER_RD"),
-            password=values.get("PASSWORD_RD"),
-            host=values.get("HOST_RD"),
-            path=f"/{values.get('DB_NAME_RD') or ''}",
+            user=values.get("POSTGRES_USER_RD"),
+            password=values.get("POSTGRES_PASSWORD_RD"),
+            host=values.get("POSTGRES_HOST_RD"),
+            path=f"/{values.get('POSTGRES_DB_RD') or ''}",
+            port=values.get("POSTGRES_PORT_RD")
         )
     
     # AWS Client 

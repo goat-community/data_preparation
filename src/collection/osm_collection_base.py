@@ -1,15 +1,10 @@
 import subprocess
 import os
 import sys
-import time
 import csv
-from lxml import etree
 import json
-from unittest import FunctionTestCase
 import psutil
 import geopandas as gpd
-import shutil
-from urllib import request
 from src.utils.utils import (
     print_info,
     download_link,
@@ -17,36 +12,29 @@ from src.utils.utils import (
     print_hashtags,
     delete_file,
     print_warning,
-    return_tables_as_gdf
 )
-from shapely.geometry import MultiPolygon, Polygon
-from src.config.config import Config
-from src.db.config import DATABASE, DATABASE_RD
-from src.db.db import Database
-
-from src.utils.utility_functions import create_pgpass
-from decouple import config
+from src.utils.utils import create_pgpass
 from functools import partial
 from multiprocessing.pool import Pool
-from time import time
 import numpy as np
-
+from src.config.config import Config
 
 
 class OSMBaseCollection:
-    def __init__(self, db_config):
-        self.dbname = db_config["dbname"]
-        self.host = db_config["host"]
-        self.username = db_config["user"]
-        self.port = db_config["port"]
-        self.password = db_config["password"]
+    def __init__(self, db_config):        
+        self.db_config = db_config
+        self.dbname = self.db_config.path.replace("/", "")
+        self.host = self.db_config.host
+        self.username = self.db_config.user
+        self.port = self.db_config.port
+        self.password = self.db_config.password
         self.root_dir = "/app"
         self.data_dir_input = self.root_dir + "/src/data/input/"
         self.temp_data_dir = self.data_dir_input + "temp/"
         self.available_cpus = os.cpu_count()
         self.memory = psutil.virtual_memory().total
         self.cache = round(self.memory / 1073741824 * 1000 * 0.75)
-        create_pgpass()
+        create_pgpass(db_config=self.db_config)
 
     def prepare_osm_data(self, link: str, dataset_type: str, osm_filter: str):
         """Prepare OSM data for import into PostGIS database.
@@ -74,58 +62,6 @@ class OSMBaseCollection:
             shell=True,
             check=True,
         )
-        
-
-    @staticmethod
-    def parse_poly(dir):
-        """Parse an Osmosis polygon filter file.
-        Based on: https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Python_Parsing
-        Args:
-            dir (_type_): _description_
-
-        Returns:
-            (shapely.geometry.multipolygon): Returns the polygon in the poly foramat as a shapely multipolygon.
-        """
-
-        in_ring = False
-        coords = []
-        with open(dir, "r") as polyfile:
-            for (index, line) in enumerate(polyfile):
-                if index == 0:
-                    # first line is junk.
-                    continue
-
-                elif index == 1:
-                    # second line is the first polygon ring.
-                    coords.append([[], []])
-                    ring = coords[-1][0]
-                    in_ring = True
-
-                elif in_ring and line.strip() == "END":
-                    # we are at the end of a ring, perhaps with more to come.
-                    in_ring = False
-
-                elif in_ring:
-                    # we are in a ring and picking up new coordinates.
-                    ring.append(list(map(float, line.split())))
-
-                elif not in_ring and line.strip() == "END":
-                    # we are at the end of the whole polygon.
-                    break
-
-                elif not in_ring and line.startswith("!"):
-                    # we are at the start of a polygon part hole.
-                    coords[-1][1].append([])
-                    ring = coords[-1][1][-1]
-                    in_ring = True
-
-                elif not in_ring:
-                    # we are at the start of a polygon part.
-                    coords.append([[], []])
-                    ring = coords[-1][0]
-                    in_ring = True
-
-            return MultiPolygon(coords)
 
     def create_osm_extract_boundaries(self, db, use_poly=True):
         """Create OSM extract boundaries.

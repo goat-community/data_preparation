@@ -1,6 +1,6 @@
 from src.db.db import Database
-from src.db.config import DATABASE_RD
-from src.other.utils import (
+from src.core.config import settings
+from src.utils.utils import (
     print_info,
     print_hashtags,
     print_warning,
@@ -133,7 +133,7 @@ class PrepareKart:
         os.chdir(self.path_repo)
         # Execute command in command line to create Kart remote working copy
         subprocess.run(
-            f'kart create-workingcopy postgresql://{self.db.db_config["user"]}:{self.db.db_config["password"]}@{self.db.db_config["host"]}/{self.db.db_config["dbname"]}/{self.schema_name}',
+            f'kart create-workingcopy postgresql://{self.db.db_config.user}:{self.db.db_config.password}@{self.db.db_config.host}{self.db.db_config.path}/{self.schema_name}',
             shell=True,
             check=True,
         )
@@ -285,7 +285,7 @@ def main():
         raise Exception("Table name not supported")
 
     # Init db and class
-    db = Database(DATABASE_RD)
+    db = Database(settings.REMOTE_DATABASE_URI)
     prepare_kart = PrepareKart(
         db, repo_url=repo_url, maintainer=maintainer, table_name=table_name)
     

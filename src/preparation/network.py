@@ -7,11 +7,11 @@ import time
 from src.config.config import Config
 from src.db.config import DATABASE
 from src.db.db import Database
-from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link, create_table_schema
+from src.utils.utils import print_info, print_warning, print_hashtags, create_table_dump, download_link, create_table_schema
 from multiprocessing.pool import Pool
 from collection.osm_collection_base import OsmCollection
 from src.preparation.network_islands import NetworkIslands
-from src.other.utils import create_table_schema
+from src.utils.utils import create_table_schema
 
 class NetworkPreparation:
     """Class to prepare the routing network. It processs the network in chunks and prepares the different attributes (e.g., slopes)."""
@@ -162,7 +162,7 @@ class NetworkPreparation:
 
     def dump_network(self, data_only=False):
         """Dump the network tables individual files."""
-        create_pgpass_for_db(self.DATABASE)
+        create_pgpass_for_db()
         create_table_dump(self.DATABASE, 'basic.edge', data_only)
         create_table_dump(self.DATABASE, 'basic.node', data_only)
 
