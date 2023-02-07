@@ -150,6 +150,20 @@ urllib3 = ">=1.25.4,<1.27"
 crt = ["awscrt (==0.15.3)"]
 
 [[package]]
+name = "cdifflib"
+version = "1.2.6"
+description = "C implementation of parts of difflib"
+category = "main"
+optional = false
+python-versions = ">=3.4"
+files = [
+    {file = "cdifflib-1.2.6-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:bd236fc9e166e911f8ad87d89c1d1ade4e33df6f67e8c34fbe5f2bd89f0225f1"},
+    {file = "cdifflib-1.2.6-cp38-cp38-macosx_12_0_x86_64.whl", hash = "sha256:3b509f3a2b51abe45af36dc074a878ba3309a48968683a14e4104b46c2ef5b44"},
+    {file = "cdifflib-1.2.6-cp39-cp39-macosx_12_0_x86_64.whl", hash = "sha256:90c3bc02f3812f8def2e5b901345795a73e0547e9ea7aab2153200f4c84cab44"},
+    {file = "cdifflib-1.2.6.tar.gz", hash = "sha256:57517c390392a71d59e9d7e799e9b685eaf9e07812fc8f234540ff19c4b03e66"},
+]
+
+[[package]]
 name = "certifi"
 version = "2022.6.15"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -418,6 +432,18 @@ files = [
     {file = "debugpy-1.6.2-cp39-cp39-win_amd64.whl", hash = "sha256:79d9ac34542b830a7954ab111ad8a4c790f1f836b895d03223aea4216b739208"},
     {file = "debugpy-1.6.2-py2.py3-none-any.whl", hash = "sha256:0bfdcf261f97a603d7ef7ab6972cdf7136201fde93d19bf3f917d0d2e43a5694"},
     {file = "debugpy-1.6.2.zip", hash = "sha256:e6047272e97a11aa6898138c1c88c8cf61838deeb2a4f0a74e63bb567f8dafc6"},
+]
+
+[[package]]
+name = "diff-match-patch"
+version = "20200713"
+description = "Repackaging of Google's Diff Match and Patch libraries. Offers robust algorithms to perform the operations required for synchronizing plain text."
+category = "main"
+optional = false
+python-versions = ">=2.7"
+files = [
+    {file = "diff-match-patch-20200713.tar.gz", hash = "sha256:da6f5a01aa586df23dfc89f3827e1cafbb5420be9d87769eeb079ddfd9477a18"},
+    {file = "diff_match_patch-20200713-py3-none-any.whl", hash = "sha256:8bf9d9c4e059d917b5c6312bac0c137971a32815ddbda9c682b949f2986b4d34"},
 ]
 
 [[package]]
@@ -2241,4 +2267,4 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "534f4ba27e30f4318fc9fcb7d4f1ad0a6374c33809d57290d15a49de2f9b70b5"
+content-hash = "75219208c03053a7a7033b60f2a7270ea2189e51e5bb1297e6b71729c8cfc3fe"
