@@ -150,6 +150,20 @@ urllib3 = ">=1.25.4,<1.27"
 crt = ["awscrt (==0.15.3)"]
 
 [[package]]
+name = "cdifflib"
+version = "1.2.6"
+description = "C implementation of parts of difflib"
+category = "main"
+optional = false
+python-versions = ">=3.4"
+files = [
+    {file = "cdifflib-1.2.6-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:bd236fc9e166e911f8ad87d89c1d1ade4e33df6f67e8c34fbe5f2bd89f0225f1"},
+    {file = "cdifflib-1.2.6-cp38-cp38-macosx_12_0_x86_64.whl", hash = "sha256:3b509f3a2b51abe45af36dc074a878ba3309a48968683a14e4104b46c2ef5b44"},
+    {file = "cdifflib-1.2.6-cp39-cp39-macosx_12_0_x86_64.whl", hash = "sha256:90c3bc02f3812f8def2e5b901345795a73e0547e9ea7aab2153200f4c84cab44"},
+    {file = "cdifflib-1.2.6.tar.gz", hash = "sha256:57517c390392a71d59e9d7e799e9b685eaf9e07812fc8f234540ff19c4b03e66"},
+]
+
+[[package]]
 name = "certifi"
 version = "2022.6.15"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -2241,4 +2255,4 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "534f4ba27e30f4318fc9fcb7d4f1ad0a6374c33809d57290d15a49de2f9b70b5"
+content-hash = "006efc940e6497c0bfd417fbab7249d93c078c7920c46d54f827f4c0f3a78e30"
