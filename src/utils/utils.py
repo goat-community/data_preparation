@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from cdifflib import CSequenceMatcher
 import difflib
-import diff_match_patch
+#import diff_match_patch
 
 from pathlib import Path
 from typing import Any
@@ -87,14 +87,6 @@ def download_link(directory: str, link: str, new_filename: str = None):
 
     print_info(f"Downloaded ended for {link}")
 
-def similarity_ratio(string1, string2):
-    dmp = diff_match_patch.diff_match_patch()
-    diff = dmp.diff_main(string1, string2)
-    matching_text = sum(len(text) for op, text in diff if op == 0)
-    total_length = len(string1) + len(string2)
-    return 2.0 * matching_text / total_length
-
-@timing
 def check_string_similarity(
     input_value: str, match_values: list[str], target_ratio: float
 ) -> bool:
@@ -117,37 +109,6 @@ def check_string_similarity(
         else:
             pass
     return False
-
-@timing
-def check_string_similarity_new(
-    input_value: str, match_values: list[str], target_ratio: float
-) -> bool:
-    """Check if a string is similar to a list of strings.
-
-    Args:
-        input_value (str): Input value to check.
-        match_values (list[str]): List of strings to check against.
-        target_ratio (float): Target ratio to match.
-
-    Returns:
-        bool: True if the input value is similar to one of the match values.
-    """    
-
-    for match_value in match_values:
-        if input_value in match_value or match_value in input_value:
-            return True
-        elif similarity_ratio(input_value, match_value) >= target_ratio:
-            return True
-        else:
-            pass
-    return False
-
-
-input = "edekmarkt"
-match = ["edeka"]
-
-check_string_similarity(input, match, 0.7)
-check_string_similarity_new(input, match, 0.7)
 
 def check_string_similarity_bulk(input_value: str, match_dict: dict, target_ratio: float) -> bool:
     """Check if a string is similar to a dictionary with lists of strings.
