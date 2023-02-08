@@ -9,9 +9,9 @@ DATABASE = {
 }
 
 DATABASE_RD = {
-    'user':     config("USER_RD"),
-    'password': config("PASSWORD_RD"),
-    'host':     config("HOST_RD"),
-    'port':     config("PORT_RD"),
-    'dbname':   config("DB_NAME_RD")
+    'user':     config("POSTGRES_USER_RD"),
+    'password': config("POSTGRES_PASSWORD_RD"),
+    'host':     config("POSTGRES_HOST_RD"),
+    'port':     config("POSTGRES_PORT_RD"),
+    'dbname':   config("POSTGRES_DB_RD")
 }

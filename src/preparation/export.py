@@ -128,21 +128,27 @@ class Export:
                 filename = layer_name + ".parquet"
                 try:
                     if isinstance(layer_source, str):
-                        h3_gdf = self._read_from_postgis(
+                        layer_source = self._read_from_postgis(
                             layer_source, row["geometry"].wkt
                         )
-                    else:
+                  
+                    if len(layer_source) != 0:
                         h3_gdf = gpd.clip(layer_source, row["geometry"])
-                    h3_gdf.to_parquet(h3_output_file_dir / filename)
-                    if self.upload_to_s3 == True:
-                        self.boto3.upload_file(
-                            "{}/{}".format(h3_output_file_dir, filename),
-                            settings.AWS_BUCKET_NAME,
-                            "{}/{}/{}".format(
-                                self.s3_folder, row["h3_index"], filename
-                            ),
-                        )
-                    status = "success"
+                        # for poi layer, convert tags to str type. Parquet doesn't support dict type for some reason TODO: fix this
+                        if layer_name == "poi":
+                            h3_gdf["tags"] = h3_gdf["tags"].astype(str)
+                        h3_gdf.to_parquet(h3_output_file_dir / filename)
+                        if self.upload_to_s3 == True:
+                            self.boto3.upload_file(
+                                "{}/{}".format(h3_output_file_dir, filename),
+                                settings.AWS_BUCKET_NAME,
+                                "{}/{}/{}".format(
+                                    self.s3_folder, row["h3_index"], filename
+                                ),
+                            )
+                        status = "success"
+                    else:
+                        status = "no_data"
                 except Exception as e:
                     message = f'Processing {layer_name} for H3 index {row["h3_index"]}'
                     print_error(message)
@@ -156,7 +162,7 @@ class Export:
         )
         export_metadata_gdf.to_csv(
             Path(self.output_dir, f"metadata_{strftime('%d-%b-%Y-%H-%M-%S')}.csv"),
-            columns=list(set(export_metadata_gdf.columns)-set(["geometry"])),
+            columns=list(set(export_metadata_gdf.columns) - set(["geometry"])),
             index=True,
         )
 
@@ -172,35 +178,47 @@ class Export:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Export data from the database to parquet files."
-    )
-    parser.add_argument(
-        "--input_config",
-        type=str,
-        required=True,
-        help="Json file containing input configuration",
-    )
-    parser.add_argument(
-        "--output_dir", type=str, default="../data/output", help="Output directory"
-    )
-    parser.add_argument(
-        "-u",
-        "--upload_to_s3",
-        action="store_false",
-        help="If set, the output directory will be uploaded to s3 bucket",
-    )
+    # parser = argparse.ArgumentParser(
+    #     description="Export data from the database to parquet files."
+    # )
+    # parser.add_argument(
+    #     "--input_config",
+    #     type=str,
+    #     required=True,
+    #     help="Json file containing input configuration",
+    # )
+    # parser.add_argument(
+    #     "--output_dir", type=str, default="../data/output", help="Output directory"
+    # )
+    # parser.add_argument(
+    #     "-u",
+    #     "--upload_to_s3",
+    #     action="store_false",
+    #     help="If set, the output directory will be uploaded to s3 bucket",
+    # )
 
-    parser.add_argument(
-        "--s3_folder",
-        type=str,
-        default="",
-        help="If upload_to_s3 is set, the output directory will be uploaded to s3 bucket under this folder",
-    )
-    
-    args = parser.parse_args()
-    with open(args.input_config, "r") as f:
-        input_config = json.load(f)
+    # parser.add_argument(
+    #     "--s3_folder",
+    #     type=str,
+    #     default="",
+    #     help="If upload_to_s3 is set, the output directory will be uploaded to s3 bucket under this folder",
+    # )
+
+    # args = parser.parse_args()
+    # with open(args.input_config, "r") as f:
+    #     input_config = json.load(f)
+
+    input_config = {
+        "mask_config": "SELECT ST_Union(buffer_geom_heatmap) as geom FROM basic.study_area",
+        "h3_resolution": 6,
+        "mask_buffer_distance": 0,
+        "layer_config": {
+            "poi": "SELECT * FROM basic.poi",
+            "population": "SELECT * FROM basic.population",
+            "aoi": "SELECT * FROM basic.aoi",
+        }
+    }
+
     mask_config = input_config["mask_config"]
     h3_resolution = input_config["h3_resolution"]
     mask_buffer_distance = input_config["mask_buffer_distance"]
@@ -216,7 +234,7 @@ def main():
         mask_config,
         mask_buffer_distance,
         h3_resolution,
-        output_dir
+        output_dir,
     ).run()
 
 

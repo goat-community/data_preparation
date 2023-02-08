@@ -435,6 +435,18 @@ files = [
 ]
 
 [[package]]
+name = "diff-match-patch"
+version = "20200713"
+description = "Repackaging of Google's Diff Match and Patch libraries. Offers robust algorithms to perform the operations required for synchronizing plain text."
+category = "main"
+optional = false
+python-versions = ">=2.7"
+files = [
+    {file = "diff-match-patch-20200713.tar.gz", hash = "sha256:da6f5a01aa586df23dfc89f3827e1cafbb5420be9d87769eeb079ddfd9477a18"},
+    {file = "diff_match_patch-20200713-py3-none-any.whl", hash = "sha256:8bf9d9c4e059d917b5c6312bac0c137971a32815ddbda9c682b949f2986b4d34"},
+]
+
+[[package]]
 name = "dill"
 version = "0.3.5.1"
 description = "serialize all of python"
@@ -2255,4 +2267,4 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "006efc940e6497c0bfd417fbab7249d93c078c7920c46d54f827f4c0f3a78e30"
+content-hash = "534f4ba27e30f4318fc9fcb7d4f1ad0a6374c33809d57290d15a49de2f9b70b5"
