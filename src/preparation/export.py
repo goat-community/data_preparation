@@ -66,7 +66,7 @@ class Export:
         """
         h3_indexes = []
         for row in mask_gdf.__geo_interface__["features"]:
-            h3_index = h3.polyfill(row["geometry"], self.h3_resolution)
+            h3_index = h3.polyfill(row["geometry"], self.h3_resolution, geo_json_conformant=True)
             h3_indexes.extend(h3_index)
         h3_indexes = list(set(h3_indexes))
         h3_indexes_gdf = gpd.GeoDataFrame(
@@ -74,7 +74,7 @@ class Export:
         )
         h3_indexes_gdf["h3_index"] = h3_indexes
         h3_indexes_gdf["geometry"] = h3_indexes_gdf["h3_index"].apply(
-            lambda x: Polygon(h3.h3_to_geo_boundary(h=x))
+            lambda x: Polygon(h3.h3_to_geo_boundary(h=x, geo_json=True))
         )
         return h3_indexes_gdf
 
@@ -216,7 +216,9 @@ def main():
             "poi": "SELECT * FROM basic.poi",
             "population": "SELECT * FROM basic.population",
             "aoi": "SELECT * FROM basic.aoi",
-        }
+        },
+        "upload_to_s3": True,
+        "s3_folder": "parquet-tiles",
     }
 
     mask_config = input_config["mask_config"]
@@ -235,6 +237,8 @@ def main():
         mask_buffer_distance,
         h3_resolution,
         output_dir,
+        upload_to_s3=input_config["upload_to_s3"],
+        s3_folder=input_config["s3_folder"],        
     ).run()
 
 

@@ -5,7 +5,6 @@ from src.config.config import Config
 from src.core.config import settings
 from src.utils.utils import check_string_similarity_bulk, vector_check_string_similarity_bulk
 import time 
-import numpy as np
 
 class PoiPreparation:
     """Class to preprare the POIs."""
@@ -80,71 +79,38 @@ class PoiPreparation:
         
         # Apply function to classify Supermarkets
         df_supermarket = df.filter(pl.col("shop") == "supermarket")
+        arr_names = df_supermarket["name"].to_numpy()
+        arr_brands = df_supermarket["brand"].to_numpy()
+        
         types_classify_by_name = list(self.config_pois_preparation["supermarket"]["classify_by_name"].keys())
         types_classify = list(self.config_pois_preparation["supermarket"]["classify_by_name"].keys())
         
         begin = time.time()
-        
-        # Classify by tag
-        for key in self.config_pois_preparation["supermarket"]["classify_by_tag"]:  
-            config_pair = self.config_pois_preparation["supermarket"]["classify_by_tag"][key]
-            tag = list(config_pair.keys())[0]
-            value = config_pair[tag]
-            
-            if value == "True":      
-                df_supermarket = df_supermarket.with_columns(
-                    pl.when(
-                        (pl.col(tag) != None)
-                    )        
-                    .then(True)
-                    .otherwise(False)
-                    .alias(key + "_tag")
-                )
-            else: 
-                df_supermarket = df_supermarket.with_columns(
-                    pl.when(
-                        (pl.col(tag) == value)
-                    )        
-                    .then(True)
-                    .otherwise(False)
-                    .alias(key + "_tag")
-                ) 
-                
-            types_classify.append(key)
-            
-        arr_names = df_supermarket["name"].to_numpy()
-        arr_brands = df_supermarket["brand"].to_numpy()
-        
-        # Classify by string similarity
         for key in types_classify_by_name:
-            
             condition_obj = self.config_pois_preparation["supermarket"]["classify_by_name"][key]["children"]
             string_similarity = self.config_pois_preparation["supermarket"]["classify_by_name"][key]["string_similarity"]
-            
             check_brands = vector_check_string_similarity_bulk(arr_names, condition_obj, string_similarity)
             check_names = vector_check_string_similarity_bulk(arr_brands, condition_obj, string_similarity)
-            
-            # Check if name or brand is true
-            check_both = np.logical_or(check_brands, check_names)
-            df_supermarket = df_supermarket.with_columns(pl.Series(name=key + "_similarity", values=check_both))
-
-        # Classify categories
-        for key in types_classify:
-            # Assign category
-            df_supermarket = df_supermarket.with_columns(
-                pl.when(
-                    pl.col(key) == True
-                ).then(key)
-                .otherwise(pl.col("category"))
-                .alias("category")
-            )
-            # Drop not need columns 
-            df_supermarket = df_supermarket.drop(key)
-            
-        
+            check_both = check_names * check_brands
+            df_supermarket = df_supermarket.with_columns(pl.Series(name=key, values=check_both))
         end = time.time()
         print(f"Time to classify supermarkets: {end - begin}")
-        
+        for key in self.config_pois_preparation["supermarket"]["classify_by_tag"]:
+            tag = list(self.config_pois_preparation["supermarket"]["classify_by_tag"][key].keys())[0]
+            if key in types_classify:
+                key = key + "_1"
+            types_classify.append(key)
+            df_supermarket = df_supermarket.with_columns(
+                pl.when(
+                    (pl.col(types_classify_by_name) == False)
+                    &
+                    (pl.col(tag) != None)
+                )        
+                .then(True)
+                .otherwise(False)
+                .alias(key)
+            )
+
         # Convert polars to pandas dataframe
         pdf = df_supermarket.to_pandas()
         # Convert pandas dataframe to geopandas dataframe

@@ -39,92 +39,57 @@ preparation:
   supermarket:
     classify_by_name:
       supermarket: 
-        string_similarity: 
-          children:
-            rewe     : ["rewe", "rewe city"]
-            tegut    : ["tegut"]
-            feneberg : ["feneberg"]
-            nahkauf  : ["nahkauf"]
-            kupsch   : ["kupsch"]
-            aez      : ["aez"]
-            edeka    : ["edeka", "nah & gut", "e center", "diska"]
-            k+k      : ["k+k", "k&k"]
-            nah&frisch : ["nah&frisch"]
-          threshold: 0.7
+        children:
+          rewe     : ["rewe", "rewe city"]
+          tegut    : ["tegut"]
+          feneberg : ["feneberg"]
+          nahkauf  : ["nahkauf"]
+          kupsch   : ["kupsch"]
+          aez      : ["aez"]
+        string_similarity: 0.7
 
       discount_supermarket: 
-        string_similarity: 
-          children:
-            aldi  : ["aldi"]
-            lidl  : ["lidl"]
-            netto : ["netto"]
-            norma : ["norma"]
-            penny : ["penny"]
-            np-markt: ["np markt"]
-          threshold: 0.7
-        exact_match:
-          children:
-            np-markt : ["np"]
+        children:
+          aldi  : ["aldi"]
+          lidl  : ["lidl"]
+          netto : ["netto"]
+          norma : ["norma"]
+          penny : ["penny"]
+        string_similarity: 0.7
 
       hypermarket: 
-        string_similarity:
-          children:
-            real      : ["real"]
-            v-markt   : ["v-markt"]
-            kaufland  : ["kaufland"]
-            marktkauf : ["marktkauf"]
-            hit       : ["hit"]
-          threshold: 0.7
+        children:
+          real      : ["real"]
+          v-markt   : ["v-markt"]
+          kaufland  : ["kaufland"]
+          marktkauf : ["marktkauf"]
+        string_similarity: 0.7
 
       wholesale: 
-        string_similarity:
-          children:
-            metro     : ["metro"]
-            hamberger : ["hamberger"]
-          threshold: 0.7
+        children:
+          metro     : ["metro"]
+          hamberger : ["hamberger"]
+        string_similarity: 0.7
       
       organic_supermarket:
-        string_similarity:
-          children:
-            denn's Biomarkt : ["denn's", "denns", "denn"]
-            alnatura : ["alnatura"]
-            vollcorner : ["vollcorner"]
-            reformhaus : ["reformhaus"]
-            naturkost : ["naturkost"]
-            bio: ["bio"]
-          threshold: 0.7
-      
-      international_supermarket:
-        string_similarity:
-          children:
-            turkish : ["türkisch", "turk"]
-            asia : ["asia"]
-            mix market : ["mix market"]
-          threshold: 0.7
+        children:
+          denn's Biomarkt : ["denn's", "denns", "denn"]
+          alnatura : ["alnatura"]
+        string_similarity: 0.7
 
     classify_by_tag:
       international_supermarket:
         origin: True 
       organic_supermarket:
-        organic: "only"
-
-  chemist: 
-    string_similarity:
-      children:
-        rossmann : ["rossmann"]
-        müller   : ["müller", "mueller"] 
-      threshold: 0.7
-    exact_match:
-      children:
-        dm       : ["dm"]
+        organic: True
 
 
   health_food: 
-    string_similarity:
+    health_food: 
       children:
         vitalia   : ["vitalia"]
         reformhaus : ["reformhaus"]
-      threshold: 0.7
+      string_similarity: 0.7
 
   bank: 
     sparkasse       : ["kreissparkasse", "sparkasse", "stadtsparkasse"]
@@ -132,7 +97,10 @@ preparation:
     hypovereinsbank : ["hypo vereinsbank", "hypovereinsbank"]
     commerzbank : ["commerzbank"]
 
-
+  chemist: 
+    dm       : ["dm"]
+    rossmann : ["rossmann"]
+    müller   : ["müller", "mueller"] 
 
   fast_food: 
     mcdonalds : ["mcdonald"]
