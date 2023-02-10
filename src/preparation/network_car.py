@@ -6,23 +6,19 @@ from src.db.db import Database
 
 
 class NetworkCar:
-    def __init__(self, db):
+    def __init__(self, db, time_of_the_day):
         self.db = db
         self.bulk_size = 100000
-<<<<<<< HEAD
 
         sql_query_cnt = "SELECT COUNT(*) FROM dds_street_with_speed"
         cnt_network = self.db.select(sql_query_cnt)
         self.cnt_network = cnt_network[0][0]
-=======
->>>>>>> a83eaa02854c51bc7ae2faf39bcc989af7767d5f
 
         # Convert the time to the column name
         self.time_of_the_day = "h" + time_of_the_day.replace(":", "_")
 
     # TODO: We can try to make this a bit flexible and allow the user to pass different times of the day
     # Weekdays we are not having currently though in the database
-<<<<<<< HEAD
 
     def create_network_nodes(self):
         # Create table for the nodes of the network
@@ -66,19 +62,6 @@ class NetworkCar:
         """Export the car network from the database for certain times of the day."""
 
         for offset in range(0, self.cnt_network, self.bulk_size):
-=======
-    def read_network_car(self, weekday: str, time_of_the_day: str):
-        """Export the car network from the database for certain times of the day.
-        """       
-        sql_query_cnt = "SELECT COUNT(*) FROM dds_street_with_speed"
-        cnt_network = self.db.select(sql_query_cnt)
-        cnt_network = cnt_network[0][0]
-        
-        # Convert the time to the column name 
-        time_of_the_day = "h"+time_of_the_day.replace(":", "_")
-        
-        for offset in range(0, cnt_network, self.bulk_size):
->>>>>>> a83eaa02854c51bc7ae2faf39bcc989af7767d5f
             sql_query_read_network_car = f"""
                 SELECT id::bigint, '{'{'}"0": "road",
                     "1": "motorway",
@@ -98,7 +81,6 @@ class NetworkCar:
                 OFFSET {offset};
             """
             result = self.db.select(sql_query_read_network_car)
-<<<<<<< HEAD
             result = [x[0] for x in result]
 
             header = """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">"""
@@ -191,16 +173,5 @@ def main():
     network_car.collide_all_data()
 
 
-=======
-            print()
-            #TODO: Convert to OSM format
-    
-def main():
-    """Main function."""
-    db = Database(settings.REMOTE_DATABASE_URI)
-    network_car = NetworkCar(db=db)   
-    network_car.read_network_car(1, "08:00")
-    
->>>>>>> a83eaa02854c51bc7ae2faf39bcc989af7767d5f
 if __name__ == "__main__":
     main()
