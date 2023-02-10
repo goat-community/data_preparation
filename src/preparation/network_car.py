@@ -63,22 +63,47 @@ class NetworkCar:
 
         for offset in range(0, self.cnt_network, self.bulk_size):
             sql_query_read_network_car = f"""
-                SELECT id::bigint, '{'{'}"0": "road",
-                    "1": "motorway",
-                    "2": "primary",
-                    "3": "secondary", 
-                    "4": "secondary", 
-                    "5": "tertiary", 
-                    "6": "road",
-                    "9": "unclassified",
-                    "11": "unclassified"
-                {'}'}'::jsonb 
-                ->> stil::TEXT AS highway, 
-                ((hin_speed_tuesday ->> '{time_of_the_day}')::integer + (rueck_speed_tuesday ->> '{time_of_the_day}')::integer) / 2 maxspeed, 
-                (st_asgeojson(ST_SETSRID(geom, 4326))::jsonb -> 'coordinates') AS coordinates 
-                FROM dds_street_with_speed 
-                LIMIT {self.bulk_size}
-                OFFSET {offset};
+                WITH batch_ways AS 
+                (
+                    SELECT id::bigint, '{'{'}"0": "road",
+                        "1": "motorway",
+                        "2": "primary",
+                        "3": "secondary", 
+                        "4": "secondary", 
+                        "5": "tertiary", 
+                        "6": "road",
+                        "9": "unclassified",
+                        "11": "unclassified"
+                    {'}'}'::jsonb 
+                    ->> stil::TEXT AS highway, 
+                    ((hin_speed_tuesday ->> '{self.time_of_the_day}')::integer + (rueck_speed_tuesday ->> '{self.time_of_the_day}')::integer) / 2 maxspeed, 
+                    (st_asgeojson(ST_SETSRID(geom, 4326))::jsonb -> 'coordinates') AS coordinates 
+                    FROM dds_street_with_speed 
+                    LIMIT {self.bulk_size}
+                    OFFSET {offset}
+                )
+                SELECT xmlelement(name way, xmlattributes(w.id AS id),
+                    XMLCONCAT(
+                        j.nodes,
+                        xmlelement(name tag, 
+                            xmlattributes('highway' as k, highway as v)
+                        ), 
+                        xmlelement(name tag, 
+                            xmlattributes('maxspeed' as k, maxspeed as v)
+                        )
+                    )
+                )::TEXT AS way 
+                FROM batch_ways w
+                CROSS JOIN LATERAL 
+                (
+                    SELECT xmlagg(xmlelement(name nd, xmlattributes(n.id as ref))) AS nodes 
+                    FROM public.dds_street_nodes n, 
+                    (
+                        SELECT ARRAY[(coords -> 1)::float, (coords -> 0)::float]::float[] AS coords 
+                        FROM jsonb_array_elements(coordinates) coords 
+                    ) x
+                    WHERE n.coords = x.coords 
+                ) j; 
             """
             result = self.db.select(sql_query_read_network_car)
             result = [x[0] for x in result]
