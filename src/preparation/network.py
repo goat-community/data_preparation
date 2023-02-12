@@ -1,26 +1,17 @@
 import json
+import sys
 import os
 import subprocess
-import sys
-import time
-from multiprocessing.pool import Pool
-
 import psycopg2
-
-from collection.osm_collection_base import OsmCollection
+import time
 from src.config.config import Config
 from src.db.config import DATABASE
 from src.db.db import Database
+from src.utils.utils import print_info, print_warning, print_hashtags, create_table_dump, download_link, create_table_schema
+from multiprocessing.pool import Pool
+from collection.osm_collection_base import OsmCollection
 from src.preparation.network_islands import NetworkIslands
-from src.utils.utils import (
-    create_table_dump,
-    create_table_schema,
-    download_link,
-    print_hashtags,
-    print_info,
-    print_warning,
-)
-
+from src.utils.utils import create_table_schema
 
 class NetworkPreparation:
     """Class to prepare the routing network. It processs the network in chunks and prepares the different attributes (e.g., slopes)."""
@@ -297,9 +288,5 @@ def perform_network_preparation(db, use_poly=True, data_only=False):
     db.conn.close()
 
 
-# db = Database(DATABASE)
-# perform_network_preparation(db, use_poly=True, data_only=True)
-
-
-
-
+db = Database(DATABASE)
+perform_network_preparation(db, use_poly=True, data_only=True)

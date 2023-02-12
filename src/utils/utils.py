@@ -93,7 +93,6 @@ def download_link(directory: str, link: str, new_filename: str = None):
 
     print_info(f"Downloaded ended for {link}")
 
-
 def check_string_similarity(
     input_value: str, match_values: list[str], target_ratio: float
 ) -> bool:
