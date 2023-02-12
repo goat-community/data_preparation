@@ -19,8 +19,8 @@ collection:
   osm_tags:
     amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
                 "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
-                "charging_station", "bus_station"]
-    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                "charging_station", "bus_station", "playground"]
+    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
                 "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
     tourism : ["hotel", "museum", "hostel", "guest_house"]
     railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
@@ -39,118 +39,119 @@ preparation:
   supermarket:
     classify_by_name:
       supermarket: 
-        string_similarity: 
-          children:
-            rewe     : ["rewe", "rewe city"]
-            tegut    : ["tegut"]
-            feneberg : ["feneberg"]
-            nahkauf  : ["nahkauf"]
-            kupsch   : ["kupsch"]
-            aez      : ["aez"]
-            edeka    : ["edeka", "nah & gut", "e center", "diska"]
-            k+k      : ["k+k", "k&k"]
-            nah&frisch : ["nah&frisch"]
-          threshold: 0.7
+        children:
+          rewe     : ["rewe", "rewe city"]
+          tegut    : ["tegut"]
+          feneberg : ["feneberg"]
+          nahkauf  : ["nahkauf"]
+          kupsch   : ["kupsch"]
+          aez      : ["aez"]
+          edeka    : ["edeka", "nah & gut", "e center", "diska", "e aktiv"]
+          k+k      : ["k+k", "k&k"]
+          nah&frisch : ["nah&frisch"]
+          nah&gut  : ["nah&gut", "nah und gut"]
+          cap-markt : ["cap-markt"]
+          markant   : ["markant"]
+          konsum    : ["konsum"]
+          combi     : ["combi"]
+          famila    : ["famila"]
+          billa     : ["billa"]
+        threshold: 0.7
 
       discount_supermarket: 
-        string_similarity: 
-          children:
-            aldi  : ["aldi"]
-            lidl  : ["lidl"]
-            netto : ["netto"]
-            norma : ["norma"]
-            penny : ["penny"]
-            np-markt: ["np markt"]
-          threshold: 0.7
-        exact_match:
-          children:
-            np-markt : ["np"]
+        children:
+          aldi  : ["aldi"]
+          lidl  : ["lidl"]
+          netto : ["netto"]
+          norma : ["norma"]
+          penny : ["penny"]
+        threshold: 0.8
 
       hypermarket: 
-        string_similarity:
-          children:
-            real      : ["real"]
-            v-markt   : ["v-markt"]
-            kaufland  : ["kaufland"]
-            marktkauf : ["marktkauf"]
-            hit       : ["hit"]
-          threshold: 0.7
+        children:
+          real      : ["real"]
+          v-markt   : ["v-markt"]
+          kaufland  : ["kaufland"]
+          hit       : ["hit"]
+          globus    : ["globus"]
+          marktkauf: ["marktkauf"]
+        threshold: 0.9
 
       wholesale: 
-        string_similarity:
-          children:
-            metro     : ["metro"]
-            hamberger : ["hamberger"]
-          threshold: 0.7
+        children:
+          metro     : ["metro"]
+          hamberger : ["hamberger"]
+        threshold: 0.7
       
       organic_supermarket:
-        string_similarity:
-          children:
-            denn's Biomarkt : ["denn's", "denns", "denn"]
-            alnatura : ["alnatura"]
-            vollcorner : ["vollcorner"]
-            reformhaus : ["reformhaus"]
-            naturkost : ["naturkost"]
-            bio: ["bio"]
-          threshold: 0.7
+        children:
+          denn's Biomarkt : ["denn's", "denns", "denn"]
+          alnatura : ["alnatura"]
+          vollcorner : ["vollcorner"]
+          reformhaus : ["reformhaus"]
+          naturkost : ["naturkost"]
+          bio: ["bio", "bioladen"]
+          vitalia : ["vitalia"]
+        threshold: 0.7
       
-      international_supermarket:
-        string_similarity:
-          children:
-            turkish : ["türkisch", "turk"]
-            asia : ["asia"]
-            mix market : ["mix market"]
-          threshold: 0.7
+      chemist: 
+        children:
+          rossmann : ["rossmann"]
+          müller : ["müller", "mueller"]
+          drogerie: ["drogerie"]
+        threshold: 0.7
+      
+      variety_store: 
+        children:
+          tedi : ["tedi"]
+        threshold: 0.7
 
+      international_supermarket:
+        children:
+          turkish : ["türkisch", "turkish", "turk"]
+          asia : ["asia", "asien", "asiatische"]
+          other : ["italienisch", "polnische", "spanische", "russisch"]
+          mix markt : ["mix markt"]
+        threshold: 0.7
     classify_by_tag:
       international_supermarket:
-        origin: True 
+        origin: [True] 
       organic_supermarket:
-        organic: "only"
-
-  chemist: 
-    string_similarity:
-      children:
-        rossmann : ["rossmann"]
-        müller   : ["müller", "mueller"] 
-      threshold: 0.7
-    exact_match:
-      children:
-        dm       : ["dm"]
-
+        organic: ["only"]
+      discount_supermarket: 
+        name: ["np"]
+      supermarket:
+        name: ["combi"]
+      chemist:
+        name: ["dm"]
+    unmatched: "convenience"
 
   health_food: 
-    string_similarity:
-      children:
-        vitalia   : ["vitalia"]
-        reformhaus : ["reformhaus"]
-      threshold: 0.7
+    classify_by_tag:
+      organic_supermarket:
+        shop: ["health_food"]
 
-  bank: 
-    sparkasse       : ["kreissparkasse", "sparkasse", "stadtsparkasse"]
-    raiffeisenbank  : ["raiffeisenbank", "vr bank", "vr-bank", "volksbank", "volks", "münchner"]
-    hypovereinsbank : ["hypo vereinsbank", "hypovereinsbank"]
-    commerzbank : ["commerzbank"]
+  convenience: 
+    inherit: "supermarket"
+  grocery: 
+    inherit: "supermarket"
+  deli: 
+    inherit: "supermarket"
+    
+  # discount_gym: 
+  #   fitx           : ["fitx"]
+  #   mcfit          : ["mcfit"]
+  #   fitstar        : ["fitstar","fit-star", "fit star"]
+  #   cleverfit      : ["cleverfit" ,"clever fit"]
+  #   jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
 
+  # community_sport_centre: ["bezirkssportanlage"]
 
+  # # Not used (operators for various cities in Germany are too different)
+  # operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
 
-  fast_food: 
-    mcdonalds : ["mcdonald"]
-
-  discount_gym: 
-    fitx           : ["fitx"]
-    mcfit          : ["mcfit"]
-    fitstar        : ["fitstar","fit-star", "fit star"]
-    cleverfit      : ["cleverfit" ,"clever fit"]
-    jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
-
-  community_sport_centre: ["bezirkssportanlage"]
-
-  # Not used (operators for various cities in Germany are too different)
-  operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
-
-  sport:
-    sport_var_disc   : ["table_tennis"]
-    leisure_var_add  : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
-    leisure_var_disc : ["fitness_station"]
+  # sport:
+  #   sport_var_disc   : ["table_tennis"]
+  #   leisure_var_add  : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
+  #   leisure_var_disc : ["fitness_station"]
     
