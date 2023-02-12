@@ -1,23 +1,28 @@
 import os
 import shutil
 import subprocess
-from cdifflib import CSequenceMatcher
-import difflib
-#import diff_match_patch
+import random
+import string
 
+from cdifflib import CSequenceMatcher
 from pathlib import Path
 from typing import Any
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from rich import print as print
 from shapely.geometry import MultiPolygon
-from sqlalchemy.engine.base import Engine
+from sqlalchemy import text
 from src.db.db import Database
 from functools import wraps
+from src.core.enums import IfExistsType
+import polars as pl
+import csv
+from io import StringIO
 import time
+
 
 def timing(f):
     @wraps(f)
@@ -40,6 +45,7 @@ def timing(f):
         return result
 
     return wrap
+
 
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
@@ -87,6 +93,7 @@ def download_link(directory: str, link: str, new_filename: str = None):
 
     print_info(f"Downloaded ended for {link}")
 
+
 def check_string_similarity(
     input_value: str, match_values: list[str], target_ratio: float
 ) -> bool:
@@ -99,7 +106,7 @@ def check_string_similarity(
 
     Returns:
         bool: True if the input value is similar to one of the match values.
-    """    
+    """
 
     for match_value in match_values:
         if input_value in match_value or match_value in input_value:
@@ -110,7 +117,10 @@ def check_string_similarity(
             pass
     return False
 
-def check_string_similarity_bulk(input_value: str, match_dict: dict, target_ratio: float) -> bool:
+
+def check_string_similarity_bulk(
+    input_value: str, match_dict: dict, target_ratio: float
+) -> bool:
     """Check if a string is similar to a dictionary with lists of strings.
 
     Args:
@@ -120,16 +130,22 @@ def check_string_similarity_bulk(input_value: str, match_dict: dict, target_rati
 
     Returns:
         bool: True if the input value is similar to one of the match values.
-    """        
+    """
     if input_value is None:
         return False
-    
+
     for key, match_values in match_dict.items():
-        if check_string_similarity(match_values=match_values, input_value=input_value.lower(), target_ratio=target_ratio):
-            return True 
+        if check_string_similarity(
+            match_values=match_values,
+            input_value=input_value.lower(),
+            target_ratio=target_ratio,
+        ):
+            return True
     return False
 
+
 vector_check_string_similarity_bulk = np.vectorize(check_string_similarity_bulk)
+
 
 def create_pgpass(db_config):
     """Creates pgpass file for specified DB config
@@ -210,21 +226,6 @@ def create_table_schema(db: Database, db_config: dict, table_full_name: str):
     )
 
 
-def return_tables_as_gdf(db_engine: Engine, tables: list):
-
-    df_combined = gpd.GeoDataFrame()
-    for table in tables:
-        df = gpd.read_postgis(
-            sql="SELECT * FROM %s" % table, con=db_engine, geom_col="way"
-        )
-        df_combined = pd.concat([df_combined, df], sort=False).reset_index(drop=True)
-
-    df_combined["osm_id"] = abs(df_combined["osm_id"])
-    df_combined = df_combined.replace({np.nan: None})
-
-    return df_combined
-
-
 def download_dir(self, prefix, local, bucket, client):
     """Downloads data directory from AWS S3
     Args:
@@ -263,8 +264,9 @@ def download_dir(self, prefix, local, bucket, client):
             os.makedirs(os.path.dirname(dest_pathname))
         client.download_file(bucket, k, dest_pathname)
 
+
 def upload_dir(self, prefix, local, bucket, client):
-    """ Uploads data directory to AWS S3
+    """Uploads data directory to AWS S3
     Args:
         prefix (str): Path to the directory in S3
         local (str): Path to the local directory
@@ -275,7 +277,7 @@ def upload_dir(self, prefix, local, bucket, client):
         for filename in files:
             # construct the full local path
             local_path = os.path.join(root, filename)
-            
+
 
 def prepare_mask(mask_config: str, buffer_distance: int = 0, db: Any = None):
     """Prepare mask geometries
@@ -349,3 +351,213 @@ def parse_poly(dir):
                 in_ring = True
 
         return MultiPolygon(coords)
+
+
+# Copied from https://pynative.com/python-generate-random-string/
+def get_random_string(length):
+    # choose from all lowercase letter
+    letters = string.ascii_lowercase
+    result_str = "".join(random.choice(letters) for i in range(length))
+    return result_str
+
+
+def psql_insert_copy(table, conn, keys, data_iter):
+    """
+    Execute SQL statement inserting data
+
+    Parameters
+    ----------
+    table : pandas.io.sql.SQLTable
+    conn : sqlalchemy.engine.Engine or sqlalchemy.engine.Connection
+    keys : list of str
+        Column names
+    data_iter : Iterable that iterates the values to be inserted
+    """
+    # gets a DBAPI connection that can provide a cursor
+    dbapi_conn = conn.connection
+    with dbapi_conn.cursor() as cur:
+        s_buf = StringIO()
+        writer = csv.writer(s_buf)
+        writer.writerows(data_iter)
+        s_buf.seek(0)
+
+        columns = ", ".join(['"{}"'.format(k) for k in keys])
+
+        if table.schema:
+            table_name = "{}.{}".format(table.schema, table.name)
+        else:
+            table_name = table.name
+
+        if "this_is_the_geom_column" in keys:
+            columns.replace(
+                "this_is_the_geom_column", "ST_GEOMFROMTEXT(this_is_the_geom_column)"
+            )
+        if "this_is_the_jsonb_column" in keys:
+            columns.replace(
+                "this_is_the_jsonb_column", "this_is_the_jsonb_column::jsonb"
+            )
+
+        sql = "COPY {} ({}) FROM STDIN WITH CSV".format(table_name, columns)
+        cur.copy_expert(sql=sql, file=s_buf)
+
+#TODO: Finish docstring and add comments. Check error handling
+def polars_df_to_postgis(
+    engine,
+    df: pl.DataFrame,
+    table_name: str,
+    schema: str = "public",
+    if_exists: IfExistsType = "replace",
+    geom_column: str = "geom",
+    srid: int = 4326,
+    create_geom_index: bool = True,
+    jsonb_column: str = False,
+):
+    """Blazing fast method to import a polars DataFrame into a PostGIS database with geometry and JSONB column.
+
+    Args:
+        engine (_type_): _description_
+        df (pl.DataFrame): _description_
+        table_name (str): _description_
+        schema (str, optional): _description_. Defaults to "public".
+        if_exists (IfExistsType, optional): _description_. Defaults to "replace".
+        geom_column (str, optional): _description_. Defaults to "geom".
+        srid (int, optional): _description_. Defaults to 4326.
+        create_geom_index (bool, optional): _description_. Defaults to True.
+        jsonb_column (str, optional): _description_. Defaults to False.
+
+    Raises:
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+    """    
+
+    # make a connection
+    df_pd = df.to_pandas()
+    db = engine.connect()
+    # Check if table should be created or appended
+    if if_exists == IfExistsType.replace.value:
+        df_pd.head(0).to_sql(
+            table_name,
+            engine,
+            method=psql_insert_copy,
+            index=False,
+            if_exists=IfExistsType.replace.value,
+            chunksize=1,
+            schema=schema,
+        )
+        print_info("Table {} will be created in schema {}.".format(table_name, schema))
+
+        columns_to_rename = {}
+        # Check if geom column exists and if it should be converted to geometry
+        if geom_column in df_pd.columns and geom_column is not None:
+            # Get a uuid column
+            random_column_name_geom = "this_is_the_geom_column"
+
+            db.execute(
+                text(
+                    "ALTER TABLE {}.{} RENAME COLUMN {} TO {};".format(
+                        schema, table_name, geom_column, random_column_name_geom
+                    )
+                )
+            )
+
+            db.execute(
+                text(
+                    "ALTER TABLE {}.{} ALTER COLUMN {} TYPE geometry;".format(
+                        schema, table_name, random_column_name_geom
+                    )
+                )
+            )
+            db.execute(
+                text(
+                    "SELECT UpdateGeometrySRID('{}','{}','{}', {})".format(
+                        schema, table_name, random_column_name_geom, srid
+                    )
+                )
+            )
+            columns_to_rename[geom_column] = random_column_name_geom
+
+        elif geom_column not in df_pd.columns and geom_column is not None:
+            raise ValueError("Spefified column for Geometry not found in DataFrame")
+
+        if jsonb_column in df_pd.columns and jsonb_column is not None:
+
+            random_column_name_jsonb = "this_is_the_jsonb_column"
+            db.execute(
+                text(
+                    "ALTER TABLE {}.{} RENAME COLUMN {} TO {};".format(
+                        schema,
+                        table_name,
+                        jsonb_column,
+                        random_column_name_jsonb
+                    )
+                )
+            )
+
+            db.execute(
+                text(
+                    "ALTER TABLE {}.{} ALTER COLUMN {} TYPE JSONB USING {}::jsonb".format(
+                        schema, table_name, random_column_name_jsonb, random_column_name_jsonb
+                    )
+                )
+            )
+            columns_to_rename[jsonb_column] = random_column_name_jsonb
+
+        elif jsonb_column not in df_pd.columns and jsonb_column is not None:
+            raise ValueError("Spefified column for JSONB not found in DataFrame")
+
+    elif if_exists.value == IfExistsType.append.value:
+        print_info("Table {} in schema {} already exists".format(table_name, schema))
+    elif if_exists.value == IfExistsType.fail.value:
+        raise ValueError(
+            "Table {} in schema {} already exists".format(table_name, schema)
+        )
+
+    df_pd = df_pd.rename(columns=columns_to_rename)
+    # Insert data into table
+    df_pd.to_sql(
+        table_name,
+        engine,
+        method=psql_insert_copy,
+        index=False,
+        if_exists="append",
+        chunksize=10000,
+        schema=schema,
+    )
+
+    # Rename columns back to original names
+    if "this_is_the_geom_column" in df_pd.columns:
+        db.execute(
+            text(
+                "ALTER TABLE {}.{} RENAME COLUMN this_is_the_geom_column TO {};".format(
+                    schema, table_name, geom_column
+                )
+            )
+        )
+    if "this_is_the_jsonb_column" in df_pd.columns:
+        db.execute(
+            text(
+                "ALTER TABLE {}.{} RENAME COLUMN this_is_the_jsonb_column TO {};".format(
+                    schema, table_name, jsonb_column
+                )
+            )
+        )
+
+    # Create index on geom column if it does not exist and is desired
+    if create_geom_index == True:
+        idx = db.execute(
+            text(
+                "SELECT indexdef FROM pg_indexes WHERE tablename = '{}';".format(
+                    table_name
+                )
+            )
+        )
+
+        if "gist" not in idx and "(geom)" not in idx:
+            print_info("Creating index on geom column")
+            db.execute(text("CREATE INDEX ON {} USING GIST (geom);".format(table_name)))
+        else:
+            print_info("GIST-Index on geom column already exists")
+
+    # Close connection
+    db.close()
