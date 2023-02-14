@@ -24,7 +24,7 @@ collection:
                 "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
     tourism : ["hotel", "museum", "hostel", "guest_house"]
     railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
-    leisure : ["playground", "fitness_station", "water_park", "pitch", "sports_centre", 'sports_hall', "fitness_centre"]
+    leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
     sport   : ["yoga", "fitness"]
     highway : ["bus_stop"]
     public_transport : ["stop_position", "station"]
@@ -113,6 +113,7 @@ preparation:
           other : ["italienisch", "polnische", "spanische", "russisch"]
           mix markt : ["mix markt"]
         threshold: 0.7
+
     classify_by_tag:
       international_supermarket:
         origin: [True] 
@@ -131,12 +132,19 @@ preparation:
       organic_supermarket:
         shop: ["health_food"]
 
+  chemist:
+    classify_by_tag:
+      chemist:
+        shop: ["chemist"]
+
   convenience: 
     inherit: "supermarket"
   grocery: 
     inherit: "supermarket"
   deli: 
     inherit: "supermarket"
+  
+  
     
   # discount_gym: 
   #   fitx           : ["fitx"]

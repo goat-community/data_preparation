@@ -328,7 +328,9 @@ class PoiPreparation:
             pl.when(
                 (pl.col(["railway"]) == "station")
                 & (pl.col("name").is_not_null())
-                & (pl.col("tags").str.json_path_match(r"$.disused") != "yes")
+                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.railway:disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
             )
             .then("rail_station")
             .otherwise(pl.col("category"))
@@ -350,7 +352,8 @@ class PoiPreparation:
                     (pl.col("tags").str.json_path_match(r"$.train") == "yes")
                     | (pl.col("tags").str.json_path_match(r"$.rail") == "yes")
                 )
-                & (pl.col("tags").str.json_path_match(r"$.disused") != "yes")
+                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
             )
             .then("rail_station")
             .otherwise(pl.col("category"))
@@ -445,6 +448,10 @@ class PoiPreparation:
         
     def classify_poi(self, df):
 
+         
+        # Create dictionary with empty lists to track classified tags
+        classified_tags = {k: [] for k in self.config_pois.collection["osm_tags"].keys()}
+        
         # Adding category column
         df = df.with_columns(pl.lit("str").alias("category"))
 
@@ -458,6 +465,9 @@ class PoiPreparation:
             .otherwise(pl.col("category"))
             .alias("category")
         )
+        classified_tags["leisure"].append("playground")
+        classified_tags["amenity"].append("playground")
+        
         # Classify bikesharing stations
         df = df.with_columns(
             pl.when(
@@ -469,11 +479,44 @@ class PoiPreparation:
             .otherwise(pl.col("category"))
             .alias("category")
         )
+        classified_tags["amenity"].append("bicycle_rental")
+
+        # Classify gyms
+        df = df.with_columns(
+            pl.when(
+                (pl.col("leisure") == "fitness_centre")
+                | ((pl.col("leisure") == "sports_centre") & (pl.col("sport") == "fitness"))
+                & (pl.col("sport").is_in(["multi", "fitness"]) | (pl.col("sport") == None))
+                & (pl.col("name").str.to_lowercase().str.contains("yoga") == False)
+            )
+            .then("gym")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["leisure"].extend(["fitness_centre", "sports_centre"])
+        classified_tags["sport"].extend(["fitness", "multi"])
+        
+        # Classify yoga studios
+        df = df.with_columns(
+            pl.when(
+                (
+                    (pl.col("sport") == "yoga")
+                    | (pl.col("name").str.to_lowercase().str.contains("yoga"))
+                )
+                & (pl.col("shop") == None)
+            )
+            .then("yoga")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        ) 
+        classified_tags["sport"].append("yoga")
 
         # Classify public transport
         df = self.classify_public_transport(df=df)
-        
-        
+        classified_tags["public_transport"].extend(["stop_position", "station"])
+        classified_tags["railway"].extend(["station", "platform", "stop", "tram_stop", "subway_entrance"])
+        classified_tags["highway"].append("bus_stop")
+    
         # Classify POIs by config
         df_classified_config = pl.DataFrame()
 
@@ -495,26 +538,51 @@ class PoiPreparation:
         # Remove rows classified by config
         df = df.filter(~pl.col("shop").is_in(list(self.config_pois_preparation.keys())))
         df = pl.concat([df_classified_config, df], how="diagonal")
+        
+        # Append classified categories to config
+        classified_categories = self.config_pois_preparation.keys()
+        classified_tags["shop"].extend(classified_categories)
+        
+        # Remove all categories from config that were already classified 
+        cleaned_config_poi = self.config_pois.collection["osm_tags"]
+        for key in cleaned_config_poi:
+            cleaned_config_poi[key] = list(set(cleaned_config_poi[key]) - set(classified_tags[key]))    
 
-        # Export to PostGIS
-        polars_df_to_postgis(
-            engine=self.engine,
-            df=df,
-            table_name="poi",
-            schema="public",
-            if_exists="replace",
-            geom_column="geom",
-            srid=4326,
-            create_geom_index=True,
-            jsonb_column="tags",
-        )
+        # Assign remaining categories 
+        for key in cleaned_config_poi:
+            for value in cleaned_config_poi[key]:
+                df = df.with_columns(
+                    pl.when(
+                        (pl.col(key) == value)
+                    )
+                    .then(value)
+                    .otherwise(pl.col("category"))
+                    .alias("category")
+                )
+        
+        return df 
+
 
 def main():
     db = Database(settings.LOCAL_DATABASE_URI)
     poi_preparation = PoiPreparation(db=db)
     df = poi_preparation.read_poi()
-    poi_preparation.classify_poi(df)
+    df = poi_preparation.classify_poi(df)
 
+    db = Database(settings.REMOTE_DATABASE_URI)
+    engine = db.return_sqlalchemy_engine()
+    # Export to PostGIS
+    polars_df_to_postgis(
+        engine=engine,
+        df=df.filter(pl.col("category") != "str"),
+        table_name="poi_osm",
+        schema="temporal",
+        if_exists="replace",
+        geom_column="geom",
+        srid=4326,
+        create_geom_index=True,
+        jsonb_column="tags",
+    )
 
 if __name__ == "__main__":
     main()

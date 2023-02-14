@@ -554,7 +554,7 @@ def polars_df_to_postgis(
 
         if "gist" not in idx and "(geom)" not in idx:
             print_info("Creating index on geom column")
-            db.execute(text("CREATE INDEX ON {} USING GIST (geom);".format(table_name)))
+            db.execute(text("CREATE INDEX ON {}.{} USING GIST (geom);".format(schema, table_name)))
         else:
             print_info("GIST-Index on geom column already exists")
 
