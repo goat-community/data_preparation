@@ -1,12 +1,18 @@
-import glob
 import xml.etree.ElementTree as ET
-
 from src.core.config import settings
 from src.db.db import Database
 
 
 class NetworkCar:
-    def __init__(self, db, time_of_the_day):
+    """Class to process the network for cars
+    """    
+    def __init__(self, db: Database, time_of_the_day: str):
+        """This is the constructor of the class.
+
+        Args:
+            db (Database): Database object
+            time_of_the_day (str): Time of the day in the format "hh:mm"
+        """        
         self.db = db
         self.bulk_size = 100000
 
@@ -17,10 +23,10 @@ class NetworkCar:
         # Convert the time to the column name
         self.time_of_the_day = "h" + time_of_the_day.replace(":", "_")
 
-    # TODO: We can try to make this a bit flexible and allow the user to pass different times of the day
-    # Weekdays we are not having currently though in the database
-
+    # TODO: We can try to make this a bit flexible and allow the user to pass different weekdays
     def create_network_nodes(self):
+        """This function creates the nodes of the network and saves them into the database.
+        """        
         # Create table for the nodes of the network
         sql_create_node_table = """
             DROP TABLE IF EXISTS dds_street_nodes;
@@ -59,8 +65,10 @@ class NetworkCar:
             self.db.perform(sql_get_nodes)
 
     def read_network_car(self):
-        """Export the car network from the database for certain times of the day."""
-
+        """Reads the network of the car from database and converts it into XML.
+        and saves it into a file.
+        """        
+        # Read network in batches
         for offset in range(0, self.cnt_network, self.bulk_size):
             sql_query_read_network_car = f"""
                 WITH batch_ways AS 
@@ -109,9 +117,7 @@ class NetworkCar:
             result = [x[0] for x in result]
 
             header = """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">"""
-
             footer = """</osm>"""
-
             properties = ""
 
             # result_data = (properties + way for way in result);
@@ -124,13 +130,14 @@ class NetworkCar:
             with open(f"{offset}offset.osm", "w") as f:
                 f.write(xmlFileContent)
 
-            # TODO: Convert to OSM format
-
+    # TODO: Make a function that is called write_into_osm_file
     def collide_all_data(self):
         """
         Here we get all the nodes and create them into xml tags in order to add them to a common file
         """
         print("Creating the nodes...")
+        # TODO: I would put this into a seperate function
+        # TODO: I would stay consistent and also read the nodes as XML already from DB
         nodes = ""
         sql_get_nodes = """
             SELECT *
@@ -143,7 +150,9 @@ class NetworkCar:
                 + f'<node id="{result[0]}" lat="{result[1][0]}" lon="{result[1][1]}"/>'
             )
         print("Created all the nodes")
-
+        ######################
+        
+        
         """
            Here we collide all the nodes into one file since their geometries will refer to the nodes that we go above.
            They need to be in the same file
@@ -172,7 +181,7 @@ class NetworkCar:
             ways - includes all the roads
             nodes - includes all the references to geopoints in the ways
         """
-
+    #TODO: Use lower case for function names
     def putAllTogether(self, nodes, ways):
         print("Outputing the data")
         header = """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">"""
@@ -191,6 +200,7 @@ def main():
     """Main function."""
     db = Database(settings.REMOTE_DATABASE_URI)
     network_car = NetworkCar(db=db, time_of_the_day="08:00")
+    #TODO: Use print_info from src.utils.utils for printing 
     print("Creating the files...")
     network_car.read_network_car()
     print("Files have been created")
