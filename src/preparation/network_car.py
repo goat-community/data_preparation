@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 from src.core.config import settings
 from src.db.db import Database
-
+from src.utils.utils import print_info
 
 class NetworkCar:
     """Class to process the network for cars
@@ -64,7 +64,7 @@ class NetworkCar:
             """
             self.db.perform(sql_get_nodes)
 
-    def read_network_car(self):
+    def read_ways_car_xml(self):
         """Reads the network of the car from database and converts it into XML.
         and saves it into a file.
         """        
@@ -115,21 +115,49 @@ class NetworkCar:
             """
             result = self.db.select(sql_query_read_network_car)
             result = [x[0] for x in result]
-
+            properties = "".join(result)
+            
+            #TODO: Move this to the end             
             header = """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">"""
             footer = """</osm>"""
-            properties = ""
-
-            # result_data = (properties + way for way in result);
-            for indx, resultItem in enumerate(result):
-                print(f"count: {indx}")
-                properties = properties + resultItem
 
             xmlFileContent = header + properties + footer
 
             with open(f"{offset}offset.osm", "w") as f:
                 f.write(xmlFileContent)
+            
+            cnt_completed = offset + self.bulk_size
+            print_info(f"Calculated {cnt_completed} of {self.cnt_network} ways")
 
+    def read_nodes_car_xml(self):
+        
+        sql_cnt_nodes = """SELECT count(*) FROM public.dds_street_nodes;"""
+        cnt_nodes = self.db.select(sql_cnt_nodes)
+
+        for offset in range(0, cnt_nodes[0][0], self.bulk_size):        
+            sql_read_node = f"""
+            SELECT xmlelement(
+                name node, 
+                xmlattributes(
+                    id as id,
+                    coords[1] as lat,
+                    coords[2] as lon
+                )
+            )
+            FROM public.dds_street_nodes
+            LIMIT {self.bulk_size}
+            OFFSET {offset}
+            ;"""
+            result = self.db.select(sql_read_node)
+            result = [x[0] for x in result]
+            
+            # write into file
+            with open(f"{offset}offset_nodes.osm", "w") as f:
+                f.write(result)
+                
+        
+        
+        
     # TODO: Make a function that is called write_into_osm_file
     def collide_all_data(self):
         """
