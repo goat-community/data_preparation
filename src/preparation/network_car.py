@@ -1,18 +1,23 @@
+import fileinput
+import glob
 import xml.etree.ElementTree as ET
+
 from src.core.config import settings
 from src.db.db import Database
-from src.utils.utils import print_info
+from src.utils.utils import file_merger, print_info, write_into_file
+
 
 class NetworkCar:
-    """Class to process the network for cars
-    """    
+    """Class to process the network for cars"""
+
     def __init__(self, db: Database, time_of_the_day: str):
         """This is the constructor of the class.
 
         Args:
             db (Database): Database object
             time_of_the_day (str): Time of the day in the format "hh:mm"
-        """        
+        """
+
         self.db = db
         self.bulk_size = 100000
 
@@ -25,8 +30,7 @@ class NetworkCar:
 
     # TODO: We can try to make this a bit flexible and allow the user to pass different weekdays
     def create_network_nodes(self):
-        """This function creates the nodes of the network and saves them into the database.
-        """        
+        """This function creates the nodes of the network and saves them into the database."""
         # Create table for the nodes of the network
         sql_create_node_table = """
             DROP TABLE IF EXISTS dds_street_nodes;
@@ -67,9 +71,10 @@ class NetworkCar:
     def read_ways_car_xml(self):
         """Reads the network of the car from database and converts it into XML.
         and saves it into a file.
-        """        
+        """
         # Read network in batches
         for offset in range(0, self.cnt_network, self.bulk_size):
+
             sql_query_read_network_car = f"""
                 WITH batch_ways AS 
                 (
@@ -116,25 +121,21 @@ class NetworkCar:
             result = self.db.select(sql_query_read_network_car)
             result = [x[0] for x in result]
             properties = "".join(result)
-            
-            #TODO: Move this to the end             
-            header = """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">"""
-            footer = """</osm>"""
 
-            xmlFileContent = header + properties + footer
+            write_into_file(properties, f"{offset}offset.osm")
 
-            with open(f"{offset}offset.osm", "w") as f:
-                f.write(xmlFileContent)
-            
             cnt_completed = offset + self.bulk_size
             print_info(f"Calculated {cnt_completed} of {self.cnt_network} ways")
 
     def read_nodes_car_xml(self):
-        
+        """
+        Reads all the nodes and saves it in files containing 1000 each
+        """
+
         sql_cnt_nodes = """SELECT count(*) FROM public.dds_street_nodes;"""
         cnt_nodes = self.db.select(sql_cnt_nodes)
 
-        for offset in range(0, cnt_nodes[0][0], self.bulk_size):        
+        for offset in range(0, cnt_nodes[0][0], self.bulk_size):
             sql_read_node = f"""
             SELECT xmlelement(
                 name node, 
@@ -149,91 +150,57 @@ class NetworkCar:
             OFFSET {offset}
             ;"""
             result = self.db.select(sql_read_node)
-            result = [x[0] for x in result]
-            
+            result = "".join([x[0] for x in result])
+
             # write into file
-            with open(f"{offset}offset_nodes.osm", "w") as f:
-                f.write(result)
-                
-        
-        
-        
-    # TODO: Make a function that is called write_into_osm_file
-    def collide_all_data(self):
-        """
-        Here we get all the nodes and create them into xml tags in order to add them to a common file
-        """
-        print("Creating the nodes...")
-        # TODO: I would put this into a seperate function
-        # TODO: I would stay consistent and also read the nodes as XML already from DB
-        nodes = ""
-        sql_get_nodes = """
-            SELECT *
-            FROM public.dds_street_nodes;
-        """
-        results = self.db.select(sql_get_nodes)
-        for result in results:
-            nodes = (
-                nodes
-                + f'<node id="{result[0]}" lat="{result[1][0]}" lon="{result[1][1]}"/>'
-            )
-        print("Created all the nodes")
-        ######################
-        
-        
-        """
-           Here we collide all the nodes into one file since their geometries will refer to the nodes that we go above.
-           They need to be in the same file
+            write_into_file(result, f"{offset}offset_nodes.osm")
+            cnt_completed = offset + self.bulk_size
+            print_info(f"Calculated {cnt_completed} of {self.cnt_network} ways")
+
+    def file_merger(self, header: str, footer: str, file_output_name: str):
+        """This function merges all the files into a single one osm traffic data file. The files have to be global though
+
+        Args:
+            header (str): header of the file <osm>...
+            footer (str): footer is the closing tag of the header
+            file_output_name (str): name of the file that we want to output everything to
         """
 
-        ways = ""
-        print("Merging all the ways...")
-        for offset in range(0, self.cnt_network, self.bulk_size):
-            node = None
-            fileinfo = ET.parse(f"{offset}offset.osm")
-            root = fileinfo.getroot()
-            if node is None:
-                node = root
-            elements = root.find("./way")
-            for element in elements.iter():
-                node[1].append(element)
+        file_list = glob.glob("*.osm")
 
-            ways = ways + str(ET.tostring(node), "UTF-8")
-        print("Finished merging the ways")
-        self.putAllTogether(nodes=nodes, ways=ways)
+        with open(file_output_name, "w") as file:
+            input_lines = fileinput.input(file_list)
+            file.writelines(header + input_lines + footer)
 
-        """
-            Here we put together all the things
-            header - Info about the file and file format
-            footer - closing tag for header
-            ways - includes all the roads
-            nodes - includes all the references to geopoints in the ways
-        """
-    #TODO: Use lower case for function names
-    def putAllTogether(self, nodes, ways):
-        print("Outputing the data")
+    # TODO: Use lower case for function names
+    def putAllTogether(self):
+
+        """This function creates the header and footer and passes it to file_merger"""
+
+        print_info("Outputing the data")
         header = """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">"""
 
         footer = """</osm>"""
 
-        allData = header + ways + nodes + footer
-
-        with open("traffic_data.osm", "w") as f:
-            f.write(allData)
-            print("Data Outputed")
-            print("Finished")
+        file_merger(
+            header=header,
+            footer=footer,
+            file_output_name="traffic_data.osm",
+            directory="",
+        )
 
 
 def main():
     """Main function."""
     db = Database(settings.REMOTE_DATABASE_URI)
     network_car = NetworkCar(db=db, time_of_the_day="08:00")
-    #TODO: Use print_info from src.utils.utils for printing 
-    print("Creating the files...")
-    network_car.read_network_car()
-    print("Files have been created")
-    print("Started colliding all the files into one...")
-    network_car.collide_all_data()
+    # TODO: Use print_info from src.utils.utils for printing
+    print_info("Creating the files...")
+    network_car.read_ways_car_xml()
+    network_car.read_nodes_car_xml()
+    print_info("Files have been created")
+    print_info("Started colliding all the files into one...")
+    network_car.putAllTogether()
 
 
 if __name__ == "__main__":

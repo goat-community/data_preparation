@@ -1,10 +1,15 @@
+import csv
+import fileinput
+import glob
 import os
-import shutil
-import subprocess
+import pathlib
 import random
+import shutil
 import string
-
-from cdifflib import CSequenceMatcher
+import subprocess
+import time
+from functools import wraps
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
@@ -12,16 +17,14 @@ from urllib.request import urlopen
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import polars as pl
+from cdifflib import CSequenceMatcher
 from rich import print as print
 from shapely.geometry import MultiPolygon
 from sqlalchemy import text
-from src.db.db import Database
-from functools import wraps
+
 from src.core.enums import IfExistsType
-import polars as pl
-import csv
-from io import StringIO
-import time
+from src.db.db import Database
 
 
 def timing(f):
@@ -92,6 +95,7 @@ def download_link(directory: str, link: str, new_filename: str = None):
         f.write(image.read())
 
     print_info(f"Downloaded ended for {link}")
+
 
 def check_string_similarity(
     input_value: str, match_values: list[str], target_ratio: float
@@ -399,7 +403,8 @@ def psql_insert_copy(table, conn, keys, data_iter):
         sql = "COPY {} ({}) FROM STDIN WITH CSV".format(table_name, columns)
         cur.copy_expert(sql=sql, file=s_buf)
 
-#TODO: Finish docstring and add comments. Check error handling
+
+# TODO: Finish docstring and add comments. Check error handling
 def polars_df_to_postgis(
     engine,
     df: pl.DataFrame,
@@ -428,7 +433,7 @@ def polars_df_to_postgis(
         ValueError: _description_
         ValueError: _description_
         ValueError: _description_
-    """    
+    """
 
     # make a connection
     df_pd = df.to_pandas()
@@ -485,10 +490,7 @@ def polars_df_to_postgis(
             db.execute(
                 text(
                     "ALTER TABLE {}.{} RENAME COLUMN {} TO {};".format(
-                        schema,
-                        table_name,
-                        jsonb_column,
-                        random_column_name_jsonb
+                        schema, table_name, jsonb_column, random_column_name_jsonb
                     )
                 )
             )
@@ -496,7 +498,10 @@ def polars_df_to_postgis(
             db.execute(
                 text(
                     "ALTER TABLE {}.{} ALTER COLUMN {} TYPE JSONB USING {}::jsonb".format(
-                        schema, table_name, random_column_name_jsonb, random_column_name_jsonb
+                        schema,
+                        table_name,
+                        random_column_name_jsonb,
+                        random_column_name_jsonb,
                     )
                 )
             )
@@ -554,9 +559,47 @@ def polars_df_to_postgis(
 
         if "gist" not in idx and "(geom)" not in idx:
             print_info("Creating index on geom column")
-            db.execute(text("CREATE INDEX ON {}.{} USING GIST (geom);".format(schema, table_name)))
+            db.execute(
+                text(
+                    "CREATE INDEX ON {}.{} USING GIST (geom);".format(
+                        schema, table_name
+                    )
+                )
+            )
         else:
             print_info("GIST-Index on geom column already exists")
 
     # Close connection
     db.close()
+
+
+def write_into_file(data, file_name):
+    """
+    This function is used to write string in a file
+
+    Args:
+        data (str): this is the string data that will be saved here
+        file_name (str): this is the name of the file that the data will be saved into
+    """
+    with open(file_name, "w") as f:
+        f.write(data)
+
+
+def file_merger(header: str, footer: str, file_output_name: str, directory: str):
+    """
+    This function merges all the files into a single one osm traffic data file. The files have to be global though
+
+    Args:
+        header (str): header of the file <osm>...
+        footer (str): footer is the closing tag of the header
+        file_output_name (str): name of the file that we want to output everything to
+        directory (str): The directory where the files are located
+    """
+
+    file_list = glob.glob(f"{directory}*.osm")
+
+    with open(file_output_name, "w") as file:
+        input_lines = fileinput.input(file_list)
+        file.writelines(header)
+        file.writelines(input_lines)
+        file.writelines(footer)
