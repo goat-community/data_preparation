@@ -593,7 +593,7 @@ def file_merger(header: str, footer: str, file_output_name: str, directory: str)
         header (str): header of the file <osm>...
         footer (str): footer is the closing tag of the header
         file_output_name (str): name of the file that we want to output everything to
-        directory (str): The directory where the files are located
+        directory (str): The directory where the files are located example for the case here "" will point to the root folder
     """
 
     file_list = glob.glob(f"{directory}*.osm")
