@@ -93,6 +93,7 @@ def download_link(directory: str, link: str, new_filename: str = None):
 
     print_info(f"Downloaded ended for {link}")
 
+
 def check_string_similarity(
     input_value: str, match_values: list[str], target_ratio: float
 ) -> bool:
@@ -399,7 +400,8 @@ def psql_insert_copy(table, conn, keys, data_iter):
         sql = "COPY {} ({}) FROM STDIN WITH CSV".format(table_name, columns)
         cur.copy_expert(sql=sql, file=s_buf)
 
-#TODO: Finish docstring and add comments. Check error handling
+
+# TODO: Finish docstring and add comments. Check error handling
 def polars_df_to_postgis(
     engine,
     df: pl.DataFrame,
@@ -412,23 +414,24 @@ def polars_df_to_postgis(
     jsonb_column: str = False,
 ):
     """Blazing fast method to import a polars DataFrame into a PostGIS database with geometry and JSONB column.
+    Avoid using 'this_is_the_geom_column' and 'this_is_the_jsonb_column' as column names in the dataframe as they are reserved for the geometry and JSONB columns during the import.
 
     Args:
-        engine (_type_): _description_
-        df (pl.DataFrame): _description_
-        table_name (str): _description_
-        schema (str, optional): _description_. Defaults to "public".
-        if_exists (IfExistsType, optional): _description_. Defaults to "replace".
-        geom_column (str, optional): _description_. Defaults to "geom".
-        srid (int, optional): _description_. Defaults to 4326.
-        create_geom_index (bool, optional): _description_. Defaults to True.
-        jsonb_column (str, optional): _description_. Defaults to False.
+        engine (SQLAlchemy): SQLAlchemy engine
+        df (pl.DataFrame): Polars DataFrame
+        table_name (str): Name of the table to be created
+        schema (str, optional): Schema name. Defaults to "public".
+        if_exists (IfExistsType, optional): What should happen if table exist. There are the options: 'fail', 'append', 'replace'. Defaults to "replace".
+        geom_column (str, optional): What is the name of the geometry column in the dataframe. The geometry column should be a WKT string. The same name will also be used in the PostGIS table. Defaults to "geom".
+        srid (int, optional): What is the SRID of the geom. Defaults to 4326.
+        create_geom_index (bool, optional): Should a GIST index be created on the geometry. Defaults to True.
+        jsonb_column (str, optional): Add the name of column that should added as JSONB. Defaults to False.
 
     Raises:
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-    """    
+        ValueError: Name of the geometry column is not in the dataframe
+        ValueError: Name of the JSONB column is not in the dataframe
+        ValueError: If the if_exists parameter is 'fail'
+    """
 
     # make a connection
     df_pd = df.to_pandas()
@@ -485,10 +488,7 @@ def polars_df_to_postgis(
             db.execute(
                 text(
                     "ALTER TABLE {}.{} RENAME COLUMN {} TO {};".format(
-                        schema,
-                        table_name,
-                        jsonb_column,
-                        random_column_name_jsonb
+                        schema, table_name, jsonb_column, random_column_name_jsonb
                     )
                 )
             )
@@ -496,7 +496,10 @@ def polars_df_to_postgis(
             db.execute(
                 text(
                     "ALTER TABLE {}.{} ALTER COLUMN {} TYPE JSONB USING {}::jsonb".format(
-                        schema, table_name, random_column_name_jsonb, random_column_name_jsonb
+                        schema,
+                        table_name,
+                        random_column_name_jsonb,
+                        random_column_name_jsonb,
                     )
                 )
             )
@@ -554,7 +557,13 @@ def polars_df_to_postgis(
 
         if "gist" not in idx and "(geom)" not in idx:
             print_info("Creating index on geom column")
-            db.execute(text("CREATE INDEX ON {}.{} USING GIST (geom);".format(schema, table_name)))
+            db.execute(
+                text(
+                    "CREATE INDEX ON {}.{} USING GIST (geom);".format(
+                        schema, table_name
+                    )
+                )
+            )
         else:
             print_info("GIST-Index on geom column already exists")
 

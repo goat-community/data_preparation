@@ -5,39 +5,43 @@ from src.config.config import Config
 
 class OSMPOICollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
-    def __init__(self, db):
-        super().__init__(db)
-        self.config = Config("poi")
+    def __init__(self, db_config):
+        self.db_config = db_config
+        super().__init__(self.db_config, dataset_type="poi")
         
     def poi_collection(self):
         """Collects all POIs from OSM."""
-        region_links = self.config.pbf_data
         # Create OSM filter for POIs
-        osm_filter = " ".join([i + "=" for i in self.config.collection["osm_tags"].keys()])
+        osm_filter = " ".join([i + "=" for i in self.data_config.collection["osm_tags"].keys()])
         osm_filter = ""
-        for tag in self.config.collection["osm_tags"]:
+        for tag in self.data_config.collection["osm_tags"]:
             osm_filter += tag
-            for tag_value in self.config.collection["osm_tags"][tag]:
+            for tag_value in self.data_config.collection["osm_tags"][tag]:
                 osm_filter += "=" + tag_value + " "
 
         # Remove not needed osm feature categories
-        if self.config.collection["nodes"] == False:
+        if self.data_config.collection["nodes"] == False:
             osm_filter += "--drop-nodes "
-        if self.config.collection["ways"] == False:
+        if self.data_config.collection["ways"] == False:
             osm_filter += "--drop-ways "
-        if self.config.collection["relations"] == False:
+        if self.data_config.collection["relations"] == False:
             osm_filter += "--drop-relations "
 
-        self.download_bulk_osm(region_links)
-        self.prepare_bulk_osm(region_links, "poi", osm_filter=osm_filter)
-        self.merge_osm_and_import(region_links, self.config)
-
+        self.download_bulk_osm()
+        self.prepare_bulk_osm(osm_filter=osm_filter)
+        self.merge_osm_and_import()
+        
 
 def main():
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMPOICollection(db=db.db_config)
+    osm_poi_collection = OSMPOICollection(db_config=db.db_config)
+
+    
     osm_poi_collection.poi_collection()
+    osm_poi_collection.export_osm_boundaries_db(db=db)
+    osm_poi_collection.upload_raw_osm_data(boto_client=settings.S3_CLIENT)
+    
     
 if __name__ == "__main__":
     main()

@@ -14,6 +14,7 @@ class Config:
     def __init__(self, name: str = "global"):
         #TODO: Add validation of config files here
         self.root_dir = "/app"
+        self.data_dir_input = os.path.join(self.root_dir, "src", "data", "input", name)
         
         # Read config for data set or read global config
         if name == "global":
@@ -34,6 +35,7 @@ class Config:
             self.pbf_data = self.config.get("region_pbf")
             self.collection = self.config.get("collection")
             self.preparation = self.config.get("preparation")
+            self.subscription = self.config.get("subscription")
         
     def osm2pgsql_create_style(self):
         add_columns = self.collection["additional_columns"]
@@ -50,7 +52,7 @@ class Config:
 
         f1 = open(
             os.path.join(
-                self.root_dir, "src", "data", "temp", (self.name + "_p4b.style")
+                self.data_dir_input, "osm2pgsql.style"
             ),
             "w",
         )
@@ -58,7 +60,7 @@ class Config:
         f1.write(sep)
         f1.write("\n")
 
-        print_info(f"Creating osm2pgsql style file({self.name}_p4b.style)...")
+        print_info(f"Creating osm2pgsql for {self.name}...")
 
         for column in add_columns:
             if column in pol_columns:

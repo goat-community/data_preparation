@@ -38,15 +38,15 @@ class PoiPreparation:
 
         # Relevant column names
         column_names = """
-        osm_id, name, brand, "addr:street" AS street, "addr:housenumber" AS housnumber, 
+        osm_id::bigint, name, brand, "addr:street" AS street, "addr:housenumber" AS housenumber, 
         "addr:postcode" AS zipcode, phone, website, opening_hours, operator, origin, organic, 
         subway, amenity, shop, tourism, railway, leisure, sport, highway, public_transport, tags::jsonb AS tags
         """
 
         # Read POIs from database
         sql_query = [
-            f"""SELECT {column_names}, 'point' AS geom_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_point""",
-            f"""SELECT {column_names}, 'polygon' AS geom_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_polygon""",
+            f"""SELECT {column_names}, 'n' AS osm_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_point""",
+            f"""SELECT {column_names}, 'w' AS osm_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_polygon""",
         ]
         df = pl.read_sql(sql_query, self.db_uri)
         return df
@@ -54,7 +54,7 @@ class PoiPreparation:
     @timing
     def check_by_tag(
         self, df: pl.DataFrame, poi_config: dict, key: str, new_column_names: list[str]
-    ) -> list[pl.DataFrame, list[str]]:
+    ) -> list[pl.DataFrame, list[str]]:  
         """Checks if a POI has a specific value for a tag.
 
         Args:
@@ -473,7 +473,7 @@ class PoiPreparation:
             pl.when(
                 (pl.col("amenity") == "bicycle_rental")
                 & (pl.col("shop") == None)
-                & (pl.col("geom_type") == "point")
+                & (pl.col("osm_type") == "n")
             )
             .then("bike_sharing")
             .otherwise(pl.col("category"))
@@ -569,7 +569,7 @@ def main():
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
 
-    db = Database(settings.REMOTE_DATABASE_URI)
+    #db = Database(settings.REMOTE_DATABASE_URI)
     engine = db.return_sqlalchemy_engine()
     # Export to PostGIS
     polars_df_to_postgis(

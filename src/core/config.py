@@ -67,5 +67,6 @@ class Settings(BaseSettings):
     OPENROUTESERVICE_API_KEY: str = None
     GEOAPIFY_API_KEY: str = None
     GOOGLE_API_KEY: str = None
+    GITHUB_ACCESS_TOKEN: str = None
     
 settings = Settings()

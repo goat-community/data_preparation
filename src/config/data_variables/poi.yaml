@@ -105,8 +105,8 @@ preparation:
         children:
           tedi : ["tedi"]
         threshold: 0.7
-
-      international_supermarket:
+      # This should be international_supermarket, but it is merged with convenience
+      convenience:
         children:
           turkish : ["türkisch", "turkish", "turk"]
           asia : ["asia", "asien", "asiatische"]
@@ -115,6 +115,7 @@ preparation:
         threshold: 0.7
 
     classify_by_tag:
+      # This should be international_supermarket, but it is merged with convenience
       international_supermarket:
         origin: [True] 
       organic_supermarket:
@@ -144,7 +145,8 @@ preparation:
   deli: 
     inherit: "supermarket"
   
-  
+subscription:
+  repo_url: "https://github.com/goat-community/poi"
     
   # discount_gym: 
   #   fitx           : ["fitx"]
