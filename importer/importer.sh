@@ -57,6 +57,8 @@ while compgen -G "temp/$city/*.xml" > /dev/null; do
         impexp import -c settings.xml $file_path
         mv "$file_path" "./temp/$city/done/"
     done
+
+    #TODO: Process data
 done
 
 echo "importing is done."
