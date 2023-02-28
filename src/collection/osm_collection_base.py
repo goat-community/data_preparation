@@ -21,7 +21,13 @@ from src.db.db import Database
 
 class OSMBaseCollection:
     def __init__(self, db_config: str, dataset_type: str):  
-        #self.db = db      
+        """Constructor for OSM Base Class.
+
+        Args:
+            db_config (str): Configuration for database.
+            dataset_type (str): Type of dataset. Currently supported: "poi", "network", "building".
+        """        
+        
         self.db_config = db_config
         self.dataset_type = dataset_type
         self.dbname = self.db_config.path.replace("/", "")
@@ -45,8 +51,10 @@ class OSMBaseCollection:
         """Prepare OSM data for import into PostGIS database.
 
         Args:
-            link (str): Download link to OSM data.
-        """
+            link (str): _Download link to OSM data.
+            osm_filter (str): Filter for OSM data.
+        """        
+
         # Change directory
         os.chdir(self.data_dir_input)
         
@@ -74,11 +82,11 @@ class OSMBaseCollection:
         delete_file(f"{only_name}.o5m")
         delete_file(f"{only_name + '_' + self.dataset_type}.o5m")
 
-    def get_timestamp_osm_file(self, path: str):
+    def get_timestamp_osm_file(self, path: str) -> str:
         """Get timestamp of OSM file.
 
         Args:
-            link (str): Download link to OSM data.
+            path (str): Download link to OSM data.
 
         Returns:
             str: Timestamp of OSM file.
@@ -216,21 +224,28 @@ class OSMBaseCollection:
         )
 
     def download_bulk_osm(self):
+        """Download bulk OSM data.
+        """        
+        
         # Cleanup
         delete_dir(self.data_dir_input)            
         os.mkdir(self.data_dir_input)
         os.chdir(self.data_dir_input)
 
         # Download all needed files
-        download = partial(download_link, "")
-        pool = Pool(processes=self.available_cpus)
+        # download = partial(download_link, "")
+        # pool = Pool(processes=self.available_cpus)
 
         print_hashtags()
         print_info(f"Downloading OSM files started.")
         print_hashtags()
-        pool.map(download, self.region_links)
-        pool.close()
-        pool.join()
+        
+        for link in self.region_links:
+            download_link("", link)
+        
+        # pool.map(download, self.region_links)
+        # pool.close()
+        # pool.join()
 
         # Check if all files are downloaded and are not empty
         data_source_date = []
@@ -249,6 +264,11 @@ class OSMBaseCollection:
     def prepare_bulk_osm(
         self, osm_filter: str
     ):
+        """Prepare all osm files using filter.
+
+        Args:
+            osm_filter (str): OSM filter to use.
+        """        
         pool = Pool(processes=self.available_cpus)
 
         # Prepare and filter osm files
@@ -266,7 +286,8 @@ class OSMBaseCollection:
         pool.join()
 
     def merge_osm_and_import(self):
-        
+        """Merge all osm files and import them into PostGIS database.
+        """        
         # Change to data directory
         os.chdir(self.data_dir_input)
         
@@ -303,6 +324,12 @@ class OSMBaseCollection:
         print_hashtags()
         
         for file in os.listdir(self.data_dir_input):
+            
+            # Continue if files does not end with .pbf or .geojson
+            if not file.endswith(".pbf") and not file.endswith(".geojson"):
+                continue
+            
+            # Upload file to s3 bucket
             file_path = os.path.join(self.data_dir_input, file)
             if os.path.isfile(file_path):
                 boto_client.upload_file(
@@ -323,72 +350,6 @@ class OSMBaseCollection:
         self.download_bulk_osm(self.region_links)
         self.prepare_bulk_osm(self.region_links, "buildings", osm_filter=osm_filter)
         self.merge_osm_and_import(self.region_links, conf)
-
-    def network_collection(self):
-        """Creates and imports the network using osm2pgsql into the database"""
-
-        self.download_bulk_osm(self.region_links)
-        self.prepare_bulk_osm(
-            osm_filter="highway= cycleway= junction=",
-        )
-
-        # Merge all osm files
-        print_info("Merging files")
-        file_names = [f.split("/")[-1] for f in self.region_links]
-        subprocess.run(
-            f'osmium merge {" ".join(file_names)} -o merged.osm.pbf',
-            shell=True,
-            check=True,
-        )
-        subprocess.run(
-            f"osmconvert merged.osm.pbf -o=merged.osm", shell=True, check=True
-        )
-
-        total_cnt_links = len(self.region_links)
-        cnt_link = 0
-
-        for link in self.region_links:
-            cnt_link += 1
-            full_name = link.split("/")[-1]
-            network_file_name = full_name.split(".")[0] + "_network.osm"
-            print_info(f"Importing {full_name}")
-
-            if cnt_link == 1 and cnt_link == total_cnt_links:
-                subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --clean --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
-                    shell=True,
-                    check=True,
-                )
-            elif cnt_link == 1:
-                subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --no-index --clean --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
-                    shell=True,
-                    check=True,
-                )
-            elif cnt_link != total_cnt_links:
-                subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --no-index --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
-                    shell=True,
-                    check=True,
-                )
-            else:
-                subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
-                    shell=True,
-                    check=True,
-                )
-
-        # Import all OSM data using OSM2pgsql
-        # TODO: Avoid creating osm_planet_polygon table here
-        subprocess.run(
-            f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r pbf -c merged.osm.pbf -s --drop -C {self.cache}",
-            shell=True,
-            check=True,
-        )
-        self.db.perform(query="CREATE INDEX ON planet_osm_line (osm_id);")
-        self.db.perform(query="CREATE INDEX ON planet_osm_point (osm_id);")
-        self.db.perform(query="CREATE INDEX ON planet_osm_line USING GIST(way);")
-        self.db.perform(query="CREATE INDEX ON planet_osm_point USING GIST(way);")
 
     def clip_osm_by_bbox(self, bbox: str, filename: str, fileToClip: str):
         """Clips the OSM data by the polygon file"""

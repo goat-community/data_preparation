@@ -279,30 +279,6 @@ def upload_dir(self, prefix, local, bucket, client):
             local_path = os.path.join(root, filename)
 
 
-def prepare_mask(mask_config: str, buffer_distance: int = 0, db: Any = None):
-    """Prepare mask geometries
-    Args:
-        mask_config (str): Path to a GeoJSON file or a PostGIS query
-        buffer_distance (int, optional): Buffer distance in meters. Defaults to 0.
-        db (Any, optional): Database connection. Defaults to None.
-    Returns:
-        [GeoDataFrame]: Returns a GeoDataFrame with the mask geometries as polygons
-    """
-    if Path(mask_config).is_file():
-        mask_geom = gpd.read_file(mask_config)
-    else:
-        try:
-            mask_geom = gpd.GeoDataFrame.from_postgis(mask_config, db)
-        except Exception as e:
-            print_error(f"Error while reading mask geometry")
-    mask_gdf = gpd.GeoDataFrame.from_features(mask_geom, crs="EPSG:4326")
-    mask_gdf = mask_gdf.to_crs("EPSG:3857")
-    mask_gdf.geometry = mask_gdf.geometry.buffer(buffer_distance)
-    mask_gdf = mask_gdf.to_crs("EPSG:4326")
-    mask_gdf = mask_gdf.explode(index_parts=True)
-    return mask_gdf
-
-
 def parse_poly(dir):
     """Parse an Osmosis polygon filter file.
     Based on: https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Python_Parsing

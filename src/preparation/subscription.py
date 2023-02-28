@@ -34,7 +34,10 @@ class Subscription:
             maintainer=self.db_config.user,
             table_name=self.table_name,
         )
-
+        self.kart_schema = f'kart_{self.table_name}_{self.db_config.user}'
+        # Get the date of the OSM data. In upstream functions it is guaranteeed that all dates are the same 
+        self.osm_data_date = self.db.select("SELECT date FROM poi_osm_boundary LIMIT 1")[0][0]
+        
     def read_poi(self, category: str):
         """Method to read the relevant POIs from one category into a temporary table based on the subscription criteria.
 
@@ -44,12 +47,12 @@ class Subscription:
 
         # Get the geometry filter by checking subscriptions
         sql_geom_filter = f"""
-            DROP TABLE IF EXISTS geom_filter;
-            CREATE TABLE geom_filter AS 
+            DROP TABLE IF EXISTS temporal.geom_filter;
+            CREATE TABLE temporal.geom_filter AS 
             WITH geom_to_subscribe AS 
             (
                 SELECT ST_UNION(n.geom) AS geom 
-                FROM kart_poi_goat.data_subscription d, kart_poi_goat.nuts n 
+                FROM {self.kart_schema}.data_subscription d, {self.kart_schema}.nuts n 
                 WHERE d.category = '{category}'
                 AND d.nuts_id = n.nuts_id 
                 AND d.rule = 'subscribe'
@@ -57,7 +60,7 @@ class Subscription:
             geom_to_unsubscribe AS 
             (
                 SELECT ST_UNION(n.geom) AS geom 
-                FROM kart_poi_goat.data_subscription d, kart_poi_goat.nuts n 
+                FROM {self.kart_schema}.data_subscription d, {self.kart_schema}.nuts n 
                 WHERE d.category = '{category}'
                 AND d.nuts_id = n.nuts_id 
                 AND d.rule = 'unsubscribe'
@@ -72,8 +75,8 @@ class Subscription:
 
         # Get the pois to integrate and check if they fit the geometry filter and validation rules
         sql_create_poi_to_integrate = f"""
-            DROP TABLE IF EXISTS poi_to_seed; 
-            CREATE TABLE poi_to_seed AS 
+            DROP TABLE IF EXISTS temporal.poi_to_seed; 
+            CREATE TABLE temporal.poi_to_seed AS 
             SELECT osm_id, osm_type, category, name, OPERATOR, 
             street, housenumber, zipcode, phone, 
             CASE WHEN (octet_length(tags ->> 'email') BETWEEN 6 AND 320 AND tags ->> 'email' LIKE '_%@_%.__%')
@@ -81,7 +84,7 @@ class Subscription:
             CASE WHEN website ~* '^[a-z](?:[-a-z0-9\+\.])*:(?:\/\/(?:(?:%[0-9a-f][0-9a-f]|[-a-z0-9\._~!\$&''\(\)\*\+,;=:@])|[\/\?])*)?' :: TEXT
             THEN website ELSE NULL END AS website, 
             CASE WHEN (tags->> 'capacity') ~ '^[0-9\.]+$' 
-            THEN (tags->> 'capacity')::integer ELSE NULL END AS capacity, 
+            THEN try_cast_to_int((tags->> 'capacity')) ELSE NULL END AS capacity, 
             opening_hours, 
             CASE WHEN (tags->> 'wheelchair') IN ('yes', 'no', 'limited')
             THEN (tags->> 'wheelchair') ELSE NULL 
@@ -93,10 +96,11 @@ class Subscription:
                     highway, 'public_transport', public_transport, 'brand', brand
                 ) || tags 
             ) - 'email' - 'wheelchair' - 'capacity')::text AS tags, p.geom
-            FROM temporal.poi_osm p, geom_filter f 
+            FROM temporal.poi_osm p, temporal.geom_filter f 
             WHERE ST_Intersects(p.geom, f.geom)
             AND p.category = '{category}'; 
-            CREATE INDEX ON poi_to_seed (osm_id, osm_type);
+            CREATE INDEX ON temporal.poi_to_seed (osm_id, osm_type);
+            CREATE INDEX ON temporal.poi_to_seed USING GIST (geom);
         """
         self.db.perform(sql_create_poi_to_integrate)
 
@@ -111,7 +115,7 @@ class Subscription:
         """
         # Get the number of rows to insert and update
         sql_row_count = f"""
-            SELECT COUNT(*) FROM poi_to_seed;
+            SELECT COUNT(*) FROM temporal.poi_to_seed;
         """
         row_cnt = self.db.select(sql_row_count)
         print_info(
@@ -131,18 +135,18 @@ class Subscription:
         for i in range(0, row_cnt, self.batch_size):
             # Insert the POIs if combination of OSM_ID and OSM_TYPE are not already in the database
             sql_insert_poi = f"""
-                INSERT INTO kart_poi_goat.poi(osm_id, osm_type, category, name, OPERATOR,
+                INSERT INTO {self.kart_schema}.poi(osm_id, osm_type, category, name, OPERATOR,
                 street, housenumber, zipcode, phone, email, website, capacity, opening_hours, 
                 wheelchair, tags, geom, SOURCE) 
                 SELECT p.*, 'OSM'
                 FROM (
                     SELECT * 
-                    FROM poi_to_seed n 
+                    FROM temporal.poi_to_seed n 
                     ORDER BY osm_id 
                     LIMIT {self.batch_size} 
                     OFFSET {i}
                 ) p
-                LEFT JOIN kart_poi_goat.poi n
+                LEFT JOIN {self.kart_schema}.poi n
                 ON p.osm_id = n.osm_id
                 AND p.osm_type = n.osm_type
                 WHERE n.osm_id IS NULL; 
@@ -164,6 +168,7 @@ class Subscription:
                     f"Automatically INSERT category {category} with {processed} rows"
                 )
                 print_info(f"Commit changes for category {category} finished")
+       
 
     def update_poi(self, row_cnt: int, category: str):
         """Updates the POIs in Kart POI table in case the combination of osm_id and osm_type is already present.
@@ -176,7 +181,7 @@ class Subscription:
         # Update the POIs if combination of OSM_ID and OSM_TYPE are already in the database and the attributes have changed
         for i in range(0, row_cnt, self.batch_size):
             sql_update_poi = f"""
-                UPDATE kart_poi_goat.poi p
+                UPDATE {self.kart_schema}.poi p
                 SET name = s.name,
                 "operator" = s."operator",
                 street = s.street,
@@ -193,7 +198,7 @@ class Subscription:
                 category = s.category
                 FROM (
                     SELECT * 
-                    FROM poi_to_seed n 
+                    FROM temporal.poi_to_seed n 
                     ORDER BY osm_id 
                     LIMIT {self.batch_size} 
                     OFFSET {i}
@@ -236,6 +241,36 @@ class Subscription:
                 )
                 print_info(f"Commit changes for category {category} finished")
 
+    def update_date_subscription(self, category: str):
+        """Updates the date of the data subscription table for the given category.
+
+        Args:
+            category (str): Category of POIs to read
+        """        
+        
+        sql_update_date = f"""
+            WITH subscribed_to_update AS (
+                SELECT s.source, s.category, s.nuts_id 
+                FROM {self.kart_schema}.data_subscription s
+                CROSS JOIN LATERAL 
+                (
+                    SELECT 1 
+                    FROM temporal.poi_to_seed p, {self.kart_schema}.nuts n
+                    WHERE ST_Intersects(p.geom, n.geom)
+                    AND n.nuts_id = s.nuts_id
+                    LIMIT 1
+                ) j 
+                WHERE s.rule = 'subscribe'
+            )
+            UPDATE {self.kart_schema}.data_subscription u
+            SET source_date = '{self.osm_data_date}'
+            FROM subscribed_to_update s
+            WHERE u.source = 'OSM' 
+            AND u.category = '{category}'
+            AND u.nuts_id = s.nuts_id;
+        """
+        self.db.perform(sql_update_date)
+    
     def subscribe_osm(self):
 
         # Prepare a fresh kart repo
@@ -245,27 +280,29 @@ class Subscription:
         branch_name = uuid4().hex
         self.prepare_kart.create_new_branch(branch_name)
         self.prepare_kart.checkout_branch(branch_name)
+        
         # Get categories to update
-        sql_get_categories_to_update = """
+        sql_get_categories_to_update = f"""
             SELECT DISTINCT category
-            FROM kart_poi_goat.data_subscription
+            FROM {self.kart_schema}.data_subscription
             WHERE source = 'OSM';
         """
         categories = self.db.select(sql_get_categories_to_update)
         categories = [category[0] for category in categories]
 
         # Update each category and create for each a new kart commit
-        categories = ["bar"]
         for category in categories:
             # Perform integration
             self.read_poi(category)
             row_cnt = self.get_row_count(category)
             self.insert_poi(row_cnt, category)
             self.update_poi(row_cnt, category)
+            self.update_date_subscription(category)
+            
+        # Push changes to remote
+        self.prepare_kart.push(branch_name)
 
-        self.prepare_kart.push(branch_name=branch_name)
-        
-        # Create body message for PR 
+        # Create body message for PR
         categories_str = "\n".join(categories)
         pr_body = f"""
             This PR was created automatically by the OSM POI subscription workflow. 
@@ -280,6 +317,7 @@ class Subscription:
             body=pr_body,
         )
         self.db.conn.close()
+
 
 def main():
     db = Database(settings.LOCAL_DATABASE_URI)

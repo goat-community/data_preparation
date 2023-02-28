@@ -8,3 +8,4 @@ src/data/output/*
 __pycache__
 id_rsa
 id_rsa.pub
+importer/temp
