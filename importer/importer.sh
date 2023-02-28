@@ -22,7 +22,9 @@ fi
 if [ ! -d "temp/$city" ]; then
     unzip "temp/$city.zip" -d "temp/$city"
 fi
-mkdir "temp/$city/done/"
+if [ ! -d "temp/$city/done" ]; then
+    mkdir "temp/$city/done/"
+fi
 
 # While there are files to import
 while compgen -G "temp/$city/*.xml" > /dev/null; do
@@ -56,3 +58,5 @@ while compgen -G "temp/$city/*.xml" > /dev/null; do
         mv "$file_path" "./temp/$city/done/"
     done
 done
+
+echo "importing is done."
