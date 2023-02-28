@@ -1,7 +1,6 @@
 #!/usr/bin/bash
 # Exit if any command fails
 set -e
-bridge='bridge'
 batch_size=10
 
 city=$1
@@ -57,5 +56,3 @@ while compgen -G "temp/$city/*.xml" > /dev/null; do
         mv "$file_path" "./temp/$city/done/"
     done
 done
-
-echo 'imported' > "$bridge/stat.txt"
