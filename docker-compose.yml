@@ -2,8 +2,7 @@ version: "3.9"
 
 networks:
   data_preparation_proxy:
-
-
+    name: data_preparation_proxy
 volumes:
   goat_data_preparation:
   3dcity_db:

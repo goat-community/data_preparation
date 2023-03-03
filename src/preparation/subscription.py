@@ -241,13 +241,48 @@ class Subscription:
                 )
                 print_info(f"Commit changes for category {category} finished")
 
+    # TODO: Revise delete function as it is not working properly when the inpute extent is smaller then the extent of the POIs table
+    def delete_poi(self):
+        """Deletes the POIs from Kart POI table in case the combination of osm_id and osm_type is not present in the temporal table."""
+        
+        
+        # SQL query to delete the POIs if combination of OSM_ID and OSM_TYPE are not in the temporal table
+        # It is important to run this for all categories at once as it might be that is not deleted but received a new category.
+        sql_delete_poi = f"""
+            WITH osm_to_check AS
+            (
+                SELECT * 
+                FROM temporal.poi_osm p, temporal.geom_filter f  
+                WHERE ST_Intersects(p.geom, f.geom)	
+            ),
+            to_delete AS 
+            (
+                SELECT p.osm_id, p.osm_type 
+                FROM {self.kart_schema}.poi p
+                LEFT JOIN osm_to_check o
+                ON p.osm_id = o.osm_id
+                AND p.osm_type = o.osm_type
+                WHERE o.osm_id IS NULL 
+                AND p.osm_id IS NOT NULL 
+            )
+            DELETE FROM {self.kart_schema}.poi p
+            USING to_delete d 
+            WHERE p.osm_id = d.osm_id
+            AND p.osm_type = d.osm_type;  
+        """
+        self.db.perform(sql_delete_poi)
+
+        # Commit to repository
+        self.prepare_kart.commit(f"Automatically DELETE POIs that are not in the OSM data anymore")
+
+
     def update_date_subscription(self, category: str):
         """Updates the date of the data subscription table for the given category.
 
         Args:
             category (str): Category of POIs to read
         """        
-        
+        # Updated the date of the data subscription table for the given category
         sql_update_date = f"""
             WITH subscribed_to_update AS (
                 SELECT s.source, s.category, s.nuts_id 
@@ -270,6 +305,10 @@ class Subscription:
             AND u.nuts_id = s.nuts_id;
         """
         self.db.perform(sql_update_date)
+        
+        # Commit to repository
+        self.prepare_kart.commit(f"Automatically updated date of data subscription for category {category}")
+    
     
     def subscribe_osm(self):
 
@@ -299,6 +338,9 @@ class Subscription:
             self.update_poi(row_cnt, category)
             self.update_date_subscription(category)
             
+        # Delete POIs that are not in the OSM data anymore    
+        #self.delete_poi()
+        
         # Push changes to remote
         self.prepare_kart.push(branch_name)
 

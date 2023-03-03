@@ -9,6 +9,12 @@ class OSMNetworkCollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config):
         self.db_config = db_config
+        self.dbname = db_config.path[1:]
+        self.user = db_config.user
+        self.host = db_config.host
+        self.port = db_config.port
+        self.password = db_config.password
+        self.cache = 100000
         super().__init__(self.db_config, dataset_type="network")
     
       

@@ -20,7 +20,7 @@ from src.core.config import settings
 from src.db.db import Database
 
 class OSMBaseCollection:
-    def __init__(self, db_config: str, dataset_type: str):  
+    def __init__(self, db_config: str, dataset_type: str, region: str = "de"):  
         """Constructor for OSM Base Class.
 
         Args:
@@ -36,7 +36,7 @@ class OSMBaseCollection:
         self.port = self.db_config.port
         self.password = self.db_config.password
         
-        self.data_config = Config(self.dataset_type)
+        self.data_config = Config(self.dataset_type, region)
         self.region_links = self.data_config.pbf_data
         
         self.root_dir = self.data_config.root_dir

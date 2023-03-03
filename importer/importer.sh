@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 # Exit if any command fails
 set -e
-batch_size=10
+batch_size=5
 
 city=$1
 
@@ -34,8 +34,8 @@ while compgen -G "temp/$city/*.xml" > /dev/null; do
     # Get docker up
     docker compose up -d --wait
 
-    # Wait for docker to get ready
-    sleep_time=10
+    # # Wait for docker to get ready
+    sleep_time=15
     while [ "$sleep_time" -gt 0 ];
     do
         echo -en "\rWait $sleep_time seconds to ensure 3d city is ready..."
@@ -57,8 +57,9 @@ while compgen -G "temp/$city/*.xml" > /dev/null; do
         impexp import -c settings.xml $file_path
         mv "$file_path" "./temp/$city/done/"
     done
+    
+    docker exec -it data_preparation_app python /app/src/collection/building_citygml.py
 
-    #TODO: Process data
 done
 
 echo "importing is done."

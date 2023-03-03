@@ -1,6 +1,8 @@
 version: "3.9"
 networks:
-  data_preparation_proxy:
+  default:
+    external:
+      name: data_preparation_proxy
 
 volumes:
   3dcity_db:

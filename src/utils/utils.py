@@ -200,20 +200,20 @@ def create_table_dump(db_config: dict, table_name: str, data_only: bool = False)
         print_warning(f"The following exeption happened when dumping {table_name}: {e}")
 
 
-def create_table_schema(db: Database, db_config: dict, table_full_name: str):
+def create_table_schema(db: Database, table_full_name: str):
     """Function that creates a table schema from a database dump.
 
     Args:
         db (Database): Database connection class.
-        db_conf (dict): Database configuration dictionary.
         table_full_name (str): Name with the schema of the table (e.g. basic.poi).
     """
+    db_config = db.db_config
     db.perform(query="CREATE SCHEMA IF NOT EXISTS basic;")
     db.perform(query="CREATE SCHEMA IF NOT EXISTS extra;")
     db.perform(query="DROP TABLE IF EXISTS %s" % table_full_name)
     table_name = table_full_name.split(".")[1]
     subprocess.run(
-        f'PGPASSFILE=~/.pgpass_{db_config["dbname"]} pg_restore -U {db_config["user"]} --schema-only -h {db_config["host"]} -n basic -d {db_config["dbname"]} -t {table_name} {"/app/src/data/input/dump.tar"}',
+        f'PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_restore -U {db_config.user} --schema-only -h {db_config.host} --no-owner -n basic -d {db_config.path[1:]} -t {table_name} {"/app/src/data/input/dump.tar"}',
         shell=True,
         check=True,
     )

@@ -1,0 +1,43 @@
+region_pbf : [
+  "https://download.geofabrik.de/europe/great-britain/england/greater-london-latest.osm.pbf",
+  "https://download.geofabrik.de/europe/great-britain/england/hertfordshire-latest.osm.pbf",
+  "https://download.geofabrik.de/europe/great-britain/england/essex-latest.osm.pbf",
+  "https://download.geofabrik.de/europe/great-britain/england/kent-latest.osm.pbf",
+  "https://download.geofabrik.de/europe/great-britain/england/surrey-latest.osm.pbf",
+  "https://download.geofabrik.de/europe/great-britain/england/buckinghamshire-latest.osm.pbf",
+  "https://download.geofabrik.de/europe/great-britain/england/berkshire-latest.osm.pbf"
+
+]
+collection:
+  osm_tags:
+    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                "charging_station", "bus_station", "playground"]
+    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+    tourism : ["hotel", "museum", "hostel", "guest_house"]
+    railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+    leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
+    sport   : ["yoga", "fitness"]
+    highway : ["bus_stop"]
+    public_transport : ["stop_position", "station"]
+
+  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                        "opening_hours", "operator", "origin", "organic", "subway"]
+  nodes : True
+  ways : True
+  relations : True
+  
+preparation:
+  supermarket:
+    classify_by_name:
+      supermarket: 
+        children:
+          rewe     : ["rewe", "rewe city"]
+        threshold: 0.7
+        
+subscription:
+  repo_url: "https://github.com/goat-community/poi"
+    
+
+    

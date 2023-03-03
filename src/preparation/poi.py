@@ -1,441 +1,588 @@
-import time
-import json
+import geopandas as gpd
 import numpy as np
-import pandas as pd
-import geopandas as gp
-from src.db.config import DATABASE, DATABASE_RD
+import polars as pl
+from sqlalchemy.engine.base import Connection as SQLAlchemyConnectionType
+
+from src.config.config import Config
+from src.core.config import settings
+from src.utils.utils import vector_check_string_similarity_bulk
+from src.utils.utils import timing, polars_df_to_postgis
 from src.db.db import Database
 
-# from pandas.core.accessor import PandasDelegate
-from src.config.config import Config
-from src.other.utility_functions import gdf_conversion, table_dump
-from src.other.utils import return_tables_as_gdf
-from collection.osm_collection_base import OsmCollection
-from sqlalchemy.sql import text
-from sqlalchemy.dialects.postgresql import JSONB
 
-from src.other.utils import create_table_schema, create_table_dump
+class PoiPreparation:
+    """Class to prepare the POIs from OpenStreetMap."""
 
-
-# ================================== POIs preparation =============================================#
-#!!!!!!!!!!!!!!! This codebase needs to be rewritten !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
-def osm_poi_classification(df: gp.GeoDataFrame, config: dict):
-
-
-    # Timer start
-    print("Preparation started...")
-    start_time = time.time()
-
-
-  
-
-    # This section getting var from conf class (variables container)
-    var = config.preparation
-    # Related to sport facilities
-    sport_var_disc = var["sport"]["sport_var_disc"]
-    leisure_var_add = var["sport"]["leisure_var_add"]
-    leisure_var_disc = var["sport"]["leisure_var_disc"]
-    # Related to Supermarkets
-    health_food_var = var["health_food"]
-    hypermarket_var = var["hypermarket"]
-    no_end_consumer_store_var = var["no_end_consumer_store"]
-    discount_supermarket_var = var["discount_supermarket"]
-    supermarket_var = var["supermarket"]
-    chemist_var = var["chemist"]
-    organic_var = var["organic"]
-    # Banks
-    bank_var = var["bank"]
-    # Related to Discount Gyms
-    discount_gym_var = var["discount_gym"]
-
-    # drop operator value for supermarkets
-    df.loc[df["shop"] == "supermarket", "operator"] = ""
-
-    # bycicle rental & doctors renaming
-    df.loc[df.amenity == "bicycle_rental", "amenity"] = "bike_sharing"
-    df.loc[df.amenity == "doctors", "amenity"] = "general_practitioner"
-
-    # Iterate through the rows
-    for i in df.index:
-        df_row = df.iloc[i]
-
-        # Gyms and discount gyms -> Fitness centers
-        if (
-            (
-                df_row[i_leisure] == "fitness_centre"
-                or (
-                    df_row[i_leisure] == "sport_centre" and df_row[i_sport] == "fitness"
-                )
-            )
-            and (df_row[i_sport] in ["multi", "fitness"] or not df_row[i_sport])
-            and "yoga" not in df_row[i_name].lower()
-        ):
-            operator = poi_return_search_condition(
-                df_row[i_name].lower(), discount_gym_var
-            )
-            if operator:
-                df.iat[i, i_operator] = operator
-                df.iat[i, i_amenity] = "discount_gym"
-            else:
-                df.iat[i, i_amenity] = "gym"
-            continue
-
-        # Yoga centers check None change here
-        if (
-            df_row[i_sport] == "yoga"
-            or "yoga" in df_row[i_name]
-        ) and not df_row[i_shop]:
-            df.iat[i, i_amenity] = "yoga"
-            continue
-
-        # Recclasify shops. Define convenience and clothes, others assign to amenity. If not rewrite amenity with shop value
-        if df_row[i_shop] == "grocery" and df_row[i_amenity] == "":
-            if df_row[i_organic] == "only":
-                df.iat[i, i_amenity] = "organic_supermarket"
-                df.iat[i, i_tags]["organic"] = df_row[i_organic]
-                operator = poi_return_search_condition(
-                    df_row[i_name].lower(), organic_var
-                )
-                if operator:
-                    df.iat[i, i_operator] = operator
-                continue
-            elif df_row[i_origin]:
-                df.iat[i, i_amenity] = "international_hypermarket"
-                df.iat[i, i_tags]["origin"] = df_row[i_origin]
-                continue
-            else:
-                df.iat[i, i_amenity] = "convenience"
-                df.iat[i, i_shop] = None
-                continue
-
-        elif df_row[i_shop] == "fashion" and df_row[i_amenity] == "":
-            df.iat[i, i_amenity] = "clothes"
-            df.iat[i, i_shop] = None
-            continue
-
-        # Supermarkets recclassification
-        elif df_row[i_shop] == "supermarket" and df_row[i_amenity] == "":
-            operator = [
-                poi_return_search_condition(df_row[i_name].lower(), health_food_var),
-                poi_return_search_condition(df_row[i_name].lower(), hypermarket_var),
-                poi_return_search_condition(
-                    df_row[i_name].lower(), no_end_consumer_store_var
-                ),
-                poi_return_search_condition(
-                    df_row[i_name].lower(), discount_supermarket_var
-                ),
-                poi_return_search_condition(df_row[i_name].lower(), supermarket_var),
-            ]
-            if any(operator):
-                for op in operator:
-                    if op:
-                        df.iat[i, i_operator] = op
-                        o_ind = operator.index(op)
-                        df.iat[i, i_amenity] = [
-                            cat
-                            for i, cat in enumerate(
-                                [
-                                    "health_food",
-                                    "hypermarket",
-                                    "no_end_consumer_store",
-                                    "discount_supermarket",
-                                    "supermarket",
-                                ]
-                            )
-                            if i == o_ind
-                        ][0]
-                        continue
-                    else:
-                        pass
-            else:
-                if df_row[i_organic] == "only":
-                    df.iat[i, i_amenity] = "organic_supermarket"
-                    df.iat[i, i_tags]["organic"] = df_row[i_organic]
-                    operator = poi_return_search_condition(
-                        df_row[i_name].lower(), organic_var
-                    )
-                    if operator:
-                        df.iat[i, i_operator] = operator
-                    continue
-                elif df_row[i_origin]:
-                    df.iat[i, i_amenity] = "international_hypermarket"
-                    df.iat[i, i_tags]["origin"] = df_row[i_origin]
-                    continue
-                # rewrite next block - move search condition to config, write function for search
-                elif (
-                    "müller " in df_row[i_name].lower()
-                    or df_row[i_name].lower() == "müller"
-                ):
-                    df.iat[i, i_amenity] = "chemist"
-                    df.iat[i, i_operator] = "müller"
-                    continue
-                elif "dm " in df_row[i_name].lower() or "dm-" in df_row[i_name].lower():
-                    df.iat[i, i_amenity] = "chemist"
-                    df.iat[i, i_operator] = "dm"
-                    continue
-                else:
-                    df.iat[i, i_amenity] = "supermarket"
-                    continue
-        elif df_row[i_shop] == "chemist" and df_row[i_amenity] == "":
-            operator = poi_return_search_condition(df_row[i_name].lower(), chemist_var)
-            if operator:
-                df.iat[i, i_operator] = operator
-                df.iat[i, i_amenity] = "chemist"
-                continue
-            else:
-                df.iat[i, i_amenity] = "chemist"
-                continue
-        elif df_row[i_shop] and df_row[i_shop] != "yes" and df_row[i_amenity] == "":
-            df.iat[i, i_amenity] = df.iat[i, i_shop]
-            df.iat[i, i_tags]["shop"] = df_row[i_shop]
-            continue
-
-        # Banks
-        if df_row[i_amenity] == "bank":
-            operator = poi_return_search_condition(df_row[i_name].lower(), bank_var)
-            if operator:
-                df.iat[i, i_operator] = operator
-                continue
-
-        # Transport stops
-        if df_row[i_highway] == "bus_stop" and df_row[i_name] != "":
-            df.iat[i, i_amenity] = "bus_stop"
-            continue
-        elif (
-            df_row[i_public_transport] == "platform"
-            and df_row[i_tags]
-            and df_row[i_highway] != "bus_stop"
-            and df_row[i_name] != ""
-            and ("bus", "yes") in df_row[i_tags].items()
-        ):
-            df.iat[i, i_amenity] = "bus_stop"
-            df.iat[i, i_tags]["public_transport"] = df_row[i_public_transport]
-            continue
-        elif (
-            df_row[i_public_transport] == "stop_position"
-            and isinstance(df_row[i_tags], dict)
-            and ("tram", "yes") in df_row[i_tags].items()
-            and df_row[i_name] != ""
-        ):
-            df.iat[i, i_amenity] = "tram_stop"
-            df.iat[i, i_tags]["public_transport"] = df_row[i_public_transport]
-            continue
-        elif df_row[i_railway] == "subway_entrance":
-            df.iat[i, i_amenity] = "subway_entrance"
-            df.iat[i, i_tags]["railway"] = df_row[i_railway]
-            continue
-        elif (
-            df_row[i_railway] == "stop"
-            and df_row[i_tags]
-            and ("train", "yes") in df_row[i_tags].items()
-        ):
-            df.iat[i, i_amenity] = "rail_station"
-            df.iat[i, i_tags]["railway"] = df_row[i_railway]
-            continue
-        elif df_row[i_highway]:
-            df.iat[i, i_tags]["highway"] = df_row[i_highway]
-        elif df_row[i_public_transport]:
-            df.iat[i, i_tags]["public_transport"] = df_row[i_public_transport]
-        elif df_row[i_railway]:
-            df.iat[i, i_tags]["railway"] = df_row[i_railway]
-        elif df_row[i_subway]:
-            df.iat[i, i_tags]["subway"] = df_row[i_subway]
-
-    df = df.reset_index(drop=True)
-
-    # # # Convert DataFrame back to GeoDataFrame (important for saving geojson)
-    df = gp.GeoDataFrame(df, geometry="geom")
-    df.crs = "EPSG:4326"
-
-    # Filter subway entrances
-    try:
-        df_sub_stations = df[
-            (df["public_transport"] == "station")
-            & (df["subway"] == "yes")
-            & (df["railway"] != "proposed")
-        ]
-        df_sub_stations = df_sub_stations[["name", "geom", "id"]]
-        df_sub_stations = df_sub_stations.to_crs(31468)
-        df_sub_stations["geom"] = df_sub_stations["geom"].buffer(250)
-        df_sub_stations = df_sub_stations.to_crs(4326)
-
-        df_sub_entrance = df[(df["amenity"] == "subway_entrance")]
-        df_sub_entrance = df_sub_entrance[["name", "geom", "id"]]
-
-        df_snames = gp.overlay(df_sub_entrance, df_sub_stations, how="intersection")
-        df_snames = df_snames[["name_2", "id_1"]]
-        df = (
-            df_snames.set_index("id_1")
-            .rename(columns={"name_2": "name"})
-            .combine_first(df.set_index("id"))
-        )
-    except:
-        print("No subway stations for given area.")
-        df = df.drop(columns={"id"})
-
-    # Remove irrelevant columns an rows with not defined amenity
-    df = df.drop(
-        columns={
-            "shop",
-            "tourism",
-            "leisure",
-            "sport",
-            "highway",
-            "origin",
-            "organic",
-            "public_transport",
-            "railway",
-            "subway",
-        }
-    )
-    df = df.drop_duplicates(subset=["osm_id", "amenity", "name"], keep="first")
-    df = df.drop(df[df.amenity == ""].index)
-
-    # Timer finish
-    print("Preparation took %s seconds ---" % (time.time() - start_time))
-
-    return gp.GeoDataFrame(df, geometry="geom")
-
-
-
-import geopandas as gpd
-from sqlalchemy.engine.base import Connection as SQLAlchemyConnectionType
-import polars as pl 
-
-class PoisPreparation:
-    """Class to preprare the POIs."""
-
-    def __init__(self, db):
-        self.root_dir = "/app"
-        # self.dbname, self.host, self.username, self.port = (
-        #     db_config["dbname"],
-        #     db_config["host"],
-        #     db_config["user"],
-        #     db_config["port"],
-        # )
-        # self.db_config = db_config
-        # self.db = Database(self.db_config)
-        self.sqlalchemy_engine = self.db.return_sqlalchemy_engine()
-        self.config_pois = Config("pois")
-        self.config_pois_preparation = self.config_pois.preparation
-
-    def read_poi(self):
-        
-    
-    
-    def perform_pois_preparation(self, db: SQLAlchemyConnectionType):
-        """_summary_
+    def __init__(self, db: Database, region: str):
+        """Constructor method.
 
         Args:
-            db_reading (SQLAlchemyConnectionType): Database object to read the custom POI data.
+            db (Database): Database object
+        """
+        self.db = db
+        self.db_config = self.db.db_config
+        self.db_uri = f"postgresql://{self.db_config.user}:{self.db_config.password}@{self.db_config.host}:{self.db_config.port}{self.db_config.path}"
+        self.engine = self.db.return_sqlalchemy_engine()
+        self.root_dir = "/app"
+
+        self.config_pois = Config("poi", region)
+        self.config_pois_preparation = self.config_pois.preparation
+
+    @timing
+    def read_poi(self) -> pl.DataFrame:
+        """Reads the POIs from the database from the OSM point and OSM polygon table.
 
         Returns:
-            GeoDataFrame: the prepared POIs
+            pl.DataFrame: Polars DataFrame with the POIs. The geometry is stored as WKT inside a column called geom.
         """
 
-        created_tables = ["osm_pois_point", "osm_pois_polygon"]
-        for table in created_tables:
-            self.db.perform(
-                f"ALTER TABLE {table} ALTER COLUMN tags TYPE jsonb USING tags::jsonb;"
-            )
+        # Relevant column names
+        column_names = """
+        osm_id::bigint, name, brand, "addr:street" AS street, "addr:housenumber" AS housenumber, 
+        "addr:postcode" AS zipcode, phone, website, opening_hours, operator, origin, organic, 
+        subway, amenity, shop, tourism, railway, leisure, sport, highway, public_transport, tags::jsonb AS tags
+        """
 
-        df_combined = gpd.GeoDataFrame()
-        for table in created_tables:
-            df = gpd.read_postgis(sql="SELECT * FROM %s" % table, con=db_engine, geom_col='way')
-            df_combined = pd.concat([df_combined,df], sort=False).reset_index(drop=True)
-        
-        df_combined["osm_id"] = abs(df_combined["osm_id"])
-        df_combined = df_combined.replace({np.nan: None})
-            
-        poi_gdf = osm_poi_classification(poi_gdf, self.config_pois)
-        create_table_schema(self.db, self.db_config, "basic.poi")
-
-        poi_gdf = poi_gdf.reset_index(drop=True)
-        copy_gdf = poi_gdf.copy()
-        keys_for_tags = [
-            "phone",
-            "website",
-            "operator",
-            "source",
-            "brand",
-            "addr:city",
-            "addr:country",
-            "origin_geometry",
-            "osm_id",
+        # Read POIs from database
+        sql_query = [
+            f"""SELECT {column_names}, 'n' AS osm_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_point""",
+            f"""SELECT {column_names}, 'w' AS osm_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_polygon""",
         ]
+        df = pl.read_sql(sql_query, self.db_uri)
+        return df
 
-        poi_gdf.rename(
-            columns={
-                "amenity": "category",
-                "addr:street": "street",
-                "addr:postcode": "zipcode",
-            },
-            inplace=True,
+    @timing
+    def check_by_tag(
+        self, df: pl.DataFrame, poi_config: dict, key: str, new_column_names: list[str]
+    ) -> list[pl.DataFrame, list[str]]:  
+        """Checks if a POI has a specific value for a tag.
+
+        Args:
+            df (pl.DataFrame): POIs to classify
+            poi_config (dict): Configuration for poi category
+            key (str): POI category to assign if check is True
+            new_column_names (list[str]): List with column names of already classified POIs
+
+        Raises:
+            ValueError: Raise error if tag does not exist
+
+        Returns:
+            list[pl.DataFrame, list[str]]: Classified POIs and the list with new column names.
+        """
+
+        # Get tag and values
+        tag = list(poi_config.keys())[0]
+        values = poi_config[tag]
+
+        # Check if values are True then only check if tag has value
+        if new_column_names == []:
+            when_condition = pl.when((pl.col(tag) != None))
+        elif new_column_names != [] and values == [True]:
+            when_condition = pl.when(
+                (pl.col(tag) != None) & ~pl.any(pl.col(new_column_names) == True)
+            )
+        # Check if values are in list of conditions
+        elif new_column_names == [] and values != [True]:
+            values = [x.lower() for x in values]
+            when_condition = pl.when((pl.col(tag).str.to_lowercase().is_in(values)))
+        elif new_column_names != [] and values != [True]:
+            values = [x.lower() for x in values]
+            when_condition = pl.when(
+                (pl.col(tag).str.to_lowercase().is_in(values))
+                & ~pl.any(pl.col(new_column_names) == True)
+            )
+        else:
+            raise ValueError("Conditions for tags cannot be set.")
+
+        # Apply condition
+        df = df.with_columns(
+            when_condition.then(True).otherwise(False).alias(key + "___tag")
         )
-        poi_gdf.drop(
-            columns=keys_for_tags,
-            inplace=True,
+
+        # Add new column name to list
+        new_column_names.append(key + "___tag")
+        return df, new_column_names
+
+    @timing
+    def check_by_name_in(
+        self,
+        df: pl.DataFrame,
+        poi_config: list[str],
+        key: str,
+        new_column_names: list[str],
+    ) -> list[pl.DataFrame, list[str]]:
+        """Checks if a POI has a specific value in the name, brand or website.
+
+        Args:
+            df (pl.DataFrame): POIs to classify
+            poi_config (list[str]): Configuration for poi category
+            key (str): POI category to assign if check is True
+            new_column_names (list[str]): List with column names of already classified POIs
+
+        Returns:
+            list[pl.DataFrame, list[str]]: Classified POIs and the list with new column names.
+        """
+
+        # Make sure that all values are lower case
+        values = [x.lower() for x in poi_config]
+
+        # Merge array to text with | as seperator for regex
+        values_joined = "|".join(values)
+
+        # Check if values are in list of conditions
+        when_condition = pl.when(
+            ~pl.any(pl.col(new_column_names) == True)
+            & (
+                (pl.col("name").str.to_lowercase().is_in(values))
+                | (pl.col("brand").str.to_lowercase().is_in(values))
+                | (pl.col("website").str.to_lowercase().is_in(values))
+                | (pl.col("name").str.to_lowercase().str.contains(values_joined))
+                | (pl.col("brand").str.to_lowercase().str.contains(values_joined))
+                | (pl.col("website").str.to_lowercase().str.contains(values_joined))
+            )
+        )
+
+        df = df.with_columns(
+            when_condition.then(True).otherwise(False).alias(key + "___name_in")
+        )
+
+        # Add new column name to list
+        new_column_names.append(key + "___name_in")
+        return df, new_column_names
+
+    @timing
+    def check_name_similarity(
+        self,
+        df: pl.DataFrame,
+        poi_config: dict,
+        threshold: float,
+        key: str,
+        new_column_names: list[str],
+    ) -> list[pl.DataFrame, list[str]]:
+        """Checks if a POI has a similar name or brand to a list of POIs.
+
+        Args:
+            df (pl.DataFrame): POIs to classify
+            poi_config (dict): Configuration for poi category
+            threshold (float): Threshold for similarity. Higher is stricter.
+            key (str): POI category to assign if check is True
+            new_column_names (list[str]): List with column names of already classified POIs
+
+        Returns:
+            list[pl.DataFrame, list[str]]: Classified POIs and the list with new column names.
+        """        
+
+        df_unclassified = df.filter(~pl.any(pl.col(new_column_names) == True))
+        df_classified = df.filter(pl.any(pl.col(new_column_names) == True))
+
+        arr_names = df_unclassified["name"].to_numpy()
+        arr_brands = df_unclassified["brand"].to_numpy()
+
+        # Check if name or brand is similar
+        check_brands = vector_check_string_similarity_bulk(
+            arr_names, poi_config, threshold
+        )
+        check_names = vector_check_string_similarity_bulk(
+            arr_brands, poi_config, threshold
+        )
+
+        # Check if name or brand is true
+        check_both = np.logical_or(check_brands, check_names)
+        df_unclassified = df_unclassified.with_columns(
+            pl.Series(name=key + "___name_similarity", values=check_both)
+        )
+
+        # Add new column to list
+        new_column_names.append(key + "___name_similarity")
+
+        df = pl.concat([df_unclassified, df_classified], how="diagonal")
+        return df, new_column_names
+
+    def classify_by_config(self, df: pl.DataFrame, category: str) -> pl.DataFrame:        
+        """Classifies POIs by config file.
+
+        Args:
+            df (pl.DataFrame): POIs to classify.
+            category (str): POI category to assign.
+
+        Returns:
+            pl.DataFrame: Classified POIs.
+        """
+
+        # New columns for classification
+        new_column_names = []
+
+        # Classify by tag
+        config_by_tag = self.config_pois_preparation[category].get("classify_by_tag")
+        if config_by_tag is not None:
+            for key in config_by_tag:
+                df, new_column_names = self.check_by_tag(
+                    df=df,
+                    poi_config=config_by_tag[key],
+                    key=key,
+                    new_column_names=new_column_names,
+                )
+
+        # Classify by name in list
+        config_by_name = self.config_pois_preparation[category].get("classify_by_name")
+        if config_by_name is not None:
+            for key in config_by_name:
+                # Merge all values of children
+                poi_config = [
+                    [k] + v for k, v in config_by_name[key]["children"].items()
+                ]
+                # Make one dimensional list
+                poi_config = list(
+                    set([item for sublist in poi_config for item in sublist])
+                )
+
+                # Check if name inside list or wise versa
+                df, new_column_names = self.check_by_name_in(
+                    df=df,
+                    poi_config=poi_config,
+                    key=key,
+                    new_column_names=new_column_names,
+                )
+
+        # Classify by name and brand similarity
+        if config_by_name is not None:
+            for key in config_by_name:
+                df, new_column_names = self.check_name_similarity(
+                    df=df,
+                    poi_config=config_by_name[key]["children"],
+                    threshold=config_by_name[key]["threshold"],
+                    key=key,
+                    new_column_names=new_column_names,
+                )
+
+        # Classify categories
+        for column_name in new_column_names:
+            # Assign category
+            value = column_name.split("__")[0]
+            df = df.with_columns(
+                pl.when(pl.col(column_name) == True)
+                .then(value)
+                .otherwise(pl.col("category"))
+                .alias("category")
+            )
+            # Drop not need columns
+            df = df.drop(column_name)
+
+        unmatched_category = self.config_pois_preparation[category].get("unmatched")
+        df = df.with_columns(
+            pl.when(pl.col("category") == "str")
+            .then(unmatched_category)
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        return df
+
+    def classify_public_transport(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Classifies public transport POIs.
+
+        Args:
+            df (pl.DataFrame): POIs to classify.
+
+        Returns:
+            pl.DataFrame: Classified POIs.
+        """        
+        
+        # Classify bus stops
+        df = df.with_columns(
+            pl.when(
+                (pl.col("highway") == "bus_stop")
+                & (pl.col("name").is_not_null())
+                & (pl.col("category") == "str")
+            )
+            .then("bus_stop")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+
+        df = df.with_columns(
+            pl.when(
+                (pl.col("public_transport") == "platform")
+                & (pl.col("name").is_not_null())
+                & (pl.col("tags").str.json_path_match(r"$.bus") == "yes")
+                & (pl.col("category") == "str")
+            )
+            .then("bus_stop")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+
+        # Classify tram stops
+        df = df.with_columns(
+            pl.when(
+                (pl.col("public_transport") == "stop_position")
+                & (pl.col("name").is_not_null())
+                & (pl.col("tags").str.json_path_match(r"$.tram") == "yes")
+            )
+            .then("tram_stop")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+
+        # Classify railway stations
+        df = df.with_columns(
+            pl.when(
+                (pl.col(["railway"]) == "station")
+                & (pl.col("name").is_not_null())
+                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.railway:disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
+            )
+            .then("rail_station")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+
+        df = df.with_columns(
+            pl.when(
+                (
+                    pl.any(
+                        pl.col(["railway", "public_transport"]).is_in(
+                            ["stop", "station", "stop_position"]
+                        )
+                    )
+                )
+                & ~(pl.col("railway").is_in(["disused_station", "proposed"]))
+                & (pl.col("name").is_not_null())
+                & (
+                    (pl.col("tags").str.json_path_match(r"$.train") == "yes")
+                    | (pl.col("tags").str.json_path_match(r"$.rail") == "yes")
+                )
+                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
+            )
+            .then("rail_station")
+            .otherwise(pl.col("category"))
+            .alias("category")
         )
         
-        # Match schema and put remaining attributes in tags
-        loc_tags = poi_gdf.columns.get_loc("tags")
-        for i in range(len(poi_gdf.index)):
-            row = copy_gdf.iloc[i]
-
-            new_tags = row["tags"]
-            for key in keys_for_tags:
-                if row[key] is not None:
-                    new_tags[key] = str(row[key])
-
-            poi_gdf.iat[i, loc_tags] = json.dumps(new_tags)
-
-        
-        # Upload to PostGIS
-        poi_gdf.to_postgis(
-            name="poi",
-            con=self.sqlalchemy_engine,
-            schema="basic",
-            if_exists="append",
-            index=False,
-            dtype={"tags": JSONB},
+        # Classify subway entrances with names
+        df = df.with_columns(
+            pl.when(
+                (pl.col("railway") == "subway_entrance")
+                & (pl.col("name").is_not_null())
+            )
+            .then("subway_entrance")
+            .otherwise(pl.col("category"))
+            .alias("category")
         )
-        return poi_gdf
+        
+        # Classify subway stations without names by assigning the name of the nearest subway station
+        # Get subway stations
+        pdf_subway_stations = df.filter(
+            (pl.col("railway") == "station")
+            & (pl.col("subway") == "yes")
+            & (pl.col("railway") != "proposed")
+        ).to_pandas()
+
+        # Filter subway entrances
+        df_subway_entrances = df.filter(
+            (pl.col("railway") == "subway_entrance") & (pl.col("category") == "str")
+        )
+
+        # Get dataframe without subway entrances
+        df = df.filter(
+            ~((pl.col("railway") == "subway_entrance") & (pl.col("category") == "str"))
+        )
+
+        # Convert pandas dataframe to geopandas dataframe
+        pdf_subway_entrances = df_subway_entrances.to_pandas()
+        gdf_subway_stations = gpd.GeoDataFrame(
+            pdf_subway_stations,
+            geometry=gpd.GeoSeries.from_wkt(
+                pdf_subway_stations["geom"], crs="EPSG:4326"
+            ),
+            crs="EPSG:4326",
+        ).to_crs(3857)
+
+        # Convert pandas dataframe to geopandas dataframe
+        gdf_subway_entrances = gpd.GeoDataFrame(
+            pdf_subway_entrances,
+            geometry=gpd.GeoSeries.from_wkt(
+                pdf_subway_entrances["geom"], crs="EPSG:4326"
+            ),
+            crs="EPSG:4326",
+        ).to_crs(3857)
+
+        # Join subway stations to subway entrances and assign the nearest subway station name to the subway entrance
+        # Converting to numpy array and then to normal list due to problem with type conversion in polars
+        name_to_assign = list(
+            gdf_subway_entrances.sjoin_nearest(
+                gdf_subway_stations[["geometry", "name"]],
+                how="left",
+                max_distance=350,
+                distance_col="distance",
+            )["name_right"].to_numpy()
+        )
+
+        # Assigning the name to the subway entrance
+        df_subway_entrances = (
+            df_subway_entrances.with_columns(
+                pl.Series(name="new_name", values=name_to_assign, dtype=pl.Utf8)
+            )
+            .with_columns(
+                pl.when(pl.col("new_name") != "nan")
+                .then(pl.col("new_name"))
+                .otherwise(pl.col("name"))
+                .alias("name")
+            )
+            .with_columns(
+                pl.when((pl.col("name") != None))
+                .then("subway_entrance")
+                .otherwise(pl.col("category"))
+                .alias("category")
+            )
+        )
+        df_subway_entrances = df_subway_entrances.drop("new_name")
+
+        # Concatenate the dataframes
+        df = pl.concat(
+            [df, df_subway_entrances.filter(pl.col("name").is_not_null())],
+            how="diagonal",
+        )
+        return df
+        
+    def classify_poi(self, df):
+
+         
+        # Create dictionary with empty lists to track classified tags
+        classified_tags = {k: [] for k in self.config_pois.collection["osm_tags"].keys()}
+        
+        # Adding category column
+        df = df.with_columns(pl.lit("str").alias("category"))
+
+        # Classify Playgrounds
+        df = df.with_columns(
+            pl.when(
+                (pl.col("leisure") == "playground")
+                | (pl.col("amenity") == "playground")
+            )
+            .then("playground")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["leisure"].append("playground")
+        classified_tags["amenity"].append("playground")
+        
+        # Classify bikesharing stations
+        df = df.with_columns(
+            pl.when(
+                (pl.col("amenity") == "bicycle_rental")
+                & (pl.col("shop") == None)
+                & (pl.col("osm_type") == "n")
+            )
+            .then("bike_sharing")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].append("bicycle_rental")
+
+        # Classify gyms
+        df = df.with_columns(
+            pl.when(
+                (pl.col("leisure") == "fitness_centre")
+                | ((pl.col("leisure") == "sports_centre") & (pl.col("sport") == "fitness"))
+                & (pl.col("sport").is_in(["multi", "fitness"]) | (pl.col("sport") == None))
+                & (pl.col("name").str.to_lowercase().str.contains("yoga") == False)
+            )
+            .then("gym")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["leisure"].extend(["fitness_centre", "sports_centre"])
+        classified_tags["sport"].extend(["fitness", "multi"])
+        
+        # Classify yoga studios
+        df = df.with_columns(
+            pl.when(
+                (
+                    (pl.col("sport") == "yoga")
+                    | (pl.col("name").str.to_lowercase().str.contains("yoga"))
+                )
+                & (pl.col("shop") == None)
+            )
+            .then("yoga")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        ) 
+        classified_tags["sport"].append("yoga")
+
+        # Classify public transport
+        df = self.classify_public_transport(df=df)
+        classified_tags["public_transport"].extend(["stop_position", "station"])
+        classified_tags["railway"].extend(["station", "platform", "stop", "tram_stop", "subway_entrance"])
+        classified_tags["highway"].append("bus_stop")
+    
+        # Classify POIs by config
+        df_classified_config = pl.DataFrame()
+
+        # Loop through config
+        for key in self.config_pois_preparation:
+            # Check if config should be inherited
+            if list(self.config_pois_preparation[key].keys())[0] == "inherit":
+                category = self.config_pois_preparation[key]["inherit"]
+            else:
+                category = key
+
+            df_classified = self.classify_by_config(
+                df=df.filter(pl.col("shop") == key), category=category
+            )
+            df_classified_config = pl.concat(
+                [df_classified_config, df_classified], how="diagonal"
+            )
+        
+        # Remove rows classified by config
+        df = df.filter(~pl.col("shop").is_in(list(self.config_pois_preparation.keys())))
+        df = pl.concat([df_classified_config, df], how="diagonal")
+        
+        # Append classified categories to config
+        classified_categories = self.config_pois_preparation.keys()
+        classified_tags["shop"].extend(classified_categories)
+        
+        # Remove all categories from config that were already classified 
+        cleaned_config_poi = self.config_pois.collection["osm_tags"]
+        for key in cleaned_config_poi:
+            cleaned_config_poi[key] = list(set(cleaned_config_poi[key]) - set(classified_tags[key]))    
+
+        # Assign remaining categories 
+        for key in cleaned_config_poi:
+            for value in cleaned_config_poi[key]:
+                df = df.with_columns(
+                    pl.when(
+                        (pl.col(key) == value)
+                    )
+                    .then(value)
+                    .otherwise(pl.col("category"))
+                    .alias("category")
+                )
+        
+        return df 
 
 
 def main():
-    db = Database(DATABASE)
-    poi_preparation = PoiPreparation()
+    db = Database(settings.LOCAL_DATABASE_URI)
+    poi_preparation = PoiPreparation(db=db, region="nl")
+    df = poi_preparation.read_poi()
+    df = poi_preparation.classify_poi(df)
 
+    #db = Database(settings.REMOTE_DATABASE_URI)
+    engine = db.return_sqlalchemy_engine()
+    # Export to PostGIS
+    polars_df_to_postgis(
+        engine=engine,
+        df=df.filter(pl.col("category") != "str"),
+        table_name="poi_osm",
+        schema="temporal",
+        if_exists="replace",
+        geom_column="geom",
+        srid=4326,
+        create_geom_index=True,
+        jsonb_column="tags",
+    )
 
-
-# pois_preparation = PoisPreparation(DATABASE)
-# db_reading = Database(DATABASE_RD)
-# pois_preparation.perform_pois_preparation(db_reading)
-
-# db = Database(DATABASE)
-#create_table_schema(db, DATABASE, "basic.aoi")
-
-
-# create_table_schema(db, DATABASE, "basic.building")
-# create_table_schema(db, DATABASE, "basic.population")
-# create_table_schema(db, DATABASE, "basic.study_area")
-# create_table_schema(db, DATABASE, "basic.sub_study_area")
-
-
-# create_table_schema(db, DATABASE, "basic.grid_calculation")
-# create_table_schema(db, DATABASE, "basic.grid_visualization")
-# create_table_schema(db, DATABASE, "basic.study_area_grid_visualization")
- # create_table_schema(db, DATABASE, "basic.poi")
-
-# create_table_dump(db_config=DATABASE, table_name="basic.building", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.population", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.study_area", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.sub_study_area", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.grid_calculation", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.grid_visualization", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.study_area_grid_visualization", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.edge", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.node", data_only=True)
-# create_table_dump(db_config=DATABASE, table_name="basic.poi", data_only=True)
-
-# create_table_schema(db, DATABASE, "basic.aoi")
+if __name__ == "__main__":
+    main()

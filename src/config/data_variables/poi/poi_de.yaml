@@ -148,20 +148,3 @@ preparation:
 subscription:
   repo_url: "https://github.com/goat-community/poi"
     
-  # discount_gym: 
-  #   fitx           : ["fitx"]
-  #   mcfit          : ["mcfit"]
-  #   fitstar        : ["fitstar","fit-star", "fit star"]
-  #   cleverfit      : ["cleverfit" ,"clever fit"]
-  #   jumpersfitness : ["jumpersfitness" ,"jumpers fitness"]
-
-  # community_sport_centre: ["bezirkssportanlage"]
-
-  # # Not used (operators for various cities in Germany are too different)
-  # operators_bicycle_rental: ["münchner verkehrs gesellschaft", "münchner verkehrsgesellschaft", "mvg"]
-
-  # sport:
-  #   sport_var_disc   : ["table_tennis"]
-  #   leisure_var_add  : ["sports_hall", "fitness_center", "sport_center", "track", "pitch"]
-  #   leisure_var_disc : ["fitness_station"]
-    

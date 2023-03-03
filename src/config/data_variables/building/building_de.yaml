@@ -15,14 +15,10 @@ region_pbf: [
     "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
   ]
-  collection:
-    osm_tags: 
-      building: [True]
-    additional_columns : ["amenity", "leisure", "addr:street", "addr:housenumber", "building:levels", "roof:levels"]
-    nodes : False
-    ways : True
-    relations : False
-
-  preparation:
-  fusion:
-  update:
+collection:
+  osm_tags: 
+    building: [True]
+  additional_columns : ["amenity", "leisure", "addr:street", "addr:housenumber", "building:levels", "roof:levels"]
+  nodes : False
+  ways : True
+  relations : False

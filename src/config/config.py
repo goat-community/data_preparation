@@ -11,17 +11,22 @@ from src.utils.utils import print_info, download_link
 class Config:
     """Reads the config file and returns the config variables.
     """    
-    def __init__(self, name: str = "global"):
+    def __init__(self, name: str, region: str = "de"):
         #TODO: Add validation of config files here
         self.root_dir = "/app"
         self.data_dir_input = os.path.join(self.root_dir, "src", "data", "input", name)
         
         # Read config for data set or read global config
-        if name == "global":
-            config_path = os.path.join(self.root_dir, "src", "config", "config" + ".yaml")
-        else:
-            config_path = os.path.join(self.root_dir, "src", "config", "data_variables", name + ".yaml")
-        
+
+        config_path_base = os.path.join(self.root_dir, "src", "config", "config" + ".yaml")
+        with open(
+            config_path_base,
+            encoding="utf-8",
+        ) as stream:
+            config_base = yaml.safe_load(stream)
+        self.config_base = config_base
+       
+        config_path = os.path.join(self.root_dir, "src", "config", "data_variables", name, name + "_" + region + ".yaml")
         # Read config file
         with open(
             config_path,
@@ -85,7 +90,7 @@ class Config:
     def download_db_schema(self):
         """Download database schema from PostGIS database."""
         download_link(
-            self.root_dir + "/src/data/input", self.config["db_schema"], "dump.tar"
+            self.root_dir + "/src/data/input", self.config_base["db_schema"], "dump.tar"
         )
 
 

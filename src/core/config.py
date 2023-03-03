@@ -48,6 +48,26 @@ class Settings(BaseSettings):
             port=values.get("POSTGRES_PORT_RD")
         )
     
+    # CityGML Settings
+    POSTGRES_USER_3DCITY: Optional[str] = None
+    POSTGRES_PASSWORD_3DCITY: Optional[str] = None
+    POSTGRES_HOST_3DCITY: Optional[str] = None
+    POSTGRES_DB_3DCITY: Optional[str] = None
+    POSTGRES_POST_3DCITY: Optional[str] = None
+    CITYGML_DATABASE_URI: Optional[SyncPostgresDsn] = None
+    @validator("CITYGML_DATABASE_URI", pre=True)
+    def assemble_citygml_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+        if isinstance(v, str):
+            return v
+        return SyncPostgresDsn.build(
+            scheme="postgresql",
+            user=values.get("POSTGRES_USER_3DCITY"),
+            password=values.get("POSTGRES_PASSWORD_3DCITY"),
+            host=values.get("POSTGRES_HOST_3DCITY"),
+            path=f"/{values.get('POSTGRES_DB_3DCITY') or ''}",
+            port=values.get("POSTGRES_PORT_3DCITY")
+        )
+    
     # AWS Client 
     AWS_BUCKET_NAME: str = None
     AWS_ACCESS_KEY_ID: str = None
