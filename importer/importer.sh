@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 # Exit if any command fails
 set -e
-batch_size=5
+batch_size=10
 
 city=$1
 
@@ -54,12 +54,16 @@ while compgen -G "temp/$city/*.xml" > /dev/null; do
     # Import data
     for file_path in "${all_files[@]: -$batch_size}"; do
         echo "importing $file_path"
-        impexp import -c settings.xml $file_path
-        mv "$file_path" "./temp/$city/done/"
+        /tmp/3DCityDB-Importer-Exporter-5.3.0/3DCityDB-Importer-Exporter-5.3.0/bin/impexp import -c settings.xml $file_path
     done
     
     docker exec -it data_preparation_app python /app/src/collection/building_citygml.py
 
+    # Move file
+    for file_path in "${all_files[@]: -$batch_size}"; do
+        echo "moviving $file_path to done folder"
+        mv "$file_path" "./temp/$city/done/"
+    done
 done
 
 echo "importing is done."

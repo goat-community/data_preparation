@@ -96,7 +96,7 @@ class CityGMLCollection:
         self.insert_buildings(buildings=buildings)
         
  
-db = Database(settings.LOCAL_DATABASE_URI)
+db = Database(settings.REMOTE_DATABASE_URI)
 db_rd = Database(settings.CITYGML_DATABASE_URI)
  
 city_gml_collection = CityGMLCollection(db, db_rd)
