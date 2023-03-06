@@ -188,7 +188,7 @@ class OSMBaseCollection:
             filepath (str, optional): Filepath to file can specified. Defaults to None and therefore will use default data directory.
         """
         if not filepath:
-            filepath = self.data_dir_input + "dem.tif"
+            filepath = os.path.join(self.data_dir_input, "dem.tif")
 
         if not os.path.exists(filepath):
             print_warning(f"{filepath} for dem.tif does not exist.")

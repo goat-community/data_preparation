@@ -24,3 +24,8 @@ class GeocoderOriginFormatType(str, Enum):
 class GeocoderResultSchema(str, Enum):
     """Allowed schemas for the geocoder results."""
     temporal = "temporal"
+    
+class TableDumpFormat(str, Enum):
+    """Allowed schemas for the geocoder results."""
+    sql = "sql"
+    dump = "dump"

@@ -3,7 +3,7 @@ from src.core.config import settings
 from src.db.db import Database
 from src.collection.kart.prepare_kart import PrepareKart
 from uuid import uuid4
-from src.utils.utils import print_info
+from src.utils.utils import print_info, create_table_schema
 
 
 class Subscription:
@@ -309,7 +309,18 @@ class Subscription:
         # Commit to repository
         self.prepare_kart.commit(f"Automatically updated date of data subscription for category {category}")
     
-    
+    def export_to_poi_schema(self):
+        # Export to POI Schema table 
+        create_table_schema(self.db, 'basic.poi')
+        
+        # Insert POIs into POI Schema table
+        sql_insert_poi = f"""
+            INSERT INTO basic.poi(category, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid)
+            SELECT category, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid 
+            FROM {self.kart_schema}.poi;
+        """
+        self.db_conn.perform(sql_insert_poi)
+        
     def subscribe_osm(self):
 
         # Prepare a fresh kart repo
@@ -358,14 +369,10 @@ class Subscription:
             title="Automated PR for OSM POIs",
             body=pr_body,
         )
-        self.db.conn.close()
 
 
-def main():
-    db = Database(settings.LOCAL_DATABASE_URI)
-    subscription = Subscription(db=db)
-    subscription.subscribe_osm()
 
 
-if __name__ == "__main__":
-    main()
+        
+    
+        

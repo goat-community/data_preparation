@@ -7,7 +7,7 @@ from src.utils.utils import print_info
 
 class OSMNetworkCollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
-    def __init__(self, db_config):
+    def __init__(self, db_config, region):
         self.db_config = db_config
         self.dbname = db_config.path[1:]
         self.user = db_config.user
@@ -15,7 +15,7 @@ class OSMNetworkCollection(OSMBaseCollection):
         self.port = db_config.port
         self.password = db_config.password
         self.cache = 100000
-        super().__init__(self.db_config, dataset_type="network")
+        super().__init__(self.db_config, dataset_type="network", region=region)
     
       
     def network_collection(self, db: Database):
@@ -87,7 +87,7 @@ class OSMNetworkCollection(OSMBaseCollection):
 def main():
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMNetworkCollection(db_config=db.db_config)
+    osm_poi_collection = OSMNetworkCollection(db_config=db.db_config, region="de")
 
     osm_poi_collection.network_collection(db=db)
     osm_poi_collection.export_osm_boundaries_db(db=db)
