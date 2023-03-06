@@ -1,9 +1,5 @@
-import sys
 import yaml
 import os
-from pathlib import Path
-import pandas as pd
-import geopandas as gpd
 from src.config.osm_dict import OSM_tags, OSM_germany
 from src.utils.utils import print_info, download_link
 

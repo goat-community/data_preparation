@@ -1,9 +1,5 @@
-import pprint
 import xml.etree.ElementTree as ET
-
-from src.config.config import Config
 from src.db.db import Database
-from src.utils.utils import create_pgpass, create_table_schema, print_info, print_hashtags
 from src.core.config import settings
 import os 
 
@@ -14,7 +10,6 @@ class CityGMLCollection:
         self.root_dir = "/app"
         self.data_dir_input = self.root_dir + "/src/data/input/"
         self.temp_data_dir = self.data_dir_input + "temp/"
-        create_pgpass(self.db.db_config)
         tree = ET.parse(os.path.join(self.root_dir, "src", "config", "building_function.xml"))
         root = tree.getroot()
         dictentry = root.findall('{http://www.opengis.net/gml}dictionaryEntry')
@@ -62,7 +57,7 @@ class CityGMLCollection:
             buildings_to_insert = [(b[0], b[1], b[2], b[3], b[4]) for b in buildings_to_insert]
             buildings_to_insert = str(buildings_to_insert).replace('None', 'NULL')
             self.db.perform(f"""INSERT INTO basic.building (id, roof_levels, building_levels, building_type, geom) VALUES {buildings_to_insert[1:-1]}""")
-            print_info(f"Inserted {i} buildings into the database.")
+            print(f"Inserted {i} buildings into the database.")
             
     def create_building_table(self):   
         """_summary_
@@ -85,9 +80,10 @@ class CityGMLCollection:
         if check_if_exists[0][0] == True: 
             print("Data will be appended to the existing building table.")    
         else: 
-            print("Building table will be created and data will be inserted.")       
-            Config("building").download_db_schema()   
-            create_table_schema(db, "basic.building")
+            raise NameError("Building table does not exist. Please create the table first.")
+            # print("Building table will be created and data will be inserted.")       
+            # Config("building").download_db_schema()   
+            # create_table_schema(db, "basic.building")
     
     def run(self):
 

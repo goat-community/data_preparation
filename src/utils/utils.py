@@ -8,10 +8,7 @@ from cdifflib import CSequenceMatcher
 from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
-
-import geopandas as gpd
 import numpy as np
-import pandas as pd
 from rich import print as print
 from shapely.geometry import MultiPolygon
 from sqlalchemy import text
@@ -22,6 +19,7 @@ import polars as pl
 import csv
 from io import StringIO
 import time
+from src.core.enums import TableDumpFormat
 
 
 def timing(f):
@@ -171,33 +169,95 @@ def create_pgpass(db_config):
     os.system(f"""chmod 600  ~/.pgpass_{db_name}""")
 
 
-def create_table_dump(db_config: dict, table_name: str, data_only: bool = False):
+def create_table_dump(
+    db_config: dict, table_name: str, format: TableDumpFormat, data_only: bool = False
+):
     """Create a dump from a table
 
     Args:
         db_config (str): Database configuration dictionary.
         table_name (str): Specify the table name including the schema.
-    """
+        format (TableDumpFormat): Specify the format of the dump. You an choose between sql and dump.
+        data_only (bool, optional): Is it a data only dump. Defaults to False.
+
+    Raises:
+        ValueError: If the format is not supported.
+    """     
+
+    if format == TableDumpFormat.sql.value:
+        format_flag = ""
+    elif format == TableDumpFormat.dump.value:
+        format_flag = "-Fc"
+    else:
+        raise ValueError(f"Format {format} not supported")
+
     if data_only == True:
         data_only_tag = "--data-only"
     else:
         data_only_tag = ""
 
     try:
-        dir_output = (
-            os.path.abspath(os.curdir)
-            + "/src/data/output/"
-            + table_name.split(".")[1]
-            + ".sql"
+        dir_output = os.path.join(
+            os.path.abspath(os.curdir),
+            "src",
+            "data",
+            "output",
+            table_name.split(".")[1] + "." + format
         )
 
         subprocess.run(
-            f"""PGPASSFILE=~/.pgpass_{db_config["dbname"]} pg_dump -h {db_config["host"]} -t {table_name} {data_only_tag} --no-owner -U {db_config["user"]} {db_config["dbname"]} > {dir_output}""",  # -F t
+            f"""PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_dump -h {db_config.host} -t {table_name} {data_only_tag} {format_flag} --no-owner -U {db_config.user} {db_config.path[1:]} > {dir_output}""",
             shell=True,
             check=True,
         )
     except Exception as e:
         print_warning(f"The following exeption happened when dumping {table_name}: {e}")
+        
+        
+
+def restore_table_dump(
+    db_config: dict, table_name: str, format: TableDumpFormat, data_only: bool = False
+):
+    """Create a dump from a table
+
+    Args:
+        db_config (str): Database configuration dictionary.
+        table_name (str): Specify the table name including the schema.
+        format (TableDumpFormat): Specify the format of the dump. You an choose between sql and dump.
+        data_only (bool, optional): Is it a data only dump. Defaults to False.
+
+    Raises:
+        ValueError: If the format is not supported.
+    """     
+
+    data_only_tag = ""
+    if format == TableDumpFormat.sql.value:
+        format_flag = ""
+    elif format == TableDumpFormat.dump.value:
+        format_flag = "-Fc -j 8"
+        if data_only == True:
+            data_only_tag = "--data-only"
+    else:
+        raise ValueError(f"Format {format} not supported")
+
+    dir_output = os.path.join(
+        os.path.abspath(os.curdir),
+        "src",
+        "data",
+        "output",
+        table_name.split(".")[1] + "." + format
+    )
+
+    try:
+        print(f"""PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_restore {format_flag} -h {db_config.host} -U {db_config.user} -d {db_config.path[1:]} {data_only_tag} --no-owner  {dir_output}""")
+
+        subprocess.run(
+            f"""PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_restore {format_flag} -h {db_config.host} -U {db_config.user} -d {db_config.path[1:]} {data_only_tag} --no-owner  {dir_output}""",
+            shell=True,
+            check=True,
+        )
+    except Exception as e:
+        print_warning(f"The following exeption happened when restoring {table_name}: {e}")
 
 
 def create_table_schema(db: Database, table_full_name: str):

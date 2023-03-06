@@ -8,7 +8,7 @@ from src.core.config import settings
 from src.utils.utils import vector_check_string_similarity_bulk
 from src.utils.utils import timing, polars_df_to_postgis
 from src.db.db import Database
-
+from src.preparation.subscription import Subscription
 
 class PoiPreparation:
     """Class to prepare the POIs from OpenStreetMap."""
@@ -561,11 +561,10 @@ class PoiPreparation:
                 )
         
         return df 
-
-
+    
 def main():
     db = Database(settings.LOCAL_DATABASE_URI)
-    poi_preparation = PoiPreparation(db=db, region="nl")
+    poi_preparation = PoiPreparation(db=db, region="at")
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
 
@@ -584,5 +583,9 @@ def main():
         jsonb_column="tags",
     )
 
+    subscription = Subscription(db=db)
+    subscription.subscribe_osm()
+    subscription.export_to_poi_schema()
+    
 if __name__ == "__main__":
     main()

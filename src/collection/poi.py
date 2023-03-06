@@ -35,7 +35,7 @@ class OSMPOICollection(OSMBaseCollection):
 def main():
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region="nl")
+    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region="at")
 
     
     osm_poi_collection.poi_collection()

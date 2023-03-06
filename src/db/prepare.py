@@ -1,6 +1,5 @@
 from src.db.db import Database
-from src.config.config import Config
-from src.db.config import DATABASE
+from src.core.config import settings
 from src.utils.utils import print_info
 import os 
 
@@ -34,7 +33,7 @@ class PrepareDB:
         self.db.perform(query = "CREATE SCHEMA IF NOT EXISTS temporal;")    
 
 def main():
-    db = Database(DATABASE)
+    db = Database(settings.LOCAL_DATABASE_URI)
     prepare_db = PrepareDB(db)
     prepare_db.create_db_extensions()
     prepare_db.create_db_schemas()
