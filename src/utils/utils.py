@@ -285,6 +285,20 @@ def create_table_schema(db: Database, table_full_name: str):
         """
     )
 
+def create_standard_indices(db: Database, table_full_name: str):
+    """Create standard indices for the database on the id and geometry column.
+
+    Args:
+        db (Database): Database connection class.
+    """    
+    
+    db.perform(
+        f"""
+        ALTER TABLE {table_full_name} ADD PRIMARY KEY (id);
+        CREATE INDEX IF NOT EXISTS {table_full_name.replace('.', '_')}_geom_idx ON {table_full_name} USING GIST (geom);
+        """
+    )
+     
 
 def download_dir(self, prefix, local, bucket, client):
     """Downloads data directory from AWS S3

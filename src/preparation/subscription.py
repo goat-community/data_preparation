@@ -3,7 +3,7 @@ from src.core.config import settings
 from src.db.db import Database
 from src.collection.kart.prepare_kart import PrepareKart
 from uuid import uuid4
-from src.utils.utils import print_info, create_table_schema
+from src.utils.utils import print_info, create_table_schema, create_standard_indices
 
 
 class Subscription:
@@ -310,16 +310,21 @@ class Subscription:
         self.prepare_kart.commit(f"Automatically updated date of data subscription for category {category}")
     
     def export_to_poi_schema(self):
-        # Export to POI Schema table 
+        
+        # Create POI Schema table
         create_table_schema(self.db, 'basic.poi')
         
         # Insert POIs into POI Schema table
         sql_insert_poi = f"""
             INSERT INTO basic.poi(category, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid)
-            SELECT category, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, uid 
+            SELECT category, name, street, housenumber, zipcode, opening_hours, wheelchair, 
+            tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('other_uid', other_uid, 'osm_id', osm_id, 'osm_type', 'osm_type', 'phone', 
+            phone, 'email', email, 'capacity', capacity, 'website', website)), 
+            geom, uid 
             FROM {self.kart_schema}.poi;
         """
-        self.db_conn.perform(sql_insert_poi)
+        self.db.perform(sql_insert_poi)
+        create_standard_indices(self.db, 'basic.poi')
         
     def subscribe_osm(self):
 
