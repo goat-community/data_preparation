@@ -57,6 +57,12 @@ RUN apt-get install -y libtinfo5
 RUN wget "https://github.com/koordinates/kart/releases/download/v0.11.5/kart_0.11.5-1_amd64.deb"
 RUN dpkg -i kart_0.11.5-1_amd64.deb
 
+# install posgresql-client
+RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+RUN apt-get update
+RUN apt-get install -y postgresql-client-14
+
 WORKDIR /app/
 
 ENTRYPOINT ["tail"]
