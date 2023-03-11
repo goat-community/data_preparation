@@ -1,24 +1,344 @@
-region_pbf: [
-    "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" , 
-    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
-    "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
-    "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
-  ]
 collection:
-  osm_tags: 
+  region_pbf:
+    [
+      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+      "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf",
+    ]
+  osm_tags:
     building: [True]
-  additional_columns : ["amenity", "leisure", "addr:street", "addr:housenumber", "building:levels", "roof:levels"]
-  nodes : False
-  ways : True
-  relations : False
+  additional_columns:
+    [
+      "amenity",
+      "leisure",
+      "addr:street",
+      "addr:housenumber",
+      "building:levels",
+      "roof:levels",
+    ]
+  nodes: False
+  ways: True
+  relations: False
+
+preparation:
+  average_building_levels: 4
+  average_roof_levels: 1
+
+  classification: 
+    residential_status:
+      attribute:
+        building_type:
+          with_residents:
+            [
+              "Wohngebäude",
+              "Wohngebäude mit Gemeinbedarf",
+              "Wohngebäude mit Gewerbe und Industrie",
+              "Wohngebäude mit Handel und Dienstleistungen",
+              "Wohnhaus",
+              "Wohnheim",
+              "Wohn- und Betriebsgebäude",
+              "Wohn- und Bürogebäude",
+              "Wohn- und Geschäftsgebäude",
+              "Wohn- und Verwaltungsgebäude",
+              "Wohn- und Wirtschaftsgebäude",
+              "Gemischt genutztes Gebäude mit Wohnen",
+              "Asylbewerberheim",
+            ]
+          no_residents:
+            [
+              "Schuppen",
+              "Wasserbehälter",
+              "Rundfunk, Fernsehen",
+              "Umspannwerk",
+              "Gebäude im Zoo",
+              "Gebäude für Gesundheitswesen",
+              "Festsaal",
+              "Überdachung",
+              "Feuerwachturm",
+              "Empfangsgebäude",
+              "Einkaufszentrum",
+              "Scheune und Stall",
+              "Gaswerk",
+              "Wassermühle",
+              "Gebäude zur Entsorgung",
+              "Markthalle",
+              "Land- und forstwirtschaftliches Betriebsgebäude",
+              "Gebäude zur Versorgungsanlage",
+              "Allgemein bildende Schule",
+              "Schleusenkammer",
+              "Gebäude für Handel und Dienstleistung mit Wohnen",
+              "Sicherheitstor",
+              "Elektrizitätswerk",
+              "Stellwerk, Blockstelle",
+              "Spielkasino",
+              "Land- und forstwirtschaftliches Wohngebäude",
+              "Gebäude für Sportzwecke",
+              "Betriebsgebäude für Schiffsverkehr",
+              "Verwaltungsgebäude",
+              "Gebäude zur Energieversorgung",
+              "Kammerschleuse",
+              "Wartehalle",
+              "Silo",
+              "Portalkran",
+              "Gebäude für Bewirtung",
+              "Reithalle",
+              "Gebäude zur Gasversorgung",
+              "Zuschauertribüne",
+              "Touristisches Informationszentrum",
+              "Stadt-,Torturm",
+              "Gericht",
+              "Zuschauertribüne, nicht überdacht",
+              "Apotheke",
+              "Kaserne",
+              "Hochschulgebäude (Fachhochschule, Universität)",
+              "Windmühle",
+              "Seniorenheim",
+              "Funkmast",
+              "Gebäude der Kläranlage",
+              "Kreditinstitut",
+              "Schutzgalerie, Einhausung",
+              "Müllbunker",
+              "Gebäude zur Freizeitgestaltung",
+              "Gebäude für Sicherheit und Ordnung",
+              "Studenten-, Schülerwohnheim",
+              "Gebäude für kulturelle Zwecke",
+              "Tank",
+              "Forsthaus",
+              "Gartenhaus",
+              "Brauerei",
+              "Kiosk",
+              "Carport",
+              "Gebäude an unterirdischen Leitungen",
+              "Gebäude zum Sportplatz",
+              "Veranstaltungsgebäude",
+              "Berufsbildende Schule",
+              "Gebäude zum Busbahnhof",
+              "Wochenendhaus",
+              "Kinderheim",
+              "Kloster",
+              "Lokschuppen, Wagenhalle",
+              "Mast",
+              "Zuschauertribüne, überdacht",
+              "Speditionsgebäude",
+              "Gebäude für betriebliche Sozialeinrichtung",
+              "Freizeit-, Vereinsheim, Dorfgemeinschafts-, Bürgerhaus",
+              "Staumauer",
+              "Mauer",
+              "Gotteshaus",
+              "Versicherung",
+              "Parkhaus",
+              "Sport-, Turnhalle",
+              "Kapelle",
+              "Gebäude zur Versorgung",
+              "Gewächshaus (Botanik)",
+              "Gebäude für Erholungszwecke",
+              "Gebäude für soziale Zwecke",
+              "Gebäude für Handel und Dienstleistungen",
+              "Sanatorium",
+              "Aquarium, Terrarium, Voliere",
+              "Land- und forstwirtschaftliches Wohn- und Betriebsgebäude",
+              "Kantine",
+              "Gebäude für Fernmeldewesen",
+              "Stall im Zoo",
+              "Kegel-, Bowlinghalle",
+              "Gebäude für öffentliche Zwecke mit Wohnen",
+              "Speichergebäude",
+              "Seniorenfreizeitstätte",
+              "Produktionsgebäude",
+              "Betriebsgebäude für Straßenverkehr",
+              "Befestigung (Burgruine)",
+              "Treibhaus, Gewächshaus",
+              "Badegebäude",
+              "Ferienhaus",
+              "Kran",
+              "Freizeit- und Vergnügungsstätte",
+              "Sperrwerk",
+              "Gebäude zum Parken",
+              "Schutzhütte",
+              "Kesselhaus",
+              "Hochbahn, Hochstraße",
+              "Kühlturm",
+              "Feuerwehr",
+              "Finanzamt",
+              "Aussichtsturm",
+              "Betriebsgebäude zu Verkehrsanlagen (allgemein)",
+              "Krankenhaus",
+              "Betriebsgebäude des Güterbahnhofs",
+              "Gebäude für religiöse Zwecke",
+              "Friedhofsgebäude",
+              "Betriebsgebäude für Schienenverkehr",
+              "Laufkran",
+              "Bergwerk",
+              "Kaufhaus",
+              "Gebäude im Stadion",
+              "Geschäftsgebäude",
+              "Heizwerk",
+              "Sägewerk",
+              "Campingplatzgebäude",
+              "Trauerhalle",
+              "Sonstige historische Mauer",
+              "Bauernhaus",
+              "Kinderkrippe, Kindergarten, Kindertagesstätte",
+              "Tempel",
+              "Jugendfreizeitheim",
+              "Schutzbunker",
+              "Gebäude zur Abwasserbeseitigung",
+              "Schloss",
+              "Kontrollturm",
+              "Justizvollzugsanstalt",
+              "Hotel, Motel, Pension",
+              "Parkdeck",
+              "Burg",
+              "Toilette",
+              "Tierschauhaus",
+              "Wirtschaftsgebäude",
+              "Gebäude für Beherbergung",
+              "Gebäude für Land- und Forstwirtschaft",
+              "Wasserturm",
+              "Betriebsgebäude zur Seilbahn",
+              "Schloss-, Burgturm",
+              "Gewächshaus, verschiebbar",
+              "Turbinenhaus",
+              "Gebäude für Gewerbe und Industrie",
+              "Schullandheim",
+              "Bootshaus",
+              "Fahrzeughalle",
+              "Reaktorgebäude",
+              "Kühlhaus",
+              "Jugendherberge",
+              "Bibliothek, Bücherei",
+              "Betriebsgebäude",
+              "Wehr",
+              "Betriebsgebäude zur Schleuse",
+              "Gemeindehaus",
+              "Stall",
+              "Wasserwerk",
+              "Kino",
+              "Gebäude für öffentliche Zwecke",
+              "Gebäude für Vorratshaltung",
+              "Hütte (ohne Übernachtungsmöglichkeit)",
+              "Gebäude für Gewerbe und Industrie mit Wohnen",
+              "Synagoge",
+              "Biogasanlage",
+              "Gebäude im Freibad",
+              "Betriebsgebäude für Flugverkehr",
+              "Bahnhofsgebäude",
+              "Kirchturm",
+              "Förderturm",
+              "Gebäude zur Abfallbehandlung",
+              "Jagdhaus, Jagdhütte",
+              "Gebäude für Bildung und Forschung",
+              "Gebäude zur Wasserversorgung",
+              "Laden",
+              "Hallenbad",
+              "Treibhaus",
+              "Gebäude für Forschungszwecke",
+              "Umformer",
+              "Sprungschanze (Anlauf)",
+              "Ärztehaus, Poliklinik",
+              "Pumpstation",
+              "Gradierwerk",
+              "Museum",
+              "Gebäude der Abfalldeponie",
+              "Waschstraße, Waschanlage, Waschhalle",
+              "Garage",
+              "Gebäude für Kurbetrieb",
+              "Brücke",
+              "Post",
+              "Zollamt",
+              "Lagerhalle, Lagerschuppen, Lagerhaus",
+              "Kirche",
+              "Scheune",
+              "Freileitungsmast",
+              "Gasometer",
+              "Gebäude zur Müllverbrennung",
+              "Gebäude zur Elektrizitätsversorgung",
+              "Schöpfwerk",
+              "Stall für Tiergroßhaltung",
+              "Kreisverwaltung",
+              "Sende-,Funkturm",
+              "Gebäude für andere Erholungseinrichtung",
+              "Heilanstalt, Pflegeanstalt, Pflegestation",
+              "Pumpwerk (nicht für Wasserversorgung)",
+              "Messehalle",
+              "Polizei",
+              "Gebäude für Wirtschaft oder Gewerbe",
+              "Theater, Oper",
+              "Sonstiges",
+              "Gebäude für Grundstoffgewinnung",
+              "Bezirksregierung",
+              "Fabrik",
+              "Schornstein",
+              "Stadion",
+              "Bürogebäude",
+              "Solarzellen",
+              "Badegebäude für medizinische Zwecke",
+              "Stadtmauer",
+              "Werkstatt",
+              "Schwesternwohnheim",
+              "Moschee",
+              "Burg, Festung",
+              "Forschungsinstitut",
+              "Flugzeughalle",
+              "Gaststätte, Restaurant",
+              "Rathaus",
+              "Historische Mauer",
+              "Tankstelle",
+              "Sonstiges Gebäude für Gewerbe und Industrie",
+              "Bahnwärterhaus",
+              "Krematorium",
+              "Straßenmeisterei",
+              "Denkmal",
+              "Windrad",
+            ]
+
+      point:
+        poi:
+          query: "SELECT count(*) AS count FROM basic.poi p"
+          value: "'no_residents'"
+          count: 5
+
+        # address:
+        #   query: "SELECT count(*) AS count FROM public.ga_germany p"
+        #   db: "foreign"
+        #   value: "'no_residents'"
+        #   count: 0
+
+      polygon:
+        landuse_atkis:
+          query: "SELECT geom FROM landuse_atkis WHERE objart_txt IN ('AX_Bahnverkehr','AX_Bahnverkehrsanlage','AX_BauwerkImGewaesserbereich','AX_BauwerkImVerkehrsbereich','AX_BauwerkOderAnlageFuerIndustrieUndGewerbe','AX_BauwerkOderAnlageFuerSportFreizeitUndErholung','AX_Bergbaubetrieb','AX_Boeschungsflaeche','AX_DammWallDeich','AX_Duene','AX_EinrichtungenFuerDenSchiffsverkehr','AX_FelsenFelsblockFelsnadel','AX_FlaecheBesondererFunktionalerPraegung','AX_Fliessgewaesser','AX_Flugverkehr','AX_Flugverkehrsanlage','AX_Friedhof','AX_Gehoelz','AX_Gewaessermerkmal','AX_Hafen','AX_Hafenbecken','AX_Halde','AX_Heide','AX_HistorischesBauwerkOderHistorischeEinrichtung','AX_IndustrieUndGewerbeflaeche','AX_Landwirtschaft','AX_Meer','AX_Moor','AX_Schiffsverkehr','AX_Schleuse','AX_SportFreizeitUndErholungsflaeche','AX_StehendesGewaesser','AX_Strassenverkehr','AX_Strassenverkehrsanlage','AX_Sumpf','AX_TagebauGrubeSteinbruch','AX_Testgelaende','AX_Transportanlage','AX_Turm','AX_UnlandVegetationsloseFlaeche','AX_Vegetationsmerkmal','AX_VorratsbehaelterSpeicherbauwerk','AX_Wald')"
+          value: "'no_residents'"
+          share: 0.5
+
+        building_osm:
+          query: "SELECT way AS geom FROM building_osm WHERE amenity IN ('hospital', 'university', 'community_centre', 'school', 'kindergarten', 'recreation_ground', 'wood') OR leisure IN ('zoo')"
+          value: "'no_residents'"
+          share: 0.5
+
+        building_osm2:
+          query: "SELECT way AS geom FROM building_osm WHERE building IN ('apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house')"
+          value: "'with_residents'"
+          share: 0.5
+
+
+
+    
+
+  # building_levels_residential:
+  #   point:
+  #     poi:
+  #       query: "SELECT geom FROM basic.poi"
+  #       substract: -1
+  #       count: 1

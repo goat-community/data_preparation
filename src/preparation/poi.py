@@ -6,7 +6,7 @@ from sqlalchemy.engine.base import Connection as SQLAlchemyConnectionType
 from src.config.config import Config
 from src.core.config import settings
 from src.utils.utils import vector_check_string_similarity_bulk
-from src.utils.utils import timing, polars_df_to_postgis
+from src.utils.utils import timing, polars_df_to_postgis, create_table_dump
 from src.db.db import Database
 from src.preparation.subscription import Subscription
 
@@ -564,28 +564,31 @@ class PoiPreparation:
     
 def main():
     db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.REMOTE_DATABASE_URI)
     poi_preparation = PoiPreparation(db=db, region="at")
-    df = poi_preparation.read_poi()
-    df = poi_preparation.classify_poi(df)
+    # df = poi_preparation.read_poi()
+    # df = poi_preparation.classify_poi(df)
 
-    #db = Database(settings.REMOTE_DATABASE_URI)
-    engine = db.return_sqlalchemy_engine()
-    # Export to PostGIS
-    polars_df_to_postgis(
-        engine=engine,
-        df=df.filter(pl.col("category") != "str"),
-        table_name="poi_osm",
-        schema="temporal",
-        if_exists="replace",
-        geom_column="geom",
-        srid=4326,
-        create_geom_index=True,
-        jsonb_column="tags",
-    )
+    # #db = Database(settings.REMOTE_DATABASE_URI)
+    # engine = db.return_sqlalchemy_engine()
+    # # Export to PostGIS
+    # polars_df_to_postgis(
+    #     engine=engine,
+    #     df=df.filter(pl.col("category") != "str"),
+    #     table_name="poi_osm",
+    #     schema="temporal",
+    #     if_exists="replace",
+    #     geom_column="geom",
+    #     srid=4326,
+    #     create_geom_index=True,
+    #     jsonb_column="tags",
+    # )
 
     subscription = Subscription(db=db)
-    subscription.subscribe_osm()
+    # subscription.subscribe_osm()
     subscription.export_to_poi_schema()
+    
+    create_table_dump(db.db_config, 'basic.poi', 'dump', False)
     
 if __name__ == "__main__":
     main()

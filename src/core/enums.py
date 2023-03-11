@@ -29,3 +29,16 @@ class TableDumpFormat(str, Enum):
     """Allowed schemas for the geocoder results."""
     sql = "sql"
     dump = "dump"
+    
+class BuildingClassificationColumnTypes(str, Enum):
+    """Columns that can be classified by building preparation"""
+    
+    residential_status = "residential_status"
+    building_levels_residential = "building_level_residential"
+    
+class BuildingClassificationTypes(str, Enum):
+    """Geometry types for building classification"""
+    attribute = "attribute"
+    point = "point"
+    polygon = "polygon"
+    
