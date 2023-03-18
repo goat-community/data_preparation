@@ -341,15 +341,6 @@ class OSMBaseCollection:
             else:
                 print_warning(f"File {file_path} does not exist.")      
                              
-    def building_collection(self):
-        """Collects all building from OSM"""
-        conf = Config("buildings")
-        self.region_links = conf.pbf_data
-        osm_filter = "building= --drop-nodes --drop-relations"
-
-        self.download_bulk_osm(self.region_links)
-        self.prepare_bulk_osm(self.region_links, "buildings", osm_filter=osm_filter)
-        self.merge_osm_and_import(self.region_links, conf)
 
     def clip_osm_by_bbox(self, bbox: str, filename: str, fileToClip: str):
         """Clips the OSM data by the polygon file"""

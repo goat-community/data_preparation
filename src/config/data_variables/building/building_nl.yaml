@@ -1,0 +1,40 @@
+region_pbf: [""]
+
+collection:
+  osm_tags:
+    building: [True]
+  additional_columns:
+    [
+      "amenity",
+      "leisure",
+      "addr:street",
+      "addr:housenumber",
+      "building:levels",
+      "roof:levels",
+    ]
+  nodes: False
+  ways: True
+  relations: False
+
+preparation:
+  average_building_levels: 3
+  average_roof_levels: 1
+
+  classification:
+    residential_status:
+
+      polygon:
+        landuse:
+          query: 'SELECT geom FROM temporal.amsterdam_landuse WHERE "WON_PERC" = 0'     
+          value: "'no_residents'"
+          share: 0.5
+
+      attribute:
+        building_type:
+          with_residents:
+            [
+              "woonfunctie"
+            ]
+
+
+

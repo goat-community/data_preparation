@@ -1,22 +1,23 @@
+region_pbf:
+  [
+    "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf",
+  ]
+
 collection:
-  region_pbf:
-    [
-      "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/thueringen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
-      "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf",
-    ]
   osm_tags:
     building: [True]
   additional_columns:
@@ -36,7 +37,7 @@ preparation:
   average_building_levels: 4
   average_roof_levels: 1
 
-  classification: 
+  classification:
     residential_status:
       attribute:
         building_type:
@@ -331,11 +332,6 @@ preparation:
           query: "SELECT way AS geom FROM building_osm WHERE building IN ('apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house')"
           value: "'with_residents'"
           share: 0.5
-
-
-
-    
-
   # building_levels_residential:
   #   point:
   #     poi:

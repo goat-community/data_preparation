@@ -14,7 +14,11 @@ class PopulationPreparation():
         
         
     def disaggregate_population(self, sub_study_area_id: int):
-        
+        """Disaggregate population for sub study area
+
+        Args:
+            sub_study_area_id (int): ID of sub study area
+        """        
         
         print_info(f"Disaggregate population for sub study area {sub_study_area_id}")
         # Get sum of gross floor area of buildings in sub study area
@@ -33,7 +37,10 @@ class PopulationPreparation():
         
         sql_disaggregate_population = f"""
             INSERT INTO temporal.population (population, building_id, geom, sub_study_area_id)
-            SELECT gross_floor_area_residential::float / {sum_gross_floor_area}::float * s.population::float AS population, b.id, ST_CENTROID(b.geom), s.id 
+            SELECT CASE WHEN {sum_gross_floor_area}::float * s.population != 0 
+            THEN gross_floor_area_residential::float / {sum_gross_floor_area}::float * s.population::float 
+            ELSE 0 END AS population, 
+            b.id, ST_CENTROID(b.geom), s.id 
             FROM basic.building b, basic.sub_study_area s
             WHERE s.id = {sub_study_area_id}
             AND ST_Intersects(b.geom, s.geom)
@@ -46,8 +53,6 @@ class PopulationPreparation():
         
     def run(self, study_area_ids: list[int]):
         
-        study_area_ids = [5334,5358,5370,8315,8316,9161,9163,9173,9174,9175,9177,9178,9179,9184,9186,9188,9261,9262,9263,9274,9361,9362,9363,9461,9462,9463,9464,9474,9561,9562,9563,9564,9565,9572,9573,9574,9576,9661,9662,9663,9761,9762,9763,9764,14626,83110000,91620000]
-
         sql_sub_study_area_ids = f"SELECT id FROM basic.sub_study_area WHERE study_area_id IN ({str(study_area_ids)[1:-1]});"
         sub_study_area_ids = self.db.select(sql_sub_study_area_ids)
         sub_study_area_ids = [id for id, in sub_study_area_ids]
@@ -68,9 +73,9 @@ class PopulationPreparation():
 
 def main():
     
-    study_area_ids = [5334,5358,5370,8315,8316,9161,9163,9173,9174,9175,9177,9178,9179,9184,9186,9188,9261,9262,9263,9274,9361,9362,9363,9461,9462,9463,9464,9474,9561,9562,9563,9564,9565,9572,9573,9574,9576,9661,9662,9663,9761,9762,9763,9764,14626,83110000,91620000]
+    study_area_ids = [11000009]
     db_rd = Database(settings.REMOTE_DATABASE_URI)
-    PopulationPreparation(db_rd, "de").run(study_area_ids)
+    PopulationPreparation(db_rd, "uk").run(study_area_ids)
      
 if __name__ == "__main__":
     main()   

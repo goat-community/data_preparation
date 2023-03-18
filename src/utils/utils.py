@@ -198,7 +198,7 @@ def create_table_dump(
 
     try:
         dir_output = os.path.join(
-            os.path.abspath(os.curdir),
+            "/app",
             "src",
             "data",
             "output",
@@ -241,7 +241,7 @@ def restore_table_dump(
         raise ValueError(f"Format {format} not supported")
 
     dir_output = os.path.join(
-        os.path.abspath(os.curdir),
+        "app",
         "src",
         "data",
         "output",

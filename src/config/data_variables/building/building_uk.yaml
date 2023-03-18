@@ -1,0 +1,65 @@
+region_pbf:
+  [
+    "https://download.geofabrik.de/europe/great-britain/england/greater-london-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/great-britain/england/hertfordshire-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/great-britain/england/essex-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/great-britain/england/kent-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/great-britain/england/surrey-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/great-britain/england/buckinghamshire-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/great-britain/england/berkshire-latest.osm.pbf"
+  ]
+
+collection:
+  osm_tags:
+    building: [True]
+  additional_columns:
+    [
+      "amenity",
+      "leisure",
+      "addr:street",
+      "addr:housenumber",
+      "building:levels",
+      "roof:levels",
+    ]
+  nodes: False
+  ways: True
+  relations: False
+
+preparation:
+  average_building_levels: 4
+  average_roof_levels: 1
+
+  classification:
+    residential_status:
+      point:
+        poi:
+          query: "SELECT count(*) AS count FROM basic.poi p"
+          value: "'no_residents'"
+          count: 10
+        poi1:
+          query: "SELECT count(*) as count FROM basic.poi p WHERE category IN ('primary_school', 'secondary_school', 'bus_stop', 'rail_station', 'subway_entrance', 'tram_stop')"
+          value: "'no_residents'"
+          count: 1 
+
+      polygon:
+        building_osm:
+          query: "SELECT way AS geom FROM building_osm WHERE amenity IS NOT NULL"
+          value: "'no_residents'"
+          share: 0.5
+
+        building_osm2:
+          query: "SELECT way AS geom FROM building_osm WHERE building NOT IN ('yes', 'apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house', 'allotment_house', 'apartment', 'apartments', 'apartments;residential', 'apartments;yes', 'maisonette', 'mobile_home', 'terrace', 'terraced', 'terraced_house', 'terrace_house')"
+          value: "'no_residents'"
+          share: 0.5
+        
+        landuse_osm:
+          query: "SELECT way AS geom FROM temporal.landuse_osm l WHERE (ARRAY_REMOVE(ARRAY[amenity, landuse, leisure, tourism, natural_category], NULL))[1] NOT IN ('allotments', 'apartment', 'residential', 'residential_home', 'retail;residential', 'student_accommodation', 'yes')"
+          value: "'no_residents'"
+          share: 0.5
+        
+        urban_atlas:
+          query: "SELECT geom FROM temporal.urban_atlas_london_subdivided WHERE class_2018 IN ('Airports', 'Arable land (annual crops)', 'Construction sites', 'Forests', 'Green urban areas', 'Herbaceous vegetation associations (natural grassland, moors...)', 'Industrial, commercial, public, military and private units', 'Isolated structures', 'Land without current use', 'Mineral extraction and dump sites','Open spaces with little or no vegetation (beaches, dunes, bare rocks, glaciers)','Pastures',	'Permanent crops (vineyards, fruit trees, olive groves)','Port areas','Railways and associated land','Sports and leisure facilities','Water','Wetlands')"
+          value: "'no_residents'"
+          share: 0.5
+
+      
