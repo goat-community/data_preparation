@@ -5,28 +5,33 @@ import subprocess
 import psycopg2
 import time
 from src.config.config import Config
-from src.db.config import DATABASE
 from src.db.db import Database
-from src.other.utils import print_info, print_warning, print_hashtags, create_pgpass_for_db, create_table_dump, download_link, create_table_schema
+from src.utils.utils import (
+    print_info,
+    print_hashtags,
+    create_table_dump,
+    create_table_schema,
+)
 from multiprocessing.pool import Pool
-from collection.osm_collection_base import OsmCollection
+from src.collection.osm_collection_base import OSMBaseCollection
 from src.preparation.network_islands import NetworkIslands
-from src.other.utils import create_table_schema
+from src.utils.utils import create_table_schema, create_pgpass, restore_table_dump
+from src.core.config import settings
+
 
 class NetworkPreparation:
     """Class to prepare the routing network. It processs the network in chunks and prepares the different attributes (e.g., slopes)."""
 
-    def __init__(self, db):
+    def __init__(self, db: Database, config: Config):
         self.db = db
-        self.root_dir = '/app'
-        self.dbname, self.host, self.username, self.port = (
-            DATABASE["dbname"],
-            DATABASE["host"],
-            DATABASE["user"],
-            DATABASE["port"],
-        )
-        self.DATABASE = DATABASE
-        self.config_ways_preparation = Config("ways").preparation
+        self.root_dir = "/app"
+        self.db_config = db.db_config
+        self.dbname = self.db_config.path[1:]
+        self.user = self.db_config.user
+        self.host = self.db_config.host
+        self.port = self.db_config.port
+        self.password = self.db_config.password
+        self.config_ways_preparation = config.preparation
         self.available_cpus = os.cpu_count()
 
     def create_processing_units(self):
@@ -42,7 +47,7 @@ class NetworkPreparation:
                 FROM 
                 (
                 SELECT ST_ExteriorRing((ST_Dump(st_union(geom))).geom) As geom
-                FROM osm_extract_boundaries 
+                FROM network_osm_boundary 
                 ) s
             )
             SELECT ST_MULTI(create_equal_area_split_polygon(b.geom, 1))
@@ -62,7 +67,7 @@ class NetworkPreparation:
         self.db.perform(sql_fill_table)
         self.db.perform(sql_create_index)
         self.db.perform(sql_add_ways_status_column)
-    
+
     def create_edge_indizes(self):
         sql_create_index = """
         ALTER TABLE basic.edge ADD PRIMARY KEY(id);
@@ -77,10 +82,19 @@ class NetworkPreparation:
         self.db.perform(sql_create_index)
 
     def update_network_ids(self):
-        """Update the network ids with preset values from existing network to be unique.
-        """        
-        previous_node_id = self.config_ways_preparation['node_previous_id']
-        previous_edge_id = self.config_ways_preparation['edge_previous_id']
+        """Update the network ids with preset values from existing network to be unique."""
+
+        if (
+            self.config_ways_preparation["node_previous_id"]
+            or not self.config_ways_preparation["edge_previous_id"]
+        ):
+            print_info(
+                "Network ids will not be updated as previous node or edge id are not set."
+            )
+            return
+
+        previous_node_id = self.config_ways_preparation["node_previous_id"]
+        previous_edge_id = self.config_ways_preparation["edge_previous_id"]
         # Update the node ids to match the ids from existing network tables
         sql_create_node_columns = f"""
             ALTER TABLE basic.node 
@@ -88,13 +102,13 @@ class NetworkPreparation:
 
         """
         db.perform(sql_create_node_columns)
-        
+
         sql_update_node_id = f"""
             UPDATE basic.node
             SET new_id = cnt + {previous_node_id};
         """
         db.perform(sql_update_node_id)
-        
+
         sql_update_edge_nodes = f"""
             UPDATE basic.edge e 
             SET source = n.new_id
@@ -114,13 +128,13 @@ class NetworkPreparation:
             DROP COLUMN cnt;
         """
         db.perform(sql_update_edge_nodes)
-        
+
         # Update the edge ids to match the ids from existing network tables
         sql_create_edge_columns = """ALTER TABLE basic.edge
         ADD COLUMN new_id integer, ADD COLUMN cnt serial;
         """
         db.perform(sql_create_edge_columns)
-        
+
         sql_update_edge_ids = f"""
         UPDATE basic.edge
         SET id = cnt + {previous_edge_id};
@@ -128,7 +142,7 @@ class NetworkPreparation:
         DROP COLUMN cnt; 
         """
         db.perform(sql_update_edge_ids)
-        
+
     def create_street_crossings(self):
         sql_street_crossings = """
             --Create table that stores all street crossings
@@ -162,19 +176,21 @@ class NetworkPreparation:
 
     def dump_network(self, data_only=False):
         """Dump the network tables individual files."""
-        create_pgpass_for_db(self.DATABASE)
-        create_table_dump(self.DATABASE, 'basic.edge', data_only)
-        create_table_dump(self.DATABASE, 'basic.node', data_only)
+        create_pgpass(self.db_config)
+        create_table_dump(self.db_config, "basic.edge", 'dump', data_only)
+        create_table_dump(self.db_config, "basic.node", 'dump', data_only)
 
 
 # These functions are not in the class as there where difficulaties when running it in parallel
 def prepare_ways_one_core(processing_unit_id):
-    connection_string = " ".join(("{}={}".format(*i) for i in DATABASE.items()))
+
+    # Get seperate connection to the database
+    connection_string = f"dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} password={settings.POSTGRES_PASSWORD} host={settings.POSTGRES_HOST} port={settings.POSTGRES_PORT}"
     conn = psycopg2.connect(connection_string)
     cur = conn.cursor()
-    config_ways_preparation = Config("ways").preparation
+    config_ways_preparation = Config("network").preparation
     impedance_surface_object = json.dumps(config_ways_preparation["cycling_surface"])
-    
+
     sql_select_ways_ids = f"""
         SELECT ARRAY_AGG(w.gid) AS ways_ids  
         FROM ways w, processing_units p 
@@ -203,7 +219,7 @@ def prepare_ways_one_core(processing_unit_id):
             );"""
 
             try:
-                cur.execute(sql_perform_preparation)	
+                cur.execute(sql_perform_preparation)
                 # Log success
                 cur.execute(
                     f"""
@@ -211,7 +227,7 @@ def prepare_ways_one_core(processing_unit_id):
                     preparation_status = 'p'
                     WHERE gid = {way_id};
                     """
-                )		
+                )
                 conn.commit()
 
             except:
@@ -227,7 +243,7 @@ def prepare_ways_one_core(processing_unit_id):
                 )
                 conn.commit()
                 continue
-    
+
     conn.close()
     print_hashtags()
     print("Finished processing unit: ", processing_unit_id)
@@ -239,7 +255,7 @@ def prepare_ways(db):
         TRUNCATE TABLE basic.edge;
     """
     db.perform(sql_delete_network)
-    
+
     sql_read_processing_units = f"""
         SELECT id
         FROM processing_units;		
@@ -253,7 +269,7 @@ def prepare_ways(db):
 
     # Execute in parallel 100 processing units at a time
     for i in range(0, len(processing_units), 100):
-        processing_unit_ids = processing_units[i:i+100]
+        processing_unit_ids = processing_units[i : i + 100]
         pool = Pool(processes=os.cpu_count())
         pool.map(prepare_ways_one_core, (processing_unit_ids))
         pool.close()
@@ -263,30 +279,37 @@ def prepare_ways(db):
     print_hashtags()
 
 
-def perform_network_preparation(db, use_poly=True, data_only=False):
-    osm_collection = OsmCollection(DATABASE)
+def perform_network_preparation(db, region: str, data_only=False):
+    osm_collection = OSMBaseCollection(
+        db_config=db.db_config, dataset_type="network", region=region
+    )
 
     # Import needed data into the database
-    # osm_collection.network_collection(db)
-    # osm_collection.create_osm_extract_boundaries(db, use_poly)
     # osm_collection.import_dem()
-    
+
     # Prepare network
-    Config("ways").download_db_schema()
-    preparation = NetworkPreparation(db)
-    create_table_schema(db, DATABASE, 'basic.edge')
-    create_table_schema(db, DATABASE, 'basic.node')
-    db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);") 
-    
-    preparation.create_processing_units()
-    prepare_ways(db)
-    preparation.create_edge_indizes()
-    NetworkIslands(DATABASE).find_network_islands()
-    preparation.create_street_crossings()
-    preparation.update_network_ids()
-    preparation.dump_network(data_only=data_only)
+    config = Config("network", region)
+    # config.download_db_schema()
+    preparation = NetworkPreparation(db, config)
+    # create_table_schema(db, 'basic.edge')
+    # create_table_schema(db, 'basic.node')
+    # db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);")
+
+    # preparation.create_processing_units()
+    # prepare_ways(db)
+    # preparation.create_edge_indizes()
+    # NetworkIslands(db.db_config, config).find_network_islands()
+    # preparation.create_street_crossings()
+    #preparation.update_network_ids()
+    #preparation.dump_network(data_only=data_only)
     db.conn.close()
+    
 
 
-db = Database(DATABASE)
-perform_network_preparation(db, use_poly=True, data_only=True)
+db = Database(settings.LOCAL_DATABASE_URI)
+perform_network_preparation(db, "de", data_only=False)
+
+db_rd = Database(settings.REMOTE_DATABASE_URI)
+create_pgpass(db_rd.db_config)
+restore_table_dump(db_rd.db_config, "basic.node", 'dump', data_only=False)
+restore_table_dump(db_rd.db_config, "basic.edge", 'dump', data_only=False)

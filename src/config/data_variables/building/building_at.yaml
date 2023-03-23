@@ -1,0 +1,171 @@
+region_pbf: ["https://download.geofabrik.de/europe/austria-latest.osm.pbf"]
+
+collection:
+  osm_tags:
+    building: [True]
+  additional_columns:
+    [
+      "amenity",
+      "leisure",
+      "addr:street",
+      "addr:housenumber",
+      "building:levels",
+      "roof:levels",
+    ]
+  nodes: False
+  ways: True
+  relations: False
+
+preparation:
+  average_building_levels: 3
+  average_roof_levels: 1
+
+  classification:
+    residential_status:
+      attribute:
+        building_type:
+          with_residents:
+            [
+              "Wohnnutzung",
+              "apartments",
+              "bungalow",
+              "detached",
+              "dormitory",
+              "residential",
+              "house",
+              "terrace",
+              "home",
+              "semidetached_house",
+            ]
+          no_residents:
+            [
+              "air_shaft",
+              "allotment_house",
+              "barn",
+              "barrack",
+              "betriebliche Nutzung",
+              "boathouse",
+              "bridge",
+              "bunker",
+              "cabin",
+              "carport",
+              "castle",
+              "cathedral",
+              "chapel",
+              "church",
+              "civic",
+              "college",
+              "commercial",
+              "comtainer",
+              "conservatory",
+              "construction",
+              "container",
+              "containers",
+              "convent",
+              "demolished",
+              "depot",
+              "disused",
+              "doctors",
+              "electricity",
+              "farm",
+              "farm_auxiliary",
+              "fire_station",
+              "florist",
+              "funeral_hall",
+              "garage",
+              "garages",
+              "gazebo",
+              "generic",
+              "glasshouse",
+              "government",
+              "granary",
+              "grandstand",
+              "grass",
+              "greenhouse",
+              "guardhouse",
+              "hangar",
+              "hospital",
+              "hotel",
+              "hut",
+              "indoor_swimming_pool",
+              "industrial",
+              "kabane",
+              "kindergarten",
+              "kiosk",
+              "mall",
+              "mansion",
+              "manufacture",
+              "mausoleum",
+              "monastery",
+              "mosque",
+              "museum",
+              "music_school",
+              "no",
+              "öffentliche Einrichtung",
+              "office",
+              "palace",
+              "parish_hall",
+              "parking",
+              "pavilion",
+              "pavillon",
+              "pergola",
+              "power",
+              "presbytery",
+              "public",
+              "religious",
+              "retail",
+              "roof",
+              "ruined",
+              "ruins",
+              "scaffolding",
+              "school",
+              "school;apartments",
+              "school;dormitory",
+              "service",
+              "shed",
+              "shelter",
+              "ship",
+              "silo",
+              "Sonstige",
+              "sport",
+              "sports_center",
+              "sports_centre",
+              "sports_hall",
+              "stable",
+              "stadium",
+              "staircase",
+              "static_caravan",
+              "station",
+              "storage_tank",
+              "supermarket",
+              "swimming_pool",
+              "synagogue",
+              "temple",
+              "tent",
+              "toilets",
+              "tower",
+              "train_station",
+              "transformer_tower",
+              "transportation",
+              "university",
+              "villa",
+              "warehouse",
+              "water_tower",
+              "wayside_chapel",
+              "wayside_shrine",
+              "weir",
+              "well",
+            ]
+
+      point:
+        poi:
+          query: "SELECT count(*) AS count FROM basic.poi p"
+          value: "'no_residents'"
+          count: 5
+
+      polygon:
+        landuse:
+          query: "SELECT geom FROM temporal.wien_landuse WHERE nutzung_l0 IN('Landwirtschaft','Technische Infrastruktur/Kunstbauten/Sondernutzung','Straßenraum','weitere verkehrliche Nutzungen','Industrie- und Gewerbenutzung','Naturraum','Erholungs- u. Freizeiteinrichtungen','Gewässer','soziale Infrastruktur')"      
+          value: "'no_residents'"
+          share: 0.5
+

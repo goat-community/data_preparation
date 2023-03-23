@@ -1,16 +1,14 @@
-from src.db.db import Database
-from src.db.config import DATABASE_RD
-from src.other.utils import (
-    print_info,
-    print_hashtags,
-    print_warning,
-)
-import urllib.parse
-import os
 import argparse
+import os
 import subprocess
+import urllib.parse
+import json, requests
+from src.core.config import settings
+from src.db.db import Database
+from src.utils.utils import print_hashtags, print_info, print_warning, delete_dir
 
-#TODO: Implement with Argparse after further testing
+
+# TODO: Implement with Argparse after further testing
 def parse_args(args=None):
     # define the flags and their default values
     parser = argparse.ArgumentParser()
@@ -23,8 +21,7 @@ def parse_args(args=None):
 
 
 class PrepareKart:
-    """Clone Kart repo and setup with workingcopy in PostgreSQL
-    """ 
+    """Clone Kart repo and setup with workingcopy in PostgreSQL"""
 
     def __init__(self, db, repo_url: str, maintainer: str, table_name: str):
         """Initialize class
@@ -34,7 +31,7 @@ class PrepareKart:
             repo_url (str): URL of the repository
             maintainer (str): Name of the maintainer (PostgreSQL user)
             table_name (str): Name of the table
-        """        
+        """
         self.db = db
         self.path_ssh_key = "/app/id_rsa"
         self.data_folder = "/app/src/data"
@@ -47,34 +44,138 @@ class PrepareKart:
         self.schema_name = f"kart_{table_name}_{maintainer}"
 
         # Get repo name and user name from URL
-        self.repo_owner, self.repo_name = parsed_url.path.strip('/').split('/')
+        self.repo_owner, self.repo_name = parsed_url.path.strip("/").split("/")
         self.git_domain = parsed_url.netloc
-        self.repo_ssh_url = f'git@{self.git_domain}:{self.repo_owner}/{self.repo_name}'
-        self.path_repo = os.path.join(self.data_folder, self.repo_name + "_" + self.maintainer)
+        self.repo_ssh_url = f"git@{self.git_domain}:{self.repo_owner}/{self.repo_name}"
+        self.path_repo = os.path.join(
+            self.data_folder, self.repo_name + "_" + self.maintainer
+        )
+        self.github_api_url = "https://api.github.com/repos"
 
     def clone_data_repo(self):
-        """Clone Kart repository or pull recent changes
-        """        
+        """Clone Kart repository or pull recent changes"""
 
         # Check if folder exists
         if os.path.exists(self.path_repo):
-            print_info(f"Folder {self.path_repo} already exists. Recent changes will be pulled.")
-            # Open the repository
-            os.chdir(self.path_repo)
+            print_info(f"Folder {self.path_repo} already exists. It will be deleted.")
+            # Delete folder
+            delete_dir(self.path_repo)
+
+        # Clone repo
+        print_info(f"Cloning repository {self.repo_ssh_url} to {self.path_repo}.")
+        subprocess.run(
+            f"kart clone {self.repo_ssh_url} {self.path_repo}",
+            shell=True,
+            check=True,
+        )
+        return
+
+    def create_new_branch(self, branch_name: str):
+        """Create new branch in Kart repository
+
+        Args:
+            branch_name (str): Name of the branch
+        """
+        os.chdir(self.path_repo)
+        subprocess.run(
+            f"kart branch {branch_name}",
+            shell=True,
+            check=True,
+        )
+        print_info(f"Branch {branch_name} created")
+        return
+
+    def checkout_branch(self, branch_name: str):
+        """Checkout branch in Kart repository"""
+        os.chdir(self.path_repo)
+        subprocess.run(
+            f"kart checkout {branch_name}",
+            shell=True,
+            check=True,
+        )
+        return
+
+    def status(self):
+        """Print Kart status"""
+        os.chdir(self.path_repo)
+        # Return status
+        status = subprocess.check_output(f"kart status", shell=True)
+        return status.decode("utf-8")
+
+    def commit(self, commit_message: str):
+        """Commit changes in Kart repository
+
+        Args:
+            commit_message (str): Commit message
+        """
+        os.chdir(self.path_repo)
+
+        if "Nothing to commit, working copy clean" not in self.status():
             subprocess.run(
-                f"kart pull",
+                f"kart commit -m '{commit_message}'",
                 shell=True,
                 check=True,
             )
-        else: 
-            # Clone repo
-            print_info(f"Cloning repository {self.repo_ssh_url} to {self.path_repo}.")
-            subprocess.run(
-                f"kart clone {self.repo_ssh_url} {self.path_repo}",
-                shell=True,
-                check=True,
-            ) 
-        return 
+        else:
+            print_info("Nothing to commit, working copy clean")
+        return
+
+    def push(self, branch_name: str):
+        """Push Kart repository to remote"""
+        os.chdir(self.path_repo)
+        subprocess.run(
+            f"kart push --set-upstream origin {branch_name}",
+            shell=True,
+            check=True,
+        )
+
+    def create_pull_request(
+        self,
+        branch_name: str,
+        base_branch: str = "main",
+        title: str = "",
+        body: str = "",
+    ):
+        # Extract owner and repo name from the repo URL
+        _, _, _, owner, repo_name = self.repo_url.split("/")
+
+        # Set the necessary authentication headers
+        auth_header = {"Authorization": f"Bearer {settings.GITHUB_ACCESS_TOKEN}"}
+
+        # Set the API endpoint and the repository information
+        api_endpoint = f"{self.github_api_url}/{owner}/{repo_name}/pulls"
+
+        # Create the payload for the API request
+        payload = {
+            "title": title,
+            "body": body,
+            "head": branch_name,
+            "base": base_branch,
+        }
+
+        # Convert the payload to a JSON string
+        payload_json = json.dumps(payload)
+
+        # Make the API request to create the pull request
+        response = requests.post(api_endpoint, headers=auth_header, data=payload_json)
+
+        # Check if the request was successful
+        if response.status_code == 201:
+            print(f"Pull request created successfully for branch {branch_name}")
+        else:
+            print(
+                f"Failed to create pull request for branch {branch_name}: {response.text}"
+            )
+
+    def restore(self):
+        """Restore Kart repository to last commit"""
+        os.chdir(self.path_repo)
+        subprocess.run(
+            f"kart restore",
+            shell=True,
+            check=True,
+        )
+        return
 
     def create_schema(self):
         """Create empty kart schema in PostgreSQL and grant privileges to maintainer
@@ -82,13 +183,7 @@ class PrepareKart:
         Raises:
             Exception: Schema already exists
             Exception: User does not exist (PostgreSQL user)
-        """        
-        sql_check_schema = f"""SELECT EXISTS (
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name = '{self.schema_name}'
-        );"""
-
+        """
         sql_check_user = f"""SELECT EXISTS (
             SELECT usename
             FROM pg_catalog.pg_user
@@ -99,15 +194,9 @@ class PrepareKart:
         if not self.db.select(sql_check_user)[0][0]:
             raise Exception(f"User {self.maintainer} does not exist")
 
-        # Check if schema exists
-        if self.db.select(sql_check_schema)[0][0]:
-            print_warning(
-                f"Schema {self.schema_name} already exists. You want to delete it? (y/n)")
-            if input() == "y":
-                self.db.perform(f"DROP SCHEMA {self.schema_name} CASCADE")
-                print_info(f"Schema {self.schema_name} deleted")
-            else:
-                raise Exception(f"You cannot initialize kart on an existing schema.")
+        # Drop schema if it already exists
+        self.db.perform(f"DROP SCHEMA {self.schema_name} CASCADE")
+        print_info(f"Schema {self.schema_name} deleted")
 
         # Create schema
         sql_create_schema = f"""CREATE SCHEMA {self.schema_name};"""
@@ -129,11 +218,11 @@ class PrepareKart:
 
     def kart_remote_workingcopy(self):
         """Create Kart remote working copy"""
-        
+
         os.chdir(self.path_repo)
         # Execute command in command line to create Kart remote working copy
         subprocess.run(
-            f'kart create-workingcopy postgresql://{self.db.db_config["user"]}:{self.db.db_config["password"]}@{self.db.db_config["host"]}/{self.db.db_config["dbname"]}/{self.schema_name}',
+            f"kart create-workingcopy postgresql://{self.db.db_config.user}:{self.db.db_config.password}@{self.db.db_config.host}{self.db.db_config.path}/{self.schema_name} --delete-existing",
             shell=True,
             check=True,
         )
@@ -145,7 +234,7 @@ class PrepareKart:
 
     def prepare_schema_poi(self):
         """Prepare a database schema for POI"""
-        
+
         sql_constraints_poi_category = f"""
            ALTER TABLE {self.schema_name}.poi_categories ADD CONSTRAINT poi_category_key UNIQUE (category);
            ALTER TABLE {self.schema_name}.poi_categories ALTER COLUMN category SET NOT NULL;
@@ -164,6 +253,7 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN y_rounded SET NOT NULL;
             ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN uid_count SET NOT NULL;
             ALTER TABLE {self.schema_name}.poi_uid ADD CONSTRAINT poi_uid_uid_key UNIQUE (uid);
+            CREATE INDEX ON {self.schema_name}.poi_uid (x_rounded, y_rounded, category);
             ALTER TABLE {self.schema_name}.poi_uid ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category);
             ALTER TABLE {self.schema_name}.poi_uid OWNER TO {self.maintainer};
         """
@@ -192,7 +282,6 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT website_check CHECK (website ~* '^[a-z](?:[-a-z0-9\+\.])*:(?:\/\/(?:(?:%[0-9a-f][0-9a-f]|[-a-z0-9\._~!\$&''\(\)\*\+,;=:@])|[\/\?])*)?' :: text);
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT uid_count_check CHECK (uid_count BETWEEN 0 AND 9999);
@@ -203,11 +292,28 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.poi OWNER TO {self.maintainer};
             """
+
+        # SQL check of timestamp is in ZULU UTC format
+
+        sql_constraints_data_subscription = f"""
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN nuts_id SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN category SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source_date SET NOT NULL; 
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN rule SET NOT NULL; 
+            ALTER TABLE {self.schema_name}.data_subscription ADD CONSTRAINT rule_check CHECK (rule IN ('subscribe', 'unsubscribe'));
+            ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
+            ALTER TABLE {self.schema_name}.nuts ADD CONSTRAINT nuts_key UNIQUE ("nuts_id");
+            ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (nuts_id) REFERENCES {self.schema_name}.nuts("nuts_id") ON DELETE CASCADE;
+            ALTER TABLE {self.schema_name}.data_subscription OWNER TO {self.maintainer};
+        """
+
         self.db.perform(sql_constraints_poi_category)
         self.db.perform(sql_constraints_data_source)
         self.db.perform(sql_constraints_poi_uid)
         self.db.perform(sql_constraints_poi)
-        
+        self.db.perform(sql_constraints_data_subscription)
+
         sql_create_trigger = f"""
             CREATE OR REPLACE FUNCTION {self.schema_name}.update_poi_trigger()
             RETURNS TRIGGER AS $$
@@ -263,14 +369,21 @@ class PrepareKart:
             EXECUTE PROCEDURE {self.schema_name}.update_poi_trigger();
         """
         self.db.perform(sql_create_trigger)
-  
-        
+
+    def prepare_kart(self):
+        """Run all functions to prepare Kart for POI data"""
+        self.clone_data_repo()
+        self.create_schema()
+        self.kart_remote_workingcopy()
+        self.prepare_schema_poi()
+
+
 def main():
     # args = parse_args()
     # repo_url = args.repo_url
     # maintainer = args.maintainer
     # table_name = args.table_name
-    
+
     print_hashtags()
     print_info("Start Prepare Kart")
     print_hashtags()
@@ -280,23 +393,24 @@ def main():
     maintainer = input("Enter name of maintainer: ")
     # Get from user name of table
     supported_tables = ["poi"]
-    table_name = input(f"""Enter one of the following table name "{','.join(supported_tables)}": """)
+    table_name = input(
+        f"""Enter one of the following table name "{','.join(supported_tables)}": """
+    )
     if table_name not in supported_tables:
         raise Exception("Table name not supported")
 
     # Init db and class
-    db = Database(DATABASE_RD)
+    db = Database(settings.REMOTE_DATABASE_URI)
     prepare_kart = PrepareKart(
-        db, repo_url=repo_url, maintainer=maintainer, table_name=table_name)
-    
-    prepare_kart.clone_data_repo()
-    prepare_kart.create_schema()
-    prepare_kart.kart_remote_workingcopy()
-    prepare_kart.prepare_schema_poi()
+        db, repo_url=repo_url, maintainer=maintainer, table_name=table_name
+    )
+
+    prepare_kart.prepare_kart()
 
     print_hashtags()
     print_info("End Prepare Kart")
     print_hashtags()
-    
+
+
 if __name__ == "__main__":
     main()

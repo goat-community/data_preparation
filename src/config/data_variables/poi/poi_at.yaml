@@ -1,0 +1,127 @@
+region_pbf : [
+    "https://download.geofabrik.de/europe/austria-latest.osm.pbf"
+]
+collection:
+  osm_tags:
+    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                "charging_station", "bus_station", "playground", "post_office"]
+    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+    tourism : ["hotel", "museum", "hostel", "guest_house"]
+    railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+    leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
+    sport   : ["yoga", "fitness"]
+    highway : ["bus_stop"]
+    public_transport : ["stop_position", "station"]
+
+  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                        "opening_hours", "operator", "origin", "organic", "subway"]
+  nodes : True
+  ways : True
+  relations : True
+  
+preparation:
+  supermarket:
+    classify_by_name:
+      supermarket: 
+        children:
+          spar     : ["spar"]
+          adeg     : ["adeg"]
+          billa     : ["billa"]
+          mpreis : ["mpreis"]
+          nah & frisch : ["nah & frisch"]
+          okay: ["okay"]
+          sütterlüty: ["sütterlüty"]
+          unimarkt: ["unimarkt"]
+
+        threshold: 0.7
+
+      discount_supermarket: 
+        children:
+          aldi  : ["aldi", "hofer"]
+          lidl  : ["lidl"]
+          netto : ["netto"]
+          norma : ["norma"]
+          penny : ["penny"]
+        threshold: 0.8
+
+      hypermarket: 
+        children:
+          kaufland  : ["kaufland"]
+          hit       : ["hit"]
+          globus    : ["globus"]
+          marktkauf: ["marktkauf"]
+          maximarkt: ["maximarkt"]
+        threshold: 0.9
+
+      wholesale: 
+        children:
+          metro     : ["metro"]
+          hamberger : ["hamberger"]
+        threshold: 0.7
+      
+      organic_supermarket:
+        children:
+          denn's Biomarkt : ["denn's", "denns", "denn"]
+          alnatura : ["alnatura"]
+          vollcorner : ["vollcorner"]
+          reformhaus : ["reformhaus"]
+          naturkost : ["naturkost"]
+          bio: ["bio", "bioladen"]
+          vitalia : ["vitalia"]
+          basic: ["basic"]
+        threshold: 0.7
+      
+      chemist: 
+        children:
+          rossmann : ["rossmann"]
+          müller : ["müller", "mueller"]
+          drogerie: ["drogerie"]
+          bipa: ["bipa"]
+        threshold: 0.7
+      
+      variety_store: 
+        children:
+          tedi : ["tedi"]
+        threshold: 0.7
+      # This should be international_supermarket, but it is merged with convenience
+      convenience:
+        children:
+          turkish : ["türkisch", "turkish", "turk"]
+          asia : ["asia", "asien", "asiatische"]
+          other : ["italienisch", "polnische", "spanische", "russisch"]
+          mix markt : ["mix markt"]
+          etsan: ["etsan"]
+        threshold: 0.7
+
+    classify_by_tag:
+      # This should be international_supermarket, but it is merged with convenience
+      international_supermarket:
+        origin: [True] 
+      organic_supermarket:
+        organic: ["only"]
+      chemist:
+        name: ["dm"]
+    unmatched: "convenience"
+
+  health_food: 
+    classify_by_tag:
+      organic_supermarket:
+        shop: ["health_food"]
+
+  chemist:
+    classify_by_tag:
+      chemist:
+        shop: ["chemist"]
+
+  convenience: 
+    inherit: "supermarket"
+  grocery: 
+    inherit: "supermarket"
+  deli: 
+    inherit: "supermarket"
+  
+subscription:
+  repo_url: "https://github.com/goat-community/poi"
+    

@@ -1,7 +1,6 @@
 """This module contains all classes and functions for database interactions."""
 # Code based on
 # https://github.com/hackersandslackers/psycopg2-tutorial/blob/master/psycopg2_tutorial/db.py
-import logging as LOGGER
 import psycopg2
 from sqlalchemy import create_engine
 
@@ -12,12 +11,8 @@ class Database:
         try:
             self.conn = psycopg2.connect(self.db_config)
         except psycopg2.DatabaseError as e:
-            LOGGER.error(e)
             raise e
-        finally:
-            LOGGER.getLogger().setLevel(LOGGER.INFO)   # To show logging.info in the console
-            LOGGER.info('Connection opened successfully.')
-            
+    
     def return_sqlalchemy_engine(self):  
         """This will create SQLAlchemy engine for the database"""
         return create_engine(self.db_config, future=False)

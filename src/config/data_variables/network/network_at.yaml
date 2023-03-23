@@ -1,0 +1,33 @@
+region_pbf: [
+    "https://download.geofabrik.de/europe/austria-latest.osm.pbf"
+  ]
+collection: 
+preparation:
+  excluded_class_id_walking: [0,101,102,103,104,105,106,107,501,502,503,504,701,801]
+  excluded_class_id_cycling: [0,101,102,103,104,105,106,107,501,502,503,504,701,801]
+  categories_no_foot: ["use_sidepath","no"]
+  categories_no_bicycle: ["use_sidepath"]
+  wheelchair:
+    smoothness_no: ["very_bad","horrible","very_horrible","impassable"]
+    smoothness_limited: ['bad']
+    surface_no: ['ground','grass','sand','dirt','unhewn_cobblestone','unpaved']
+    surface_limited: ['gravel']
+    highway_onstreet_yes: ['living_street']
+    highway_onstreet_limited: ['residential','service']
+  categories_sidewalk_no_foot: ["separate"]
+  cycling_surface:
+    paving_stones: '0.2'
+    sett: '0.3'
+    unhewn_cobblestone: '0.3'
+    cobblestone: '0.3'
+    pebblestone: '0.3'
+    unpaved: '0.2'
+    compacted: '0.05'
+    fine_gravel: '0.05'
+    gravel: '0.3'
+    sand: '0.4'
+    grass: '0.25'
+    mud: '0.4'
+  one_meter_degree : 0.000009
+  node_previous_id: 
+  edge_previous_id:

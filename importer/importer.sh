@@ -1,65 +1,69 @@
 #!/usr/bin/bash
-bridge='bridge'
-while true
-do
-    stat=`cat $bridge/stat.txt`
-    # Check if we are ready to import new files.
-    if [ "$stat" == 'ready' ]; then
-        echo 'Its ready.'
-        city=`cat $bridge/city_name.txt`
+# Exit if any command fails
+set -e
+batch_size=10
 
-        # If city is not downloaded before, download it.
-        if test -f "temp/$city.zip"; then
-            echo "city was downloaded before. going for the next step."
-        else
-            rm -r temp/*
-            aws s3 cp "s3://goat30-data/300001907_LoD2/lod2/$city/$city.zip" temp/
-            echo "downloaded city $city"
-        fi
-        
-        # Remove all zip files except the city we are working on.
-        # ls temp/*.zip | grep -xv "$city.zip" | parallel rm
-        # If city not unzipped, unzip it.
-        if [ ! -d "temp/$city" ]; then
-            unzip "temp/$city.zip" -d "temp/$city"
-        fi
+city=$1
 
-        # Read file names and edit to fit to temp directory
-        readarray -t file_names_ < "$bridge/list_of_files.txt"
-        file_names=()
-        for file_name in $file_names_
-        do
-            file_names+=("temp/$city/$file_name")
-        done
-
-        # Create zip for import
-        if test -f "temp/to_import.zip"; then
-            rm temp/to_import.zip
-        fi
-        zip -j temp/to_import ${file_names[@]}
-
-        # Get docker down
-        docker compose down --volumes
-
-        # Get docker up
-        docker compose up -d --wait
-
-        # Wait for docker to get ready
-        sleep_time=10
-        while [ "$sleep_time" -gt 0 ];
-        do
-            echo -en "\rWait $sleep_time seconds to ensure 3d city is ready..."
-            sleep_time=$(($sleep_time-1))
-            sleep 1
-        done
-        echo ''
-        
-        # import data
-        impexp import -c settings.xml temp/to_import.zip
-
-        echo 'imported' > "$bridge/stat.txt"
-        echo ''
+# If city is not downloaded before, download it.
+if test -f "temp/$city.zip"; then
+    echo "city was downloaded before. going for the next step."
+else
+    if [ ! -d "temp" ]; then
+        mkdir temp
+    else
+        rm -r temp/*
     fi
-    echo -en '\rWaiting for data to come in.'
-    sleep 4
+    aws s3 cp "s3://goat30-data/300001907_LoD2/lod2/$city/$city.zip" temp/
+    echo "downloaded city $city"
+fi
+
+# If city is not unzipped before, unzip it.
+if [ ! -d "temp/$city" ]; then
+    unzip "temp/$city.zip" -d "temp/$city"
+fi
+if [ ! -d "temp/$city/done" ]; then
+    mkdir "temp/$city/done/"
+fi
+
+# While there are files to import
+while compgen -G "temp/$city/*.xml" > /dev/null; do
+    # Get docker down
+    docker compose down --volumes
+
+    # Get docker up
+    docker compose up -d --wait
+
+    # # Wait for docker to get ready
+    sleep_time=15
+    while [ "$sleep_time" -gt 0 ];
+    do
+        echo -en "\rWait $sleep_time seconds to ensure 3d city is ready..."
+        sleep_time=$(($sleep_time-1))
+        sleep 1
+    done
+    echo ''
+    
+    # Resize batch size if there are not enough files
+    all_files=(temp/$city/*.xml)
+    files_count=${#all_files[@]}
+    if [ "$files_count" -lt "$batch_size" ]; then
+        batch_size=$files_count
+    fi
+
+    # Import data
+    for file_path in "${all_files[@]: -$batch_size}"; do
+        echo "importing $file_path"
+        /tmp/3DCityDB-Importer-Exporter-5.3.0/3DCityDB-Importer-Exporter-5.3.0/bin/impexp import -c settings.xml $file_path
+    done
+    
+    docker exec -it data_preparation_app python /app/src/collection/building_citygml.py
+
+    # Move file
+    for file_path in "${all_files[@]: -$batch_size}"; do
+        echo "moviving $file_path to done folder"
+        mv "$file_path" "./temp/$city/done/"
+    done
 done
+
+echo "importing is done."

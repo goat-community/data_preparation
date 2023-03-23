@@ -2,8 +2,7 @@ version: "3.9"
 
 networks:
   data_preparation_proxy:
-
-
+    name: data_preparation_proxy
 volumes:
   goat_data_preparation:
   3dcity_db:
@@ -63,23 +62,23 @@ services:
 
 
   
-  3dcity:
-    image: 3dcitydb/3dcitydb-pg
-    environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_3DCITY}
-      - POSTGRES_USER=${POSTGRES_USER_3DCITY}
-      - POSTGRES_DB=${POSTGRES_DB_3DCITY}
-      - POSTGIS_SFCGAL_3DCITY=true
-      - SRID=${SRID}
-      - HEIGHT_EPSG=${HEIGHT_EPSG}
-      - GMLSRSNAME=${GMLSRSNAME}
+  # 3dcity:
+  #   image: 3dcitydb/3dcitydb-pg
+  #   environment:
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_3DCITY}
+  #     - POSTGRES_USER=${POSTGRES_USER_3DCITY}
+  #     - POSTGRES_DB=${POSTGRES_DB_3DCITY}
+  #     - POSTGIS_SFCGAL_3DCITY=true
+  #     - SRID={$SRID}
+  #     - HEIGHT_EPSG={$HEIGHT_EPSG}
+  #     - GMLSRSNAME={$GMLSRSNAME}
 
-    ports:
-      - "${POSTGRES_OUTER_PORT_3DCITY}:5432"
+  #   ports:
+  #     - "${POSTGRES_OUTER_PORT_3DCITY}:5432"
 
-    volumes:
-      - 3dcity_db:/var/lib/postgresql
-    restart: on-failure
-    networks:
-      data_preparation_proxy:
+  #   volumes:
+  #     - 3dcity_db:/var/lib/postgresql
+  #   restart: on-failure
+  #   networks:
+  #     data_preparation_proxy:
 

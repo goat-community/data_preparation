@@ -1,13 +1,15 @@
 version: "3.9"
 networks:
-  data_preparation_proxy:
+  default:
+    external:
+      name: data_preparation_proxy
 
 volumes:
   3dcity_db:
 
 services:
   3dcity:
-    image: 3dcitydb/3dcitydb-pg
+    image: 3dcitydb/3dcitydb-pg:14-3.2-4.3.0
     command: postgres -c 'config_file=/etc/postgresql.conf'
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_3DCITY}

@@ -4,25 +4,11 @@ This is a repository containing the data preparation steps for GOAT.
 
 # Start Database Docker Container and Connect
 
-1. Rename .env_template file to .env
-2. Run `docker-compose up -d`
-3. Connect using the credentials defined in .env
-4. Go inside container and work from it.
-5. Use command line to prepare database `python prepare.py -db`.
+1. Create your personal .env from .env.template
+2. Create your personal id.rsa and id.rsa.pub from the templates
+3. Run `docker-compose up -d`
+4. Work inside the docker container
 
-#  Prepare Layers and Store it in Local Database
+# Import GTFS data
 
-6. Configure preparation settings in `src/config/config.yaml` *See documentation 
-7. Use command line to prepare layers in database tables `python prepare.py -prepare LAYERNAME` (pois, network, landuse, buildings)
-
-# (Optional) Fuse Custom Data with Stored One
-
-8. Configure fusion settings in `src/config/config.yaml` *See documentation
-9. In case of use of data from a remote database, specify credidentials defined in .env for remote database
-10. Use command line to fuse data and store in layers in database tables `python prepare.py -fuse LAYERNAME` (pois)
-
-
-# Check Documentation for Data Preparation
-
-In terminal execute cammand `mkdocs serve`.
-Open webbrowser `http://127.0.0.1:8000/` 
+docker run --rm --network=data_preparation_data_preparation_proxy --volume $(pwd)/src/data/gtfs:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt"
