@@ -400,7 +400,7 @@ def main():
         raise Exception("Table name not supported")
 
     # Init db and class
-    db = Database(settings.REMOTE_DATABASE_URI)
+    db = Database(settings.LOCAL_DATABASE_URI)
     prepare_kart = PrepareKart(
         db, repo_url=repo_url, maintainer=maintainer, table_name=table_name
     )
