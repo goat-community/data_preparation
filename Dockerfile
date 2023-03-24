@@ -26,13 +26,6 @@ RUN node -v
 # Install GTFS-VIA-POSTGRES
 RUN bash -c "cd /home && apt-get update && apt install npm -y && git clone https://github.com/majkshkurti/gtfs-via-postgres.git && cd gtfs-via-postgres && npm install --production && npm cache clean --force && ln -s /home/gtfs-via-postgres/cli.js /usr/local/bin/gtfs-via-postgres"
 
-RUN "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" >>  /etc/apt/sources.list.d/pgdg.list
-RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-RUN apt-get install wget ca-certificates
-RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-RUN apt-get update
-RUN apt-get install postgresql-client-14
-
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml ./poetry.lock* /app/
 ENV PYTHONPATH "${PYTHONPATH}:."
