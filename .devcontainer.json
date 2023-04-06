@@ -9,20 +9,26 @@
     "workspaceFolder": "/app",
     "shutdownAction": "none",
     // Add the IDs of extensions you want installed when the container is created.
-    "extensions": [
-		"ms-python.python",
-		"github.copilot",
-		"ms-vscode.cpptools",
-		"twxs.cmake",
-		"ms-vscode.cmake-tools",
-		"donjayamanne.python-extension-pack",
-		"njpwerner.autodocstring",
-		"gencay.vscode-chatgpt"
-	],
-    "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.formatting.provider": "black",
-        "python.linting.enabled": true,
-        "python.linting.pylintEnabled": true
-    }
+    "customizations": {
+        "vscode":{
+            "extensions": [
+                "ms-python.python",
+                "github.copilot",
+                "ms-vscode.cpptools",
+                "twxs.cmake",
+                "ms-vscode.cmake-tools",
+                "donjayamanne.python-extension-pack",
+                "njpwerner.autodocstring",
+                "gencay.vscode-chatgpt"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.formatting.provider": "black",
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": true
+            }
+
+        }
+    },
+    
 }
