@@ -8,18 +8,6 @@ from src.db.db import Database
 from src.utils.utils import print_hashtags, print_info, print_warning, delete_dir
 
 
-# TODO: Implement with Argparse after further testing
-def parse_args(args=None):
-    # define the flags and their default values
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--repo_url", required=True, help="URL of the repository")
-    parser.add_argument("--maintainer", required=True, help="Name of the maintainer")
-    parser.add_argument("--table_name", required=True, help="Name of the table")
-
-    # parse the command line arguments
-    return parser.parse_args(args)
-
-
 class PrepareKart:
     """Clone Kart repo and setup with workingcopy in PostgreSQL"""
 
@@ -252,7 +240,7 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN x_rounded SET NOT NULL;
             ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN y_rounded SET NOT NULL;
             ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN uid_count SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_uid ADD CONSTRAINT poi_uid_uid_key UNIQUE (uid);
+            --ALTER TABLE {self.schema_name}.poi_uid ADD CONSTRAINT poi_uid_uid_key UNIQUE (uid);
             CREATE INDEX ON {self.schema_name}.poi_uid (x_rounded, y_rounded, category);
             ALTER TABLE {self.schema_name}.poi_uid ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category);
             ALTER TABLE {self.schema_name}.poi_uid OWNER TO {self.maintainer};
@@ -286,8 +274,8 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT uid_count_check CHECK (uid_count BETWEEN 0 AND 9999);
             ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT poi_uid_key UNIQUE (uid);
-            ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (uid) REFERENCES {self.schema_name}.poi_uid(uid) ON DELETE CASCADE;
+            --ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT poi_uid_key UNIQUE (uid);
+            --ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (uid) REFERENCES {self.schema_name}.poi_uid(uid) ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.poi OWNER TO {self.maintainer};
@@ -369,7 +357,7 @@ class PrepareKart:
             EXECUTE PROCEDURE {self.schema_name}.update_poi_trigger();
         """
         self.db.perform(sql_create_trigger)
-
+        
     def prepare_kart(self):
         """Run all functions to prepare Kart for POI data"""
         self.clone_data_repo()
@@ -377,12 +365,22 @@ class PrepareKart:
         self.kart_remote_workingcopy()
         self.prepare_schema_poi()
 
+def parse_args(args=None):
+    # define the flags and their default values
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repo_url", required=True, help="URL of the repository")
+    parser.add_argument("--maintainer", required=True, help="Name of the maintainer")
+    parser.add_argument("--table_name", required=True, help="Name of the table")
+
+    # parse the command line arguments
+    return parser.parse_args(args)
+
 
 def main():
-    # args = parse_args()
-    # repo_url = args.repo_url
-    # maintainer = args.maintainer
-    # table_name = args.table_name
+    args = parse_args()
+    repo_url = args.repo_url
+    maintainer = args.maintainer
+    table_name = args.table_name
 
     print_hashtags()
     print_info("Start Prepare Kart")
