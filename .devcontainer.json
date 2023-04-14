@@ -17,7 +17,8 @@
 		"ms-vscode.cmake-tools",
 		"donjayamanne.python-extension-pack",
 		"njpwerner.autodocstring",
-		"gencay.vscode-chatgpt"
+		"ms-azuretools.vscode-docker",
+		"genieai.chatgpt-vscode"
 	],
     "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
