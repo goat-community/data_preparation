@@ -85,7 +85,7 @@ class NetworkPreparation:
         """Update the network ids with preset values from existing network to be unique."""
 
         if (
-            self.config_ways_preparation["node_previous_id"]
+            not self.config_ways_preparation["node_previous_id"]
             or not self.config_ways_preparation["edge_previous_id"]
         ):
             print_info(
@@ -99,7 +99,6 @@ class NetworkPreparation:
         sql_create_node_columns = f"""
             ALTER TABLE basic.node 
             ADD COLUMN new_id integer, ADD COLUMN cnt serial;
-
         """
         db.perform(sql_create_node_columns)
 
@@ -142,6 +141,10 @@ class NetworkPreparation:
         DROP COLUMN cnt; 
         """
         db.perform(sql_update_edge_ids)
+        
+        # Drop the new_id column that is not needed anymore   
+        db.perform("ALTER TABLE basic.edge DROP COLUMN new_id;")
+        
 
     def create_street_crossings(self):
         sql_street_crossings = """
@@ -285,31 +288,31 @@ def perform_network_preparation(db, region: str, data_only=False):
     )
 
     # Import needed data into the database
-    # osm_collection.import_dem()
+    osm_collection.import_dem()
 
     # Prepare network
     config = Config("network", region)
-    # config.download_db_schema()
+    config.download_db_schema()
     preparation = NetworkPreparation(db, config)
-    # create_table_schema(db, 'basic.edge')
-    # create_table_schema(db, 'basic.node')
-    # db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);")
+    create_table_schema(db, 'basic.edge')
+    create_table_schema(db, 'basic.node')
+    db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);")
 
-    # preparation.create_processing_units()
-    # prepare_ways(db)
-    # preparation.create_edge_indizes()
-    # NetworkIslands(db.db_config, config).find_network_islands()
-    # preparation.create_street_crossings()
-    #preparation.update_network_ids()
-    #preparation.dump_network(data_only=data_only)
+    preparation.create_processing_units()
+    prepare_ways(db)
+    preparation.create_edge_indizes()
+    NetworkIslands(db.db_config, config).find_network_islands()
+    preparation.create_street_crossings()
+    preparation.update_network_ids()
+    preparation.dump_network(data_only=data_only)
     db.conn.close()
     
 
 
 db = Database(settings.LOCAL_DATABASE_URI)
-perform_network_preparation(db, "de", data_only=False)
+perform_network_preparation(db, "nl", data_only=True)
 
-db_rd = Database(settings.REMOTE_DATABASE_URI)
-create_pgpass(db_rd.db_config)
-restore_table_dump(db_rd.db_config, "basic.node", 'dump', data_only=False)
-restore_table_dump(db_rd.db_config, "basic.edge", 'dump', data_only=False)
+# db_rd = Database(settings.REMOTE_DATABASE_URI)
+# create_pgpass(db_rd.db_config)
+# restore_table_dump(db_rd.db_config, "basic.node", 'dump', data_only=False)
+# restore_table_dump(db_rd.db_config, "basic.edge", 'dump', data_only=False)
