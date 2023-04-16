@@ -96,7 +96,7 @@ class Subscription:
                     highway, 'public_transport', public_transport, 'brand', brand
                 ) || tags 
             ) - 'email' - 'wheelchair' - 'capacity')::text AS tags, p.geom
-            FROM temporal.poi_osm p, temporal.geom_filter f 
+            FROM public.poi_osm p, temporal.geom_filter f 
             WHERE ST_Intersects(p.geom, f.geom)
             AND p.category = '{category}'; 
             CREATE INDEX ON temporal.poi_to_seed (osm_id, osm_type);
@@ -252,7 +252,7 @@ class Subscription:
             WITH osm_to_check AS
             (
                 SELECT * 
-                FROM temporal.poi_osm p, temporal.geom_filter f  
+                FROM public.poi_osm p, temporal.geom_filter f  
                 WHERE ST_Intersects(p.geom, f.geom)	
             ),
             to_delete AS 
