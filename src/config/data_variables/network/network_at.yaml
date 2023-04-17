@@ -28,6 +28,3 @@ preparation:
     sand: '0.4'
     grass: '0.25'
     mud: '0.4'
-  one_meter_degree : 0.000009
-  node_previous_id: 
-  edge_previous_id:
