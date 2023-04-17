@@ -180,8 +180,8 @@ class NetworkPreparation:
     def dump_network(self, data_only=False):
         """Dump the network tables individual files."""
         create_pgpass(self.db_config)
-        create_table_dump(self.db_config, "basic.edge", 'dump', data_only)
-        create_table_dump(self.db_config, "basic.node", 'dump', data_only)
+        create_table_dump(self.db_config, "basic", "edge", 'dump', data_only)
+        create_table_dump(self.db_config, "basic", "edge", 'dump', data_only)
 
 
 # These functions are not in the class as there where difficulaties when running it in parallel
@@ -298,6 +298,7 @@ def perform_network_preparation(db, region: str, data_only=False):
     create_table_schema(db, 'basic.node')
     db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);")
 
+    
     preparation.create_processing_units()
     prepare_ways(db)
     preparation.create_edge_indizes()
@@ -306,8 +307,6 @@ def perform_network_preparation(db, region: str, data_only=False):
     preparation.update_network_ids()
     preparation.dump_network(data_only=data_only)
     db.conn.close()
-    
-
 
 db = Database(settings.LOCAL_DATABASE_URI)
 perform_network_preparation(db, "nl", data_only=True)

@@ -1,7 +1,6 @@
 from osm_collection_base import OSMBaseCollection
 from src.core.config import settings
 from src.db.db import Database
-from src.config.config import Config
 
 class OSMPOICollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
@@ -35,7 +34,7 @@ class OSMPOICollection(OSMBaseCollection):
 def main():
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region="at")
+    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region="de")
 
     
     osm_poi_collection.poi_collection()

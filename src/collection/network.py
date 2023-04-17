@@ -1,4 +1,4 @@
-from osm_collection_base import OSMBaseCollection
+from src.collection.osm_collection_base import OSMBaseCollection
 from src.core.config import settings
 from src.db.db import Database
 from src.config.config import Config

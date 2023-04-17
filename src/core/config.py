@@ -8,6 +8,13 @@ class SyncPostgresDsn(PostgresDsn):
     allowed_schemes = {"postgresql", "postgresql+psycopg2", "postgresql+pg8000"}
 
 class Settings(BaseSettings):
+    # Default datadir 
+    DATA_DIR: str = "/app/src/data"
+    # Input datadir 
+    INPUT_DATA_DIR: str = "/app/src/data/input"
+    # Output datadir
+    OUTPUT_DATA_DIR: str = "/app/src/data/output"
+    
     # Local Database Settings
     POSTGRES_USER: Optional[str] = None
     POSTGRES_PASSWORD: Optional[str] = None
