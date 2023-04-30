@@ -30,7 +30,6 @@ class PoiPreparation:
         self.db_config = self.db.db_config
         self.db_uri = f"postgresql://{self.db_config.user}:{self.db_config.password}@{self.db_config.host}:{self.db_config.port}{self.db_config.path}"
         self.engine = self.db.return_sqlalchemy_engine()
-        self.root_dir = "/app"
 
         self.config_pois = Config("poi", region)
         self.config_pois_preparation = self.config_pois.preparation
@@ -579,15 +578,22 @@ class PoiPreparation:
         return df
 
 
-def main():
+def prepare_poi(region: str):
+    """Prepare POI data for the region.
+
+    Args:
+        region (str): Region to prepare POI data for.
+    """    
+
     db = Database(settings.LOCAL_DATABASE_URI)
-    db_rd = Database(settings.REMOTE_DATABASE_URI)
-    poi_preparation = PoiPreparation(db=db, region="de")
+    poi_preparation = PoiPreparation(db=db, region=region)
+    
+    # Read and classify POI data
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
 
-    engine = db.return_sqlalchemy_engine()
     # Export to PostGIS
+    engine = db.return_sqlalchemy_engine()
     polars_df_to_postgis(
         engine=engine,
         df=df.filter(pl.col("category") != "str"),
@@ -599,17 +605,29 @@ def main():
         create_geom_index=True,
         jsonb_column="tags",
     )
-
     subscription = Subscription(db=db)
-    # Update with fresh OSM data 
+
+    # Update kart repo with fresh OSM data 
     subscription.subscribe_osm()
     # Export to POI schema
     subscription.export_to_poi_schema()
+    db.conn.close()
+
+def migrate_poi(region: str):
+    """Migrate POI data to remote database
+
+    Args:
+        region (str): Region to migrate
+    """    
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.REMOTE_DATABASE_URI)
+
+    # Dump table and restore in remote database
     create_table_dump(db.db_config, "basic", "poi", False)
-    # Update data at remote database
     db_rd.perform("DROP TABLE IF EXISTS basic.poi")
     restore_table_dump(db_rd.db_config, "basic", "poi", False)
-
+    db.conn.close()
+    db_rd.conn.close()
 
 if __name__ == "__main__":
-    main()
+    migrate_poi()

@@ -203,11 +203,8 @@ class BuildingPreparation:
 
         return processing_units
 
-    def run(self, study_area_ids: list[int]):
+    def run(self):
         """Run the building classification.
-
-        Args:
-            study_area_ids (list[int]): Study area ids.
         """
 
         # Create table for classified buildings
@@ -226,7 +223,8 @@ class BuildingPreparation:
         """
         self.db.perform(sql_building_classified)
         # Get processing units
-        processing_units = self.get_processing_units(study_area_ids=study_area_ids)
+        #TODO: Get the study_area ids from the table. Get relevant study areas ids based defined region.
+        processing_units = self.get_processing_units(study_area_ids=self.config.preparation["study_area_ids"])
 
         # Classify buildings using the config file
         for processing_unit in processing_units:
@@ -303,16 +301,12 @@ class BuildingPreparation:
         self.db.conn.close()
 
 
-def main():
+def prepare_building(region: str):
 
-    study_area_ids = [
-        11000009
-    ]
     db_rd = Database(settings.REMOTE_DATABASE_URI)
-
-    building_preparation = BuildingPreparation(db=db_rd, region="uk")
-    building_preparation.run(study_area_ids=study_area_ids)
+    building_preparation = BuildingPreparation(db=db_rd, region=region)
+    building_preparation.run()
 
 
 if __name__ == "__main__":
-    main()
+    prepare_building()

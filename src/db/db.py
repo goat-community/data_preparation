@@ -38,6 +38,15 @@ class Database:
         self.conn.commit()
         cur.close()
 
+    def table_exists(self, table_name, schema='public'):
+        """Check if table exists in the database"""
+        query = f"SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_schema = '{schema}' AND table_name = '{table_name}');"
+        with self.conn.cursor() as cur:
+            cur.execute(query)
+            result = cur.fetchone()
+        cur.close() 
+        return result[0]
+
     def mogrify_query(self, query, params=None):
         """This will return the query as string for testing"""
         with self.conn.cursor() as cur:

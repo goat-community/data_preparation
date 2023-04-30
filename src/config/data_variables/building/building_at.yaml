@@ -19,7 +19,9 @@ collection:
 preparation:
   average_building_levels: 3
   average_roof_levels: 1
-
+  study_area_ids: [
+    11000009
+  ]
   classification:
     residential_status:
       attribute:

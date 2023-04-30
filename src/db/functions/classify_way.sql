@@ -45,9 +45,17 @@ BEGIN
 	END IF; 
 	rec_way.length_m = ST_LENGTH(rec_way.geom::geography);
 
-	SELECT c.* 
-	INTO rec_way.s_imp, rec_way.rs_imp, rec_way.incline_percent
-	FROM get_slope_profile(rec_way.geom, rec_way.length_m, ST_LENGTH(rec_way.geom)) s, LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c;
+	--Check if dem table exists and compute slope profile
+	IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'dem') THEN
+		SELECT c.* 
+		INTO rec_way.s_imp, rec_way.rs_imp, rec_way.incline_percent
+		FROM get_slope_profile(rec_way.geom, rec_way.length_m, ST_LENGTH(rec_way.geom)) s, 
+		LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c;
+	ELSE 
+		rec_way.s_imp = NULL;
+		rec_way.rs_imp = NULL;
+		rec_way.incline_percent = NULL;
+	END IF;
 
 	rec_way.bicycle = lower(rec_line.bicycle);
 	rec_way.highway = lower(rec_line.highway);

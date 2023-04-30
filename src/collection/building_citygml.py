@@ -7,10 +7,7 @@ class CityGMLCollection:
     def __init__(self, db, db_rd):
         self.db = db
         self.db_rd = db_rd       
-        self.root_dir = "/app"
-        self.data_dir_input = self.root_dir + "/src/data/input/"
-        self.temp_data_dir = self.data_dir_input + "temp/"
-        tree = ET.parse(os.path.join(self.root_dir, "src", "config", "building_function.xml"))
+        tree = ET.parse(os.path.join(settings.CONFIG_DIR, "data_variables", "building", "building_function.xml"))
         root = tree.getroot()
         dictentry = root.findall('{http://www.opengis.net/gml}dictionaryEntry')
         dict_building_types = {}
