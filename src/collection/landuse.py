@@ -3,7 +3,7 @@ from src.collection.osm_collection_base import OSMBaseCollection
 from src.core.config import settings
 from src.db.db import Database
 
-class OSMBuildingCollection(OSMBaseCollection):
+class OSMLanduseCollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config, region):
         self.db_config = db_config
@@ -15,8 +15,8 @@ class OSMBuildingCollection(OSMBaseCollection):
         self.cache = 100000
         super().__init__(self.db_config, dataset_type="landuse", region=region)
 
-    def building_collection(self, db: Database):
-        """Collects all building from OSM"""
+    def Landuse_collection(self, db: Database):
+        """Collects all landuse from OSM"""
     
         osm_filter = "landuse= amenity= leisure= tourism= --drop-nodes --drop-relations"
         self.download_bulk_osm()
@@ -25,9 +25,9 @@ class OSMBuildingCollection(OSMBaseCollection):
         db.perform(f"DROP TABLE IF EXISTS landuse_osm;")
         db.perform(f"ALTER TABLE osm_landuse_polygon RENAME TO landuse_osm;")
 
-def main():
+def collect_landuse(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
-    OSMBuildingCollection(db_config=db.db_config, region="uk").building_collection(db=db)
-
+    OSMLanduseCollection(db_config=db.db_config, region=region).Landuse_collection(db=db)
+    db.conn.close()
 if __name__ == "__main__":
-    main()
+    collect_landuse()

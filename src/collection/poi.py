@@ -1,4 +1,4 @@
-from osm_collection_base import OSMBaseCollection
+from src.collection.osm_collection_base import OSMBaseCollection
 from src.core.config import settings
 from src.db.db import Database
 
@@ -31,17 +31,16 @@ class OSMPOICollection(OSMBaseCollection):
         self.merge_osm_and_import()
         
 
-def main():
+def collect_poi():
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
     osm_poi_collection = OSMPOICollection(db_config=db.db_config, region="de")
 
-    
     osm_poi_collection.poi_collection()
     osm_poi_collection.export_osm_boundaries_db(db=db)
     osm_poi_collection.upload_raw_osm_data(boto_client=settings.S3_CLIENT)
-    
-    
+    db.conn.close()
+
 if __name__ == "__main__":
-    main()
+    collect_poi()
     

@@ -17,14 +17,14 @@ from src.collection.osm_collection_base import OSMBaseCollection
 from src.preparation.network_islands import NetworkIslands
 from src.utils.utils import create_table_schema, create_pgpass, restore_table_dump
 from src.core.config import settings
-
+from functools import partial
 
 class NetworkPreparation:
     """Class to prepare the routing network. It processs the network in chunks and prepares the different attributes (e.g., slopes)."""
 
-    def __init__(self, db: Database, config: Config):
+    def __init__(self, db: Database, db_rd: Database, config: Config):
         self.db = db
-        self.root_dir = "/app"
+        self.db_rd = db_rd
         self.db_config = db.db_config
         self.dbname = self.db_config.path[1:]
         self.user = self.db_config.user
@@ -84,29 +84,29 @@ class NetworkPreparation:
     def update_network_ids(self):
         """Update the network ids with preset values from existing network to be unique."""
 
-        if (
-            not self.config_ways_preparation["node_previous_id"]
-            or not self.config_ways_preparation["edge_previous_id"]
-        ):
-            print_info(
-                "Network ids will not be updated as previous node or edge id are not set."
-            )
+        # Check if the network tables exist
+        if not self.db.table_exists("node", "basic") or not self.db.table_exists("edge", "basic"):
+            print_info("Network tables do not exist. Network ids will not be updated.")
             return
 
-        previous_node_id = self.config_ways_preparation["node_previous_id"]
-        previous_edge_id = self.config_ways_preparation["edge_previous_id"]
+        # Get the maximum node and edge ids from the existing network tables
+        previous_node_id = self.db_rd.select("SELECT MAX(id) FROM basic.node;")
+        previous_node_id = previous_node_id[0][0]
+        previous_edge_id = self.db_rd.select("SELECT MAX(id) FROM basic.edge;")
+        previous_edge_id = previous_edge_id[0][0]
+
         # Update the node ids to match the ids from existing network tables
         sql_create_node_columns = f"""
             ALTER TABLE basic.node 
             ADD COLUMN new_id integer, ADD COLUMN cnt serial;
         """
-        db.perform(sql_create_node_columns)
+        self.db.perform(sql_create_node_columns)
 
         sql_update_node_id = f"""
             UPDATE basic.node
             SET new_id = cnt + {previous_node_id};
         """
-        db.perform(sql_update_node_id)
+        self.db.perform(sql_update_node_id)
 
         sql_update_edge_nodes = f"""
             UPDATE basic.edge e 
@@ -126,13 +126,13 @@ class NetworkPreparation:
             ALTER TABLE basic.node
             DROP COLUMN cnt;
         """
-        db.perform(sql_update_edge_nodes)
+        self.db.perform(sql_update_edge_nodes)
 
         # Update the edge ids to match the ids from existing network tables
         sql_create_edge_columns = """ALTER TABLE basic.edge
         ADD COLUMN new_id integer, ADD COLUMN cnt serial;
         """
-        db.perform(sql_create_edge_columns)
+        self.db.perform(sql_create_edge_columns)
 
         sql_update_edge_ids = f"""
         UPDATE basic.edge
@@ -140,10 +140,10 @@ class NetworkPreparation:
         ALTER TABLE basic.edge
         DROP COLUMN cnt; 
         """
-        db.perform(sql_update_edge_ids)
+        self.db.perform(sql_update_edge_ids)
         
         # Drop the new_id column that is not needed anymore   
-        db.perform("ALTER TABLE basic.edge DROP COLUMN new_id;")
+        self.db.perform("ALTER TABLE basic.edge DROP COLUMN new_id;")
         
 
     def create_street_crossings(self):
@@ -177,21 +177,14 @@ class NetworkPreparation:
         """
         self.db.perform(query=sql_street_crossings)
 
-    def dump_network(self, data_only=False):
-        """Dump the network tables individual files."""
-        create_pgpass(self.db_config)
-        create_table_dump(self.db_config, "basic", "edge", 'dump', data_only)
-        create_table_dump(self.db_config, "basic", "edge", 'dump', data_only)
-
-
 # These functions are not in the class as there where difficulaties when running it in parallel
-def prepare_ways_one_core(processing_unit_id):
+def prepare_ways_one_core(processing_unit_id: list[int], region: str):
 
     # Get seperate connection to the database
     connection_string = f"dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} password={settings.POSTGRES_PASSWORD} host={settings.POSTGRES_HOST} port={settings.POSTGRES_PORT}"
     conn = psycopg2.connect(connection_string)
     cur = conn.cursor()
-    config_ways_preparation = Config("network").preparation
+    config_ways_preparation = Config("network", region).preparation
     impedance_surface_object = json.dumps(config_ways_preparation["cycling_surface"])
 
     sql_select_ways_ids = f"""
@@ -253,7 +246,7 @@ def prepare_ways_one_core(processing_unit_id):
     print_hashtags()
 
 
-def prepare_ways(db):
+def prepare_ways(db, region: str):
     sql_delete_network = """
         TRUNCATE TABLE basic.edge;
     """
@@ -274,7 +267,8 @@ def prepare_ways(db):
     for i in range(0, len(processing_units), 100):
         processing_unit_ids = processing_units[i : i + 100]
         pool = Pool(processes=os.cpu_count())
-        pool.map(prepare_ways_one_core, (processing_unit_ids))
+        func = partial(prepare_ways_one_core, region=region)
+        pool.map(func, (processing_unit_ids))
         pool.close()
         pool.join()
     print_hashtags()
@@ -282,7 +276,9 @@ def prepare_ways(db):
     print_hashtags()
 
 
-def perform_network_preparation(db, region: str, data_only=False):
+def prepare_network(region: str):
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
     osm_collection = OSMBaseCollection(
         db_config=db.db_config, dataset_type="network", region=region
     )
@@ -293,25 +289,22 @@ def perform_network_preparation(db, region: str, data_only=False):
     # Prepare network
     config = Config("network", region)
     config.download_db_schema()
-    preparation = NetworkPreparation(db, config)
+    preparation = NetworkPreparation(db, db_rd, config)
     create_table_schema(db, 'basic.edge')
     create_table_schema(db, 'basic.node')
     db.perform(query="CREATE INDEX ix_basic_node_id ON basic.node (id);")
-
-    
     preparation.create_processing_units()
-    prepare_ways(db)
+    prepare_ways(db, region)
     preparation.create_edge_indizes()
     NetworkIslands(db.db_config, config).find_network_islands()
     preparation.create_street_crossings()
     preparation.update_network_ids()
-    preparation.dump_network(data_only=data_only)
     db.conn.close()
 
-db = Database(settings.LOCAL_DATABASE_URI)
-perform_network_preparation(db, "nl", data_only=True)
-
-# db_rd = Database(settings.REMOTE_DATABASE_URI)
-# create_pgpass(db_rd.db_config)
-# restore_table_dump(db_rd.db_config, "basic.node", 'dump', data_only=False)
-# restore_table_dump(db_rd.db_config, "basic.edge", 'dump', data_only=False)
+def export_network(region: str):
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
+    create_table_dump(db.db_config, "basic", "node", data_only=True)
+    create_table_dump(db.db_config, "basic", "edge", data_only=True)
+    restore_table_dump(db_rd.db_config, "basic", "node", data_only=True)
+    restore_table_dump(db_rd.db_config, "basic", "edge", data_only=True)

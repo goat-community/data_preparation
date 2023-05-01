@@ -14,6 +14,8 @@ class CityGMLCollection:
         tree = ET.parse(
             os.path.join(self.root_dir, "src", "config", "building_function.xml")
         )
+        self.db_rd = db_rd       
+        tree = ET.parse(os.path.join(settings.CONFIG_DIR, "data_variables", "building", "building_function.xml"))
         root = tree.getroot()
         dictentry = root.findall("{http://www.opengis.net/gml}dictionaryEntry")
         dict_building_types = {}

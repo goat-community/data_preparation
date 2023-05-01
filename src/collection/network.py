@@ -4,6 +4,7 @@ from src.db.db import Database
 from src.config.config import Config
 import subprocess
 from src.utils.utils import print_info
+from src.core.config import settings
 
 class OSMNetworkCollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
@@ -49,25 +50,25 @@ class OSMNetworkCollection(OSMBaseCollection):
 
             if cnt_link == 1 and cnt_link == total_cnt_links:
                 subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --clean --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
+                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --clean --conf {settings.CONFIG_DIR}/mapconfig.xml --chunk 40000",
                     shell=True,
                     check=True,
                 )
             elif cnt_link == 1:
                 subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --no-index --clean --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
+                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --no-index --clean --conf {settings.CONFIG_DIR}/data_variables/network/mapconfig.xml --chunk 40000",
                     shell=True,
                     check=True,
                 )
             elif cnt_link != total_cnt_links:
                 subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --no-index --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
+                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --no-index --conf {settings.CONFIG_DIR}/data_variables/network/mapconfig.xml --chunk 40000",
                     shell=True,
                     check=True,
                 )
             else:
                 subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --conf {self.root_dir}/src/config/mapconfig.xml --chunk 40000",
+                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --conf {settings.CONFIG_DIR}/data_variables/network/mapconfig.xml --chunk 40000",
                     shell=True,
                     check=True,
                 )
@@ -84,16 +85,16 @@ class OSMNetworkCollection(OSMBaseCollection):
         db.perform(query="CREATE INDEX ON planet_osm_line USING GIST(way);")
         db.perform(query="CREATE INDEX ON planet_osm_point USING GIST(way);")
         
-def main():
+def collect_network(region: str):
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMNetworkCollection(db_config=db.db_config, region="de")
+    osm_poi_collection = OSMNetworkCollection(db_config=db.db_config, region=region)
 
     osm_poi_collection.network_collection(db=db)
     osm_poi_collection.export_osm_boundaries_db(db=db)
     osm_poi_collection.upload_raw_osm_data(boto_client=settings.S3_CLIENT)
-    
+    db.conn.close()
     
 if __name__ == "__main__":
-    main()
+    collect_network()
     

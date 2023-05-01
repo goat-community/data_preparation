@@ -19,7 +19,6 @@ class Subscription:
         self.db_config = self.db.db_config
         self.db_uri = f"postgresql://{self.db_config.user}:{self.db_config.password}@{self.db_config.host}:{self.db_config.port}{self.db_config.path}"
         self.engine = self.db.return_sqlalchemy_engine()
-        self.root_dir = "/app"
 
         self.table_name = "poi"
         self.config_pois = Config(self.table_name)

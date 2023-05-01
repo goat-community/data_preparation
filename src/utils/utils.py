@@ -185,6 +185,9 @@ def create_table_dump(
     try:
         dir_output = os.path.join(settings.OUTPUT_DATA_DIR, table_name + ".dump")
         
+        # Delete the file if it already exists
+        delete_file(dir_output)
+
         # Set the password to the environment variable
         os.environ["PGPASSWORD"] = db_config.password
         # Construct the pg_dump command
@@ -199,9 +202,9 @@ def create_table_dump(
             "-f", dir_output,
             "--no-owner"
         ]
-        # Append to -2 position of the command if it is a data only dump 
+        # Append to the end of the command if it is a data only dump
         if data_only == True:
-            command.insert(-2, "--data-only")
+            command.append("--data-only")
             
         # Run the pg_dump command and capture the output
         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
