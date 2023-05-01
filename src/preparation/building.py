@@ -303,7 +303,7 @@ class BuildingPreparation:
 
 def prepare_building(region: str):
 
-    db_rd = Database(settings.REMOTE_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
     building_preparation = BuildingPreparation(db=db_rd, region=region)
     building_preparation.run()
 

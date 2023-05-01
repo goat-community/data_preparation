@@ -226,7 +226,7 @@ class NetworkCar:
 
 def main():
     """Main function."""
-    db = Database(settings.REMOTE_DATABASE_URI)
+    db = Database(settings.RAW_DATABASE_URI)
     network_car = NetworkCar(db=db, time_of_the_day="08:00")
     #TODO: Use print_info from src.utils.utils for printing 
     print("Creating the files...")

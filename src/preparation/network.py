@@ -278,7 +278,7 @@ def prepare_ways(db, region: str):
 
 def prepare_network(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
-    db_rd = Database(settings.REMOTE_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
     osm_collection = OSMBaseCollection(
         db_config=db.db_config, dataset_type="network", region=region
     )
@@ -301,9 +301,9 @@ def prepare_network(region: str):
     preparation.update_network_ids()
     db.conn.close()
 
-def migrate_network(region: str):
+def export_network(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
-    db_rd = Database(settings.REMOTE_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
     create_table_dump(db.db_config, "basic", "node", data_only=True)
     create_table_dump(db.db_config, "basic", "edge", data_only=True)
     restore_table_dump(db_rd.db_config, "basic", "node", data_only=True)

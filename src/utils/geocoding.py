@@ -219,7 +219,7 @@ class Geocoder:
                 
 
 def main():
-    db = Database(settings.REMOTE_DATABASE_URI)
+    db = Database(settings.RAW_DATABASE_URI)
     geocode = Geocoder(db)
     address_columns = ["addr:street", "addr:city", "addr:postcode",	"country"]
     

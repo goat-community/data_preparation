@@ -613,14 +613,14 @@ def prepare_poi(region: str):
     subscription.export_to_poi_schema()
     db.conn.close()
 
-def migrate_poi(region: str):
-    """Migrate POI data to remote database
+def export_poi(region: str):
+    """Export POI data to remote database
 
     Args:
-        region (str): Region to migrate
+        region (str): Region to export
     """    
     db = Database(settings.LOCAL_DATABASE_URI)
-    db_rd = Database(settings.REMOTE_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
 
     # Dump table and restore in remote database
     create_table_dump(db.db_config, "basic", "poi", False)
@@ -630,4 +630,4 @@ def migrate_poi(region: str):
     db_rd.conn.close()
 
 if __name__ == "__main__":
-    migrate_poi()
+    export_poi()

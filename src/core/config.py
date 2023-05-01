@@ -40,14 +40,14 @@ class Settings(BaseSettings):
             port=values.get("POSTGRES_PORT")
         )
 
-    # Remote Database Settings
+    # Raw Database Settings
     POSTGRES_USER_RD: Optional[str] = None
     POSTGRES_PASSWORD_RD: Optional[str] = None
     POSTGRES_HOST_RD: Optional[str] = None
     POSTGRES_DB_RD: Optional[str] = None
     POSTGRES_PORT_RD: Optional[str] = None
-    REMOTE_DATABASE_URI: Optional[SyncPostgresDsn] = None
-    @validator("REMOTE_DATABASE_URI", pre=True)
+    RAW_DATABASE_URI: Optional[SyncPostgresDsn] = None
+    @validator("RAW_DATABASE_URI", pre=True)
     def assemble_remote_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
@@ -59,7 +59,29 @@ class Settings(BaseSettings):
             path=f"/{values.get('POSTGRES_DB_RD') or ''}",
             port=values.get("POSTGRES_PORT_RD")
         )
-    
+    POSTGRES_SCHEMA_RD: Optional[str] = "basic"
+
+    # GOAT Database Settings
+    POSTGRES_USER_GOAT: Optional[str] = None
+    POSTGRES_PASSWORD_GOAT: Optional[str] = None
+    POSTGRES_HOST_GOAT: Optional[str] = None
+    POSTGRES_DB_GOAT: Optional[str] = None
+    POSTGRES_PORT_GOAT: Optional[str] = None
+    GOAT_DATABASE_URI: Optional[SyncPostgresDsn] = None
+    @validator("GOAT_DATABASE_URI", pre=True)
+    def assemble_goat_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+        if isinstance(v, str):
+            return v
+        return SyncPostgresDsn.build(
+            scheme="postgresql",
+            user=values.get("POSTGRES_USER_GOAT"),
+            password=values.get("POSTGRES_PASSWORD_GOAT"),
+            host=values.get("POSTGRES_HOST_GOAT"),
+            path=f"/{values.get('POSTGRES_DB_GOAT') or ''}",
+            port=values.get("POSTGRES_PORT_GOAT")
+        )
+    POSTGRES_SCHEMA_GOAT: Optional[str] = "basic"
+
     # CityGML Settings
     POSTGRES_USER_3DCITY: Optional[str] = None
     POSTGRES_PASSWORD_3DCITY: Optional[str] = None

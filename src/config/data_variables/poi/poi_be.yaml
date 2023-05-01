@@ -1,0 +1,103 @@
+region_pbf : [
+  "https://download.geofabrik.de/europe/belgium-latest.osm.pbf"
+]
+collection:
+  osm_tags:
+    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                "charging_station", "bus_station", "playground"]
+    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+    tourism : ["hotel", "museum", "hostel", "guest_house"]
+    railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+    leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
+    sport   : ["yoga", "fitness"]
+    highway : ["bus_stop"]
+    public_transport : ["stop_position", "station"]
+
+  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                        "opening_hours", "operator", "origin", "organic", "subway"]
+  nodes : True
+  ways : True
+  relations : True
+  
+preparation:
+  supermarket:
+    classify_by_name:
+      supermarket: 
+        children:
+          delhaize: ["delhaize"]
+          ad delhaize: ["ad delhaize"]
+          proxy delhaize: ["proxy delhaize"]
+          delhaize shop & go: ["delhaize shop & go"]
+          carrefour: ["carrefour"]
+          carrefour express: ["carrefour express"]
+          carrefour market: ["carrefour market"]
+          colruyt: ["colruyt"]
+          okay: ["okay"]
+          intermarché: ["intermarché"]
+          match: ["match"]
+          cora: ["cora"]
+          makro: ["makro"]
+          leader price: ["leader price"]
+          spar: ["spar"]
+          albert heijn     : ["albert heijn"]
+          aldi  : ["aldi"]
+          lidl  : ["lidl"]
+
+        threshold: 0.9
+      
+      organic_supermarket:
+        children:
+          bio planet: ["bio planet"]
+        threshold: 0.7
+      
+      chemist: 
+        children:
+          kruidvat : ["kruidvat"]
+          etos : ["etos"]
+          drogisterij: ["drogisterij"]
+        threshold: 0.7
+      
+      # This should be international_supermarket, but it is merged with convenience
+      convenience:
+        children:
+          # in dutch 
+          turkse : ["turkse", "turks"]
+          asia : ["asia", "asian", "aziatisch"]
+          other : ["italiaanse", "polish", "spaans", "poolse"]
+        threshold: 0.7
+
+    classify_by_tag:
+      # This should be international_supermarket, but it is merged with convenience
+      international_supermarket:
+        origin: [True] 
+      organic_supermarket:
+        organic: ["only"]
+      chemist:
+        name: ["di"]
+    unmatched: "convenience"
+
+  health_food: 
+    classify_by_tag:
+      organic_supermarket:
+        shop: ["health_food"]
+
+  chemist:
+    classify_by_tag:
+      chemist:
+        shop: ["chemist"]
+
+  convenience: 
+    inherit: "supermarket"
+  grocery: 
+    inherit: "supermarket"
+  deli: 
+    inherit: "supermarket"
+  
+        
+subscription:
+  repo_url: "https://github.com/goat-community/poi"
+    
+
+    
