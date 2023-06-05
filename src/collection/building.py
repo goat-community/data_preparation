@@ -25,9 +25,11 @@ class OSMBuildingCollection(OSMBaseCollection):
         db.perform(f"DROP TABLE IF EXISTS building_osm;")
         db.perform(f"ALTER TABLE osm_building_polygon RENAME TO building_osm;")
 
-def main():
+def collect_building(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
-    OSMBuildingCollection(db_config=db.db_config, region="uk").building_collection(db=db)
+    OSMBuildingCollection(db_config=db.db_config, region=region).building_collection(db=db)
+    db.conn.close()
+
 
 if __name__ == "__main__":
-    main()
+    collect_building()

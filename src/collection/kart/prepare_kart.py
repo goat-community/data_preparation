@@ -7,7 +7,6 @@ from src.core.config import settings
 from src.db.db import Database
 from src.utils.utils import print_hashtags, print_info, print_warning, delete_dir
 
-
 class PrepareKart:
     """Clone Kart repo and setup with workingcopy in PostgreSQL"""
 
@@ -22,7 +21,6 @@ class PrepareKart:
         """
         self.db = db
         self.path_ssh_key = "/app/id_rsa"
-        self.data_folder = "/app/src/data"
 
         # Prepare repository URL
         self.repo_url = repo_url
@@ -36,7 +34,7 @@ class PrepareKart:
         self.git_domain = parsed_url.netloc
         self.repo_ssh_url = f"git@{self.git_domain}:{self.repo_owner}/{self.repo_name}"
         self.path_repo = os.path.join(
-            self.data_folder, self.repo_name + "_" + self.maintainer
+            settings.DATA_DIR, self.repo_name + "_" + self.maintainer
         )
         self.github_api_url = "https://api.github.com/repos"
 
@@ -385,15 +383,9 @@ def main():
     print_hashtags()
     print_info("Start Prepare Kart")
     print_hashtags()
-    # Get from user url of repo
-    repo_url = input("Enter url of repository: ")
-    # Get from user name of maintainer
-    maintainer = input("Enter name of maintainer: ")
-    # Get from user name of table
+
+    # Check if table is supported
     supported_tables = ["poi"]
-    table_name = input(
-        f"""Enter one of the following table name "{','.join(supported_tables)}": """
-    )
     if table_name not in supported_tables:
         raise Exception("Table name not supported")
 

@@ -1,5 +1,5 @@
 region_pbf : [
-  "https://download.geofabrik.de/europe/netherlands/noord-holland-latest.osm.pbf"
+  "https://download.geofabrik.de/europe/belgium-latest.osm.pbf"
 ]
 collection:
   osm_tags:
@@ -26,40 +26,36 @@ preparation:
     classify_by_name:
       supermarket: 
         children:
+          delhaize: ["delhaize"]
+          ad delhaize: ["ad delhaize"]
+          proxy delhaize: ["proxy delhaize"]
+          delhaize shop & go: ["delhaize shop & go"]
+          carrefour: ["carrefour"]
+          carrefour express: ["carrefour express"]
+          carrefour market: ["carrefour market"]
+          colruyt: ["colruyt"]
+          okay: ["okay"]
+          intermarché: ["intermarché"]
+          match: ["match"]
+          cora: ["cora"]
+          makro: ["makro"]
+          leader price: ["leader price"]
+          spar: ["spar"]
           albert heijn     : ["albert heijn"]
           aldi  : ["aldi"]
           lidl  : ["lidl"]
-          boni  : ["boni"]
-          boon's markt  : ["boon's markt", "boon's"]
-          dagwinkel  : ["dagwinkel"]
-          dekamarkt  : ["dekamarkt", "deka markt"]
-          dirk  : ["dirk"]
-          hoogvliet  : ["hoogvliet"]
-          jumbo: ["jumbo"]
-          makro: ["makro"]
-          marqt: ["marqt"]
-          plus: ["plus"]
-          spar: ["spar"]
-          poiesz: ["poiesz"]
-          nettorama: ["nettorama"]
-          vormar: ["vormar"]
-          coop: ["coop"]
 
         threshold: 0.9
       
       organic_supermarket:
         children:
-          ekoplaza : ["ekoplaza"]
-          holland & barrett : ["holland & barrett"]
-          little plant pantry : ["little plant pantry"]
-          odin : ["odin"]
+          bio planet: ["bio planet"]
         threshold: 0.7
       
       chemist: 
         children:
           kruidvat : ["kruidvat"]
           etos : ["etos"]
-          trekpleister : ["trekpleister"]
           drogisterij: ["drogisterij"]
         threshold: 0.7
       
@@ -79,7 +75,7 @@ preparation:
       organic_supermarket:
         organic: ["only"]
       chemist:
-        name: ["da"]
+        name: ["di"]
     unmatched: "convenience"
 
   health_food: 

@@ -74,7 +74,7 @@ class PopulationPreparation():
 def main():
     
     study_area_ids = [11000009]
-    db_rd = Database(settings.REMOTE_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
     PopulationPreparation(db_rd, "uk").run(study_area_ids)
      
 if __name__ == "__main__":

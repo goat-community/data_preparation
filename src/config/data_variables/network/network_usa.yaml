@@ -1,5 +1,5 @@
 region_pbf: [
-  "https://download.geofabrik.de/europe/netherlands/noord-holland-latest.osm.pbf"
+  "http://download.geofabrik.de/north-america/us/florida-latest.osm.pbf"
 ]
 collection: 
 preparation:

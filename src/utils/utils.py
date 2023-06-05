@@ -20,6 +20,7 @@ import csv
 from io import StringIO
 import time
 from src.core.enums import TableDumpFormat
+from src.core.config import settings
 
 
 def timing(f):
@@ -166,98 +167,96 @@ def create_pgpass(db_config):
         )
         + f""" > ~/.pgpass_{db_name}"""
     )
-    os.system(f"""chmod 600  ~/.pgpass_{db_name}""")
+    os.system(f"""chmod 0600  ~/.pgpass_{db_name}""")
 
 
 def create_table_dump(
-    db_config: dict, table_name: str, format: TableDumpFormat, data_only: bool = False
+    db_config: dict, schema: str, table_name: str, data_only: bool = False
 ):
     """Create a dump from a table
 
     Args:
         db_config (str): Database configuration dictionary.
         table_name (str): Specify the table name including the schema.
-        format (TableDumpFormat): Specify the format of the dump. You an choose between sql and dump.
+        schema (str): Specify the schema.
         data_only (bool, optional): Is it a data only dump. Defaults to False.
-
-    Raises:
-        ValueError: If the format is not supported.
-    """     
-
-    if format == TableDumpFormat.sql.value:
-        format_flag = ""
-    elif format == TableDumpFormat.dump.value:
-        format_flag = "-Fc"
-    else:
-        raise ValueError(f"Format {format} not supported")
-
-    if data_only == True:
-        data_only_tag = "--data-only"
-    else:
-        data_only_tag = ""
+    """
 
     try:
-        dir_output = os.path.join(
-            "/app",
-            "src",
-            "data",
-            "output",
-            table_name.split(".")[1] + "." + format
-        )
+        dir_output = os.path.join(settings.OUTPUT_DATA_DIR, table_name + ".dump")
+        
+        # Delete the file if it already exists
+        delete_file(dir_output)
 
-        subprocess.run(
-            f"""PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_dump -h {db_config.host} -t {table_name} {data_only_tag} {format_flag} --no-owner -U {db_config.user} {db_config.path[1:]} > {dir_output}""",
-            shell=True,
-            check=True,
-        )
+        # Set the password to the environment variable
+        os.environ["PGPASSWORD"] = db_config.password
+        # Construct the pg_dump command
+        command = [
+            "pg_dump",
+            "-h", db_config.host,
+            "-p", db_config.port,
+            "-U", db_config.user,
+            "-d", db_config.path[1:],
+            "-t", f"{schema}.{table_name}",
+            "-F", "c",
+            "-f", dir_output,
+            "--no-owner"
+        ]
+        # Append to the end of the command if it is a data only dump
+        if data_only == True:
+            command.append("--data-only")
+            
+        # Run the pg_dump command and capture the output
+        output = subprocess.check_output(command, stderr=subprocess.STDOUT)
+        print_info(f"Successfully dumped {schema}.{table_name} to {dir_output}")
     except Exception as e:
         print_warning(f"The following exeption happened when dumping {table_name}: {e}")
-        
-        
+
 
 def restore_table_dump(
-    db_config: dict, table_name: str, format: TableDumpFormat, data_only: bool = False
+    db_config: dict, schema: str, table_name: str, data_only: bool = False
 ):
-    """Create a dump from a table
+    """Restores the dump from a table
 
     Args:
-        db_config (str): Database configuration dictionary.
+        db_config (dict): Database configuration dictionary.
         table_name (str): Specify the table name including the schema.
-        format (TableDumpFormat): Specify the format of the dump. You an choose between sql and dump.
         data_only (bool, optional): Is it a data only dump. Defaults to False.
 
     Raises:
-        ValueError: If the format is not supported.
-    """     
-
-    data_only_tag = ""
-    if format == TableDumpFormat.sql.value:
-        format_flag = ""
-    elif format == TableDumpFormat.dump.value:
-        format_flag = "-Fc -j 8"
-        if data_only == True:
-            data_only_tag = "--data-only"
-    else:
-        raise ValueError(f"Format {format} not supported")
-
-    dir_output = os.path.join(
-        "app",
-        "src",
-        "data",
-        "output",
-        table_name.split(".")[1] + "." + format
-    )
-
+        ValueError: If the file is not found.
+    """
+    
+    # Define the output directory
+    dir_output = os.path.join(settings.OUTPUT_DATA_DIR, table_name + ".dump")
+    # Check if the file exists
+    if not os.path.isfile(dir_output):
+        raise ValueError(f"File {dir_output} does not exist")
     try:
-        print(f"""PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_restore {format_flag} -h {db_config.host} -U {db_config.user} -d {db_config.path[1:]} {data_only_tag} --no-owner  {dir_output}""")
+        # Set the password to the environment variable
+        os.environ["PGPASSWORD"] = db_config.password
 
-        subprocess.run(
-            f"""PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_restore {format_flag} -h {db_config.host} -U {db_config.user} -d {db_config.path[1:]} {data_only_tag} --no-owner  {dir_output}""",
-            shell=True,
-            check=True,
-        )
+        # Construct the pg_dump command
+        command = [
+            "pg_restore",
+            "-h", db_config.host,
+            "-p", db_config.port,
+            "-U", db_config.user,
+            "-d", db_config.path[1:],
+            "--no-owner", 
+            dir_output
+        ]        
+        # Append to -2 position of the command if it is a data only dump 
+        if data_only == True:
+            command.insert(-2, "--data-only")
+            
+        # Run the command
+        output = subprocess.check_output(command, stderr=subprocess.STDOUT)
+        print_info(f"Successfully restored {table_name}.dump from {dir_output}")
     except Exception as e:
-        print_warning(f"The following exeption happened when restoring {table_name}: {e}")
+        print_warning(
+            f"The following exeption happened when restoring {table_name}: {e}"
+        )
 
 
 def create_table_schema(db: Database, table_full_name: str):
@@ -277,28 +276,29 @@ def create_table_schema(db: Database, table_full_name: str):
         shell=True,
         check=True,
     )
-    # TODO: Temp fix here only to convert poi.id a serial instead of integer
+    # # TODO: Temp fix here only to convert poi.id a serial instead of integer
     db.perform(
         f"""
-        CREATE SEQUENCE IF NOT EXISTS {table_name}_serial;
-        ALTER TABLE {table_full_name} ALTER COLUMN id SET DEFAULT nextval('{table_name}_serial');
+        ALTER TABLE {table_full_name} DROP COLUMN IF EXISTS id;
+        ALTER TABLE {table_full_name} ADD COLUMN id SERIAL;
         """
     )
+
 
 def create_standard_indices(db: Database, table_full_name: str):
     """Create standard indices for the database on the id and geometry column.
 
     Args:
         db (Database): Database connection class.
-    """    
-    
+    """
+
     db.perform(
         f"""
         ALTER TABLE {table_full_name} ADD PRIMARY KEY (id);
         CREATE INDEX IF NOT EXISTS {table_full_name.replace('.', '_')}_geom_idx ON {table_full_name} USING GIST (geom);
         """
     )
-     
+
 
 def download_dir(self, prefix, local, bucket, client):
     """Downloads data directory from AWS S3

@@ -39,8 +39,7 @@ class OSMBaseCollection:
         self.data_config = Config(self.dataset_type, region)
         self.region_links = self.data_config.pbf_data
         
-        self.root_dir = self.data_config.root_dir
-        self.data_dir_input = self.data_config.data_dir_input
+        self.dataset_dir = self.data_config.dataset_dir
         self.s3_osm_basedir = os.path.join("osm-raw", self.dataset_type)
         self.available_cpus = os.cpu_count()
         self.memory = psutil.virtual_memory().total
@@ -56,7 +55,7 @@ class OSMBaseCollection:
         """        
 
         # Change directory
-        os.chdir(self.data_dir_input)
+        os.chdir(self.dataset_dir)
         
         # Process OSM data
         full_name = link.split("/")[-1]
@@ -126,7 +125,7 @@ class OSMBaseCollection:
             )
 
         # Download OSM Poly Boundaries
-        download = partial(download_link, self.data_dir_input)
+        download = partial(download_link, self.dataset_dir)
         pool = Pool(processes=self.available_cpus)
         print_hashtags()
         print_info(f"Downloading OSM Poly Boundaries started.")
@@ -153,12 +152,12 @@ class OSMBaseCollection:
         # Insert OSM boundaries into database
         for idx, link in enumerate(region_poly_links):
             # Get path to OSM file
-            path_osm_file = os.path.join(self.data_dir_input, os.path.basename(self.region_links[idx]))
+            path_osm_file = os.path.join(self.dataset_dir, os.path.basename(self.region_links[idx]))
             # Get timestamp of OSM file
             time_stamp_osm_file = self.get_timestamp_osm_file(path_osm_file)
             
             # Get geometry of OSM boundary
-            file_dir = os.path.join(self.data_dir_input, os.path.basename(link))
+            file_dir = os.path.join(self.dataset_dir, os.path.basename(link))
             if use_poly is True:
                 geom = parse_poly(file_dir)
             else:
@@ -178,7 +177,7 @@ class OSMBaseCollection:
         
         # Export OSM boundaries to GeoJSON
         gdf = gpd.read_postgis(f"SELECT * FROM {self.dataset_type}_osm_boundary", db.return_sqlalchemy_engine(), geom_col="geom")
-        gdf.to_file(os.path.join(self.data_dir_input, f"{self.dataset_type}_osm_boundary.geojson"), driver="GeoJSON")
+        gdf.to_file(os.path.join(self.dataset_dir, f"{self.dataset_type}_osm_boundary.geojson"), driver="GeoJSON")
         print_info(f"OSM boundaries exported to GeoJSON.")
         
     def import_dem(self, filepath=None):
@@ -188,11 +187,11 @@ class OSMBaseCollection:
             filepath (str, optional): Filepath to file can specified. Defaults to None and therefore will use default data directory.
         """
         if not filepath:
-            filepath = os.path.join(self.data_dir_input, "dem.tif")
+            filepath = os.path.join(self.dataset_dir, "dem.tif")
 
         if not os.path.exists(filepath):
-            print_warning(f"{filepath} for dem.tif does not exist.")
-            sys.exit()
+            print_warning(f"{filepath} for dem.tif does not exist. Processing will be continued but without DEM data.")
+            return
 
         filepath_no_ext = os.path.splitext(filepath)[0]
         filepath_converted_dem = filepath_no_ext + "_conv.tif"
@@ -228,9 +227,9 @@ class OSMBaseCollection:
         """        
         
         # Cleanup
-        delete_dir(self.data_dir_input)            
-        os.mkdir(self.data_dir_input)
-        os.chdir(self.data_dir_input)
+        delete_dir(self.dataset_dir)            
+        os.mkdir(self.dataset_dir)
+        os.chdir(self.dataset_dir)
 
         # Download all needed files
         # download = partial(download_link, "")
@@ -250,7 +249,7 @@ class OSMBaseCollection:
         # Check if all files are downloaded and are not empty
         data_source_date = []
         for link in self.region_links:
-            dir = os.path.join(self.data_dir_input, os.path.basename(link))
+            dir = os.path.join(self.dataset_dir, os.path.basename(link))
             data_source_date.append(self.get_timestamp_osm_file(dir))
             if not os.path.exists(dir) or os.stat(dir).st_size == 0:
                 print_warning(f"File {os.path.basename(link)} could not be downloaded. Processing stopped.")
@@ -289,7 +288,7 @@ class OSMBaseCollection:
         """Merge all osm files and import them into PostGIS database.
         """        
         # Change to data directory
-        os.chdir(self.data_dir_input)
+        os.chdir(self.dataset_dir)
         
         # Merge all osm files
         print_info("Merging files")
@@ -304,7 +303,7 @@ class OSMBaseCollection:
         )
         # Import merged osm file using customer osm2pgsql style
         self.data_config.osm2pgsql_create_style()
-        path_style_file = os.path.join(self.data_dir_input, "osm2pgsql.style")
+        path_style_file = os.path.join(self.dataset_dir, "osm2pgsql.style")
         subprocess.run(
             f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
             + "merged.osm"
@@ -323,14 +322,14 @@ class OSMBaseCollection:
         print_info(f"Uploading raw OSM data to s3 bucket {settings.AWS_BUCKET_NAME} started.")
         print_hashtags()
         
-        for file in os.listdir(self.data_dir_input):
+        for file in os.listdir(self.dataset_dir):
             
             # Continue if files does not end with .pbf or .geojson
             if not file.endswith(".pbf") and not file.endswith(".geojson"):
                 continue
             
             # Upload file to s3 bucket
-            file_path = os.path.join(self.data_dir_input, file)
+            file_path = os.path.join(self.dataset_dir, file)
             if os.path.isfile(file_path):
                 boto_client.upload_file(
                     file_path,
@@ -345,8 +344,8 @@ class OSMBaseCollection:
     def clip_osm_by_bbox(self, bbox: str, filename: str, fileToClip: str):
         """Clips the OSM data by the polygon file"""
 
-        raw_path = os.path.join(self.data_dir_input, fileToClip)
-        clipped_filename = os.path.join(self.data_dir_input, filename)
+        raw_path = os.path.join(self.dataset_dir, fileToClip)
+        clipped_filename = os.path.join(self.dataset_dir, filename)
         print_info("Clipping OSM data by polygon.")
         subprocess.run(
             f'osmconvert {raw_path} -b={bbox} -o={clipped_filename}',
@@ -358,7 +357,7 @@ class OSMBaseCollection:
     #     """Clips a large OSM file into the R5 regions"""
     #     conf = Config("ways")
     #     download_url = conf.config["ways"]["region_pbf_r5"]
-    #     download_link(directory=self.data_dir_input,
+    #     download_link(directory=self.dataset_dir,
     #                   link=download_url, new_filename="raw.osm.pbf")
 
     #     regions = db.select(
@@ -378,8 +377,8 @@ class OSMBaseCollection:
 
     # def clip_data_to_osm(self, filename: str, fileToClip: str):
     #     """Clips data from a certain file to osm."""
-    #     raw_path = os.path.join(self.data_dir_input, fileToClip)
-    #     clipped_filename = os.path.join(self.data_dir_input, filename)
+    #     raw_path = os.path.join(self.dataset_dir, fileToClip)
+    #     clipped_filename = os.path.join(self.dataset_dir, filename)
     #     print_info("Clipping to OSM")
     #     subprocess.run(
     #         f'osmconvert {raw_path} --complete-ways --drop-relations --drop-author --drop-version -o={clipped_filename}',

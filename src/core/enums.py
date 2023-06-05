@@ -42,3 +42,24 @@ class BuildingClassificationTypes(str, Enum):
     point = "point"
     polygon = "polygon"
     
+class MigrationTables(str, Enum):
+    """Migration Tables."""
+    poi = "poi"
+    aoi = "aoi"
+    study_area = "study_area"
+    sub_study_area = "sub_study_area"
+    population = "population"
+    building = "building"
+    node = "node"
+    edge = "edge"
+
+class StudyAreaGeomMigration(str, Enum):
+    """Specify whether to choose the buffer or the geometry for the study area."""
+    poi = "buffer_geom_heatmap"
+    aoi = "buffer_geom_heatmap"
+    study_area = "geom"
+    sub_study_area = "geom"
+    population = "geom"
+    building = "geom"
+    node = "buffer_geom_heatmap"
+    edge = "buffer_geom_heatmap"
