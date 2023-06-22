@@ -18,7 +18,8 @@
 		"donjayamanne.python-extension-pack",
 		"njpwerner.autodocstring",
 		"ms-azuretools.vscode-docker",
-		"genieai.chatgpt-vscode"
+		"genieai.chatgpt-vscode",
+		"ms-python.black-formatter"
 	],
     "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",

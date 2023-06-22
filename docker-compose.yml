@@ -7,6 +7,7 @@ volumes:
   goat_data_preparation:
   3dcity_db:
 
+
 services:
   app:
     image: ${DOCKER_ID}/${COMPOSE_PROJECT_NAME}:app-${PROJECT_VERSION}
@@ -38,6 +39,7 @@ services:
     networks:
       data_preparation_proxy:
 
+
   db:
     image: postgis/postgis:14-3.2
     container_name: ${COMPOSE_PROJECT_NAME}_db
@@ -61,24 +63,30 @@ services:
       data_preparation_proxy:
 
 
-  
-  # 3dcity:
-  #   image: 3dcitydb/3dcitydb-pg
-  #   environment:
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_3DCITY}
-  #     - POSTGRES_USER=${POSTGRES_USER_3DCITY}
-  #     - POSTGRES_DB=${POSTGRES_DB_3DCITY}
-  #     - POSTGIS_SFCGAL_3DCITY=true
-  #     - SRID={$SRID}
-  #     - HEIGHT_EPSG={$HEIGHT_EPSG}
-  #     - GMLSRSNAME={$GMLSRSNAME}
+  3dcity:
+    image: 3dcitydb/3dcitydb-pg:14-3.3-4.4.0
+    container_name: ${COMPOSE_PROJECT_NAME}_3dcity
+    hostname: ${COMPOSE_PROJECT_NAME}_3dcity
+    command: postgres -c 'config_file=/etc/postgresql.conf'
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_3DCITY}
+      - POSTGRES_USER=${POSTGRES_USER_3DCITY}
+      - POSTGRES_DB=${POSTGRES_DB_3DCITY}
+      - POSTGIS_SFCGAL_3DCITY=true
+      - SRID=${SRID}
+      - HEIGHT_EPSG=${HEIGHT_EPSG}
+      - GMLSRSNAME=${GMLSRSNAME}
 
-  #   ports:
-  #     - "${POSTGRES_OUTER_PORT_3DCITY}:5432"
-
-  #   volumes:
-  #     - 3dcity_db:/var/lib/postgresql
-  #   restart: on-failure
-  #   networks:
-  #     data_preparation_proxy:
-
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_3DCITY}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_OUTER_PORT_3DCITY}:5432"
+    volumes:
+      - 3dcity_db:/var/lib/postgresql
+      - ${PWD}/postgresql.conf:/etc/postgresql.conf
+    restart: on-failure
+    networks:
+      data_preparation_proxy:
