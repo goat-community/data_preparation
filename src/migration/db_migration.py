@@ -115,7 +115,7 @@ def main():
 
     # Initialize migration.
     migration = DBMigration(
-        db_source=db_source, db_target=db_target, study_area_ids=[91620000]
+        db_source=db_source, db_target=db_target, study_area_ids=[9263,9274,9184,9186,9188,9361,9362,9363,9461,9462,9463,9464,9561,9762,9563,9574,9576,9565,9572,9573,9661,9662,9663,9763,9761,9764,9163,9175,9177,9178,91620000,9261,9262,9474,9562,9564,9173,9179,9174,9161]
     )
     # Initialize FDW bridge.
     migration.bridge_initialize()
@@ -124,10 +124,12 @@ def main():
 
     # Perform migration for Study Area and Sub Study Area.
     # migration.perform_standard_migration("study_area", columns_to_match=["id"], columns_to_exclude=["setting"])
-    migration.perform_standard_migration("sub_study_area", columns_to_match=["name", "study_area_id"], with_delete=False)
-    
+    # migration.perform_standard_migration("sub_study_area", columns_to_match=["area", "study_area_id"], with_delete=False)
+    # migration.perform_standard_migration("building", columns_to_match=["id"], with_delete=False)
+    # migration.perform_standard_migration("population", columns_to_match=["id"], with_delete=False)
     #migration.insert_network()
-    # migration.perform_standard_migration("poi", columns_to_match=["uid"])
+    #migration.perform_standard_migration("aoi", columns_to_match=["id"])
+    migration.perform_standard_migration("poi", columns_to_match=["uid"])
 
 
     print_hashtags()

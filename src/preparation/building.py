@@ -308,5 +308,5 @@ def prepare_building(region: str):
     building_preparation.run()
 
 
-if __name__ == "__main__":
-    prepare_building()
+# if __name__ == "__main__":
+#     prepare_building()
