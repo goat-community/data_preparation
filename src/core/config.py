@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD_3DCITY: Optional[str] = None
     POSTGRES_HOST_3DCITY: Optional[str] = None
     POSTGRES_DB_3DCITY: Optional[str] = None
-    POSTGRES_POST_3DCITY: Optional[str] = None
+    POSTGRES_PORT_3DCITY: Optional[str] = None
     CITYGML_DATABASE_URI: Optional[SyncPostgresDsn] = None
     @validator("CITYGML_DATABASE_URI", pre=True)
     def assemble_citygml_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
@@ -101,6 +101,7 @@ class Settings(BaseSettings):
             path=f"/{values.get('POSTGRES_DB_3DCITY') or ''}",
             port=values.get("POSTGRES_PORT_3DCITY")
         )
+    AWS_BUCKET_CITYGML: Optional[str] = None
     
     # AWS Client 
     AWS_BUCKET_NAME: str = None

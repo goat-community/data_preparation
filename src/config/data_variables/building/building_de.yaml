@@ -18,6 +18,12 @@ region_pbf:
   ]
 
 collection:
+  city_gml:
+    path_s3: "300001907_LoD2/lod2/"
+    relevant_s3_files: ["bb.zip", "mv.zip", "sn.zip", "th.zip", "st.zip"]
+    remote_target_schema: "public"
+    remote_target_table: "building_germany"
+    
   osm_tags:
     building: [True]
   additional_columns:

@@ -1,0 +1,21 @@
+region_pbf:
+  [
+    "https://download.geofabrik.de/europe/belgium-latest.osm.pbf"
+  ]
+
+collection:
+  osm_tags:
+    amenity: [True]
+    landuse: [True]
+    leisure: [True]
+    tourism: [True]
+    natural: [True]
+    
+  additional_columns:
+    [
+    ]
+  nodes: False
+  ways: True
+  relations: False
+
+preparation:
