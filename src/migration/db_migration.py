@@ -22,7 +22,9 @@ class DBMigration(DBMigrationBase):
             engine_target (_type_): Sync SQLAlchemy engine_target.
             study_area_ids (list[int]): List of study area ids.
         """
-        super().__init__(db_source=db_source, db_target=db_target, study_area_ids=study_area_ids)
+        super().__init__(
+            db_source=db_source, db_target=db_target, study_area_ids=study_area_ids
+        )
 
     def insert_network(self):
 
@@ -31,8 +33,12 @@ class DBMigration(DBMigrationBase):
         self.check_table_schema_matches(MigrationTables.edge.value)
 
         # Get columns of table and their types.
-        node_columns = self.create_migration_table(MigrationTables.node.value, ["id"])[0]
-        edge_columns = self.create_migration_table(MigrationTables.edge.value, ["id"])[0]
+        node_columns = self.create_migration_table(MigrationTables.node.value, ["id"])[
+            0
+        ]
+        edge_columns = self.create_migration_table(MigrationTables.edge.value, ["id"])[
+            0
+        ]
 
         print_info(f"Starting migration for study areas {self.study_area_ids}...")
 
@@ -48,12 +54,12 @@ class DBMigration(DBMigrationBase):
             MigrationTables.edge.value,
             columns_to_match=["id"],
         )
-        
+
         # Ask user if migration table has been checked.
         self.prompt_user_check()
 
         # Delete scenarios from network tables in reverse order. First edges and then nodes
-        #TODO: In future we should not store the scenarios in the network tables but in seperate tables.
+        # TODO: In future we should not store the scenarios in the network tables but in seperate tables.
         for table_name in [MigrationTables.edge.value, MigrationTables.node.value]:
             self.engine_target.execute(
                 text(
@@ -101,6 +107,7 @@ class DBMigration(DBMigrationBase):
 
         print_info(f"Finished network migration for study areas {self.study_area_ids}.")
 
+
 def main():
 
     print_hashtags()
@@ -115,7 +122,55 @@ def main():
 
     # Initialize migration.
     migration = DBMigration(
-        db_source=db_source, db_target=db_target, study_area_ids=[9263,9274,9184,9186,9188,9361,9362,9363,9461,9462,9463,9464,9561,9762,9563,9574,9576,9565,9572,9573,9661,9662,9663,9763,9761,9764,9163,9175,9177,9178,91620000,9261,9262,9474,9562,9564,9173,9179,9174,9161]
+        db_source=db_source,
+        db_target=db_target,
+        study_area_ids=[
+            6412,
+            6533,
+            6413,
+            6534,
+            6535,
+            6631,
+            6414,
+            6434,
+            6435,
+            6436,
+            6438,
+            6439,
+            6440,
+            6531,
+            6532
+            # 9571,
+            # 9677,
+            # 8125,
+            # 9679,
+            # 9575,
+            # 9676,
+            # 9561,
+            # 9663,
+            # 6411,
+            # 6432,
+            # 6433,
+            # 6437,
+            # 7133,
+            # 7134,
+            # 8211,
+            # 7339,
+            # 8121,
+            # 8126,
+            # 8127,
+            # 8212,
+            # 8215,
+            # 10043,
+            # 8216,
+            # 10045,
+            # 10046,
+            # 10041,
+            # 99999998,
+            # 99999997,
+            # 99999996,
+            # 99999995,
+        ],
     )
     # Initialize FDW bridge.
     migration.bridge_initialize()
@@ -123,14 +178,17 @@ def main():
     migration.create_migration_schemas()
 
     # Perform migration for Study Area and Sub Study Area.
-    # migration.perform_standard_migration("study_area", columns_to_match=["id"], columns_to_exclude=["setting"])
+    migration.perform_standard_migration("study_area", columns_to_match=["id"], columns_to_exclude=["setting"], with_delete=False)
     # migration.perform_standard_migration("sub_study_area", columns_to_match=["area", "study_area_id"], with_delete=False)
-    # migration.perform_standard_migration("building", columns_to_match=["id"], with_delete=False)
+    # migration.perform_standard_migration(
+    #     "building", columns_to_match=["id"], with_delete=False
+    # )
     # migration.perform_standard_migration("population", columns_to_match=["id"], with_delete=False)
-    #migration.insert_network()
-    #migration.perform_standard_migration("aoi", columns_to_match=["id"])
-    migration.perform_standard_migration("poi", columns_to_match=["uid"])
-
+    # migration.insert_network()
+    # migration.perform_standard_migration("aoi", columns_to_match=["id"])
+    # migration.perform_standard_migration(
+    #     "poi", columns_to_match=["uid"], columns_to_exclude=["id"]
+    # )
 
     print_hashtags()
     print_info("Migration finished.")

@@ -53,7 +53,7 @@ class PoiPreparation:
             f"""SELECT {column_names}, 'n' AS osm_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_point""",
             f"""SELECT {column_names}, 'w' AS osm_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_polygon""",
         ]
-        df = pl.read_sql(sql_query, self.db_uri)
+        df = pl.read_database(sql_query, self.db_uri)
         return df
 
     @timing
