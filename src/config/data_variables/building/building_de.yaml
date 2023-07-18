@@ -40,11 +40,65 @@ collection:
   relations: False
 
 preparation:
-  average_building_levels: 4
+  average_building_levels: 2
   average_roof_levels: 1
+  study_area_ids: [
+      9571,
+      9677,
+      8125,
+      9679,
+      9575,
+      9676,
+      9561,
+      9663,
+      6411,
+      6432,
+      6433,
+      6437,
+      7133,
+      7134,
+      8211,
+      7339,
+      8121,
+      8126,
+      8127,
+      8212,
+      8215,
+      10043,
+      8216,
+      10045,
+      10046,
+      10041,
+      99999998,
+      99999997,
+      99999996,
+      99999995,
+  ]
 
   classification:
     residential_status:
+      polygon:
+        landuse_atkis:
+          query: "SELECT geom FROM landuse_atkis WHERE objart_txt IN ('AX_Bahnverkehr','AX_Bahnverkehrsanlage','AX_BauwerkImGewaesserbereich','AX_BauwerkImVerkehrsbereich','AX_BauwerkOderAnlageFuerIndustrieUndGewerbe','AX_BauwerkOderAnlageFuerSportFreizeitUndErholung','AX_Bergbaubetrieb','AX_Boeschungsflaeche','AX_DammWallDeich','AX_Duene','AX_EinrichtungenFuerDenSchiffsverkehr','AX_FelsenFelsblockFelsnadel','AX_FlaecheBesondererFunktionalerPraegung','AX_Fliessgewaesser','AX_Flugverkehr','AX_Flugverkehrsanlage','AX_Friedhof','AX_Gehoelz','AX_Gewaessermerkmal','AX_Hafen','AX_Hafenbecken','AX_Halde','AX_Heide','AX_HistorischesBauwerkOderHistorischeEinrichtung','AX_IndustrieUndGewerbeflaeche','AX_Landwirtschaft','AX_Meer','AX_Moor','AX_Schiffsverkehr','AX_Schleuse','AX_SportFreizeitUndErholungsflaeche','AX_StehendesGewaesser','AX_Strassenverkehr','AX_Strassenverkehrsanlage','AX_Sumpf','AX_TagebauGrubeSteinbruch','AX_Testgelaende','AX_Transportanlage','AX_Turm','AX_UnlandVegetationsloseFlaeche','AX_Vegetationsmerkmal','AX_VorratsbehaelterSpeicherbauwerk','AX_Wald')"
+          value: "'no_residents'"
+          share: 0.5
+
+        building_osm:
+          query: "SELECT way AS geom FROM building_osm WHERE amenity IN ('hospital', 'university', 'community_centre', 'school', 'kindergarten', 'recreation_ground', 'wood') OR leisure IN ('zoo')"
+          value: "'no_residents'"
+          share: 0.5
+
+        building_osm2:
+          query: "SELECT way AS geom FROM building_osm WHERE building IN ('apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house')"
+          value: "'with_residents'"
+          share: 0.5
+
+      point:
+        poi:
+          query: "SELECT count(*) AS count FROM basic.poi p"
+          value: "'no_residents'"
+          count: 5
+
       attribute:
         building_type:
           with_residents:
@@ -311,11 +365,7 @@ preparation:
               "Windrad",
             ]
 
-      point:
-        poi:
-          query: "SELECT count(*) AS count FROM basic.poi p"
-          value: "'no_residents'"
-          count: 5
+
 
         # address:
         #   query: "SELECT count(*) AS count FROM public.ga_germany p"
@@ -323,24 +373,10 @@ preparation:
         #   value: "'no_residents'"
         #   count: 0
 
-      polygon:
-        landuse_atkis:
-          query: "SELECT geom FROM landuse_atkis WHERE objart_txt IN ('AX_Bahnverkehr','AX_Bahnverkehrsanlage','AX_BauwerkImGewaesserbereich','AX_BauwerkImVerkehrsbereich','AX_BauwerkOderAnlageFuerIndustrieUndGewerbe','AX_BauwerkOderAnlageFuerSportFreizeitUndErholung','AX_Bergbaubetrieb','AX_Boeschungsflaeche','AX_DammWallDeich','AX_Duene','AX_EinrichtungenFuerDenSchiffsverkehr','AX_FelsenFelsblockFelsnadel','AX_FlaecheBesondererFunktionalerPraegung','AX_Fliessgewaesser','AX_Flugverkehr','AX_Flugverkehrsanlage','AX_Friedhof','AX_Gehoelz','AX_Gewaessermerkmal','AX_Hafen','AX_Hafenbecken','AX_Halde','AX_Heide','AX_HistorischesBauwerkOderHistorischeEinrichtung','AX_IndustrieUndGewerbeflaeche','AX_Landwirtschaft','AX_Meer','AX_Moor','AX_Schiffsverkehr','AX_Schleuse','AX_SportFreizeitUndErholungsflaeche','AX_StehendesGewaesser','AX_Strassenverkehr','AX_Strassenverkehrsanlage','AX_Sumpf','AX_TagebauGrubeSteinbruch','AX_Testgelaende','AX_Transportanlage','AX_Turm','AX_UnlandVegetationsloseFlaeche','AX_Vegetationsmerkmal','AX_VorratsbehaelterSpeicherbauwerk','AX_Wald')"
-          value: "'no_residents'"
-          share: 0.5
 
-        building_osm:
-          query: "SELECT way AS geom FROM building_osm WHERE amenity IN ('hospital', 'university', 'community_centre', 'school', 'kindergarten', 'recreation_ground', 'wood') OR leisure IN ('zoo')"
-          value: "'no_residents'"
-          share: 0.5
-
-        building_osm2:
-          query: "SELECT way AS geom FROM building_osm WHERE building IN ('apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house')"
-          value: "'with_residents'"
-          share: 0.5
-  # building_levels_residential:
-  #   point:
-  #     poi:
-  #       query: "SELECT geom FROM basic.poi"
-  #       substract: -1
-  #       count: 1
+    building_levels_residential:
+      point:
+        poi_osm:
+          query: "SELECT CASE WHEN count(*) > 0 THEN 1 END AS substract FROM planet_osm_point p WHERE (shop IS NOT NULL	OR	amenity IS NOT NULL	OR	office IS NOT NULL) AND ST_Intersects(b.geom, p.way)"
+        poi:
+          query: "SELECT CASE WHEN count(*) > 0 THEN 1 END AS substract FROM basic.poi p WHERE ST_Intersects(b.geom, p.geom)"
