@@ -224,7 +224,7 @@ class DBMigrationBase(DBBridge):
             """
         elif table_name == MigrationTables.aoi.value:
             sql_select_query += f"""
-                SELECT a.*
+                SELECT DISTINCT a.*
                 FROM {self.schema}.{table_name} a, {self.schema}.study_area s
                 WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
                 AND ST_Intersects(s.{StudyAreaGeomMigration.aoi.value}, a.geom);
@@ -241,7 +241,8 @@ class DBMigrationBase(DBBridge):
             SELECT b.*
             FROM {self.schema}.{table_name} b, {self.schema}.study_area s
             WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
-            AND ST_Intersects(s.{StudyAreaGeomMigration.building.value}, b.geom);
+            AND ST_Intersects(s.{StudyAreaGeomMigration.building.value}, b.geom)
+            AND ST_Intersects(s.{StudyAreaGeomMigration.building.value}, ST_CENTROID(b.geom));
             """
         else:
             raise Exception(f"Table {table_name} is not supported for migration.")

@@ -20,9 +20,10 @@ region_pbf:
 collection:
   city_gml:
     path_s3: "300001907_LoD2/lod2/"
-    relevant_s3_files: ["bb.zip", "mv.zip", "sn.zip", "th.zip", "st.zip"]
+    relevant_s3_files: ["nw.zip", "ni.zip", "hb.zip", "sh.zip", "hh.zip", "rp.zip", "bw.zip", "he.zip", "by.zip", "sn.zip", "th.zip", "st.zip", "bb.zip", "mv.zip"] 
     remote_target_schema: "public"
     remote_target_table: "building_germany"
+    geographical_extent: "SELECT id, geografischername_gen, ST_ASTEXT(geom) AS geom FROM germany_counties"
     
   osm_tags:
     building: [True]
