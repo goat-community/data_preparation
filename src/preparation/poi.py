@@ -11,7 +11,6 @@ from src.utils.utils import (
     polars_df_to_postgis,
     create_table_dump,
     restore_table_dump,
-    create_pgpass,
 )
 from src.db.db import Database
 from src.preparation.subscription import Subscription
@@ -54,7 +53,7 @@ class PoiPreparation:
             f"""SELECT {column_names}, 'n' AS osm_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_point""",
             f"""SELECT {column_names}, 'w' AS osm_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_polygon""",
         ]
-        df = pl.read_sql(sql_query, self.db_uri)
+        df = pl.read_database(sql_query, self.db_uri)
         return df
 
     @timing
@@ -292,8 +291,9 @@ class PoiPreparation:
         Returns:
             pl.DataFrame: Classified POIs.
         """
-
+        ####################################################################
         # Classify bus stops
+        ####################################################################
         df = df.with_columns(
             pl.when(
                 (pl.col("highway") == "bus_stop")
@@ -317,19 +317,66 @@ class PoiPreparation:
             .alias("category")
         )
 
+        ####################################################################
         # Classify tram stops
-        df = df.with_columns(
-            pl.when(
-                (pl.col("public_transport") == "stop_position")
-                & (pl.col("name").is_not_null())
-                & (pl.col("tags").str.json_path_match(r"$.tram") == "yes")
-            )
+        ####################################################################
+        df_tram_stops = df.filter(
+            (pl.col("public_transport") == "stop_position")
+            & (pl.col("name").is_not_null())
+            & (pl.col("tags").str.json_path_match(r"$.tram") == "yes")
+        )
+        pdf_tram_stops = df_tram_stops.to_pandas()
+        # Get all tram platforms
+        pdf_tram_platforms = df.filter(
+            (pl.col("public_transport") == "platform")
+            & (pl.col("name").is_not_null())
+            & (pl.col("railway") == "tram_stop")
+        ).to_pandas()
+
+        # Convert tram stops to GeoDataFrame
+        gdf_tram_stops = gpd.GeoDataFrame(
+            pdf_tram_stops,
+            geometry=gpd.GeoSeries.from_wkt(pdf_tram_stops["geom"], crs="EPSG:4326"),
+            crs="EPSG:4326",
+        ).to_crs(3857)
+
+        # Convert tram platform to GeoDataFrame
+        gdf_tram_platforms = gpd.GeoDataFrame(
+            pdf_tram_platforms,
+            geometry=gpd.GeoSeries.from_wkt(
+                pdf_tram_platforms["geom"], crs="EPSG:4326"
+            ),
+            crs="EPSG:4326",
+        ).to_crs(3857)
+        engine = self.db.return_sqlalchemy_engine()
+        gdf_tram_stops.to_postgis(name="tram_stops", con=engine, if_exists="replace")
+
+        # Get all tram platforms that are not having a tram stop in 100 meters distance
+        gdf_additional_tram_stops = gdf_tram_platforms[
+            gdf_tram_platforms.sjoin_nearest(
+                gdf_tram_stops[["geometry"]],
+                how="left",
+                max_distance=100,
+                distance_col="distance",
+            )["distance"].isna()
+        ]
+        # Drop geometry column and convert to pandas DataFrame
+        pdf_additional_tram_stops = gdf_additional_tram_stops.drop(columns=["geometry"])
+
+        # Convert back to Polars DataFrame, concat with original tram stops and rest of the data
+        df_tram_stops = pl.concat(
+            [pl.from_pandas(pdf_additional_tram_stops), df_tram_stops], how="diagonal"
+        ).with_columns(
+            pl.when(pl.col("category") == "str")
             .then("tram_stop")
             .otherwise(pl.col("category"))
             .alias("category")
         )
+        df = pl.concat([df, df_tram_stops], how="diagonal")
 
+        ####################################################################
         # Classify railway stations
+        ####################################################################
         df = df.with_columns(
             pl.when(
                 (pl.col(["railway"]) == "station")
@@ -583,11 +630,11 @@ def prepare_poi(region: str):
 
     Args:
         region (str): Region to prepare POI data for.
-    """    
+    """
 
     db = Database(settings.LOCAL_DATABASE_URI)
     poi_preparation = PoiPreparation(db=db, region=region)
-    
+
     # Read and classify POI data
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
@@ -605,22 +652,25 @@ def prepare_poi(region: str):
         create_geom_index=True,
         jsonb_column="tags",
     )
-    subscription = Subscription(db=db)
-
-    # Update kart repo with fresh OSM data 
+    
+    # Update kart repo with fresh OSM data
+    subscription = Subscription(db=db, region=region)
     subscription.subscribe_osm()
-    # Export to POI schema
-    subscription.export_to_poi_schema()
-    db.conn.close()
+
+
 
 def export_poi(region: str):
     """Export POI data to remote database
 
     Args:
         region (str): Region to export
-    """    
+    """
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
+
+    # Export to POI schema
+    subscription = Subscription(db=db, region=region)
+    subscription.export_to_poi_schema()
 
     # Dump table and restore in remote database
     create_table_dump(db.db_config, "basic", "poi", False)
@@ -628,6 +678,7 @@ def export_poi(region: str):
     restore_table_dump(db_rd.db_config, "basic", "poi", False)
     db.conn.close()
     db_rd.conn.close()
+
 
 if __name__ == "__main__":
     export_poi()

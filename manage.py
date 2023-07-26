@@ -8,6 +8,7 @@ from src.collection.network import collect_network
 from src.preparation.network import prepare_network
 from src.preparation.poi import prepare_poi
 from src.preparation.network import export_network
+from src.preparation.building import prepare_building
 from src.preparation.poi import export_poi
 from src.utils.utils import print_hashtags, print_info
 from src.db.db import Database
@@ -15,7 +16,7 @@ from src.db.db import Database
 app = typer.Typer()
 
 db = Database(settings.LOCAL_DATABASE_URI)
-db_rd = Database(settings.REMOTE_DATABASE_URI)
+db_rd = Database(settings.RAW_DATABASE_URI)
 
 #TODO: Add prepare_building, prepare_landuse, prepare_population, export_building, export_landuse, export_population
 action_dict = {
@@ -27,7 +28,8 @@ action_dict = {
     },
     "preparation": {
         "poi": prepare_poi,
-        "network": prepare_network
+        "network": prepare_network,
+        "building": prepare_building
     },
     "export": {
         "poi": export_poi,

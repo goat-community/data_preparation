@@ -1,0 +1,129 @@
+region_pbf: [https://download.geofabrik.de/europe/belgium-latest.osm.pbf]
+
+collection:
+  osm_tags:
+    building: [True]
+  additional_columns:
+    [
+      "amenity",
+      "leisure",
+      "addr:street",
+      "addr:housenumber",
+      "building:levels",
+      "roof:levels",
+    ]
+  nodes: False
+  ways: True
+  relations: False
+
+preparation:
+  average_building_levels: 4
+  average_roof_levels: 1
+  study_area_ids: [
+    44021
+  ]
+  classification:
+    residential_status:
+      attribute:
+        building_type:
+          no_residents: [
+            "civic",
+            "church",
+            "hangar",
+            "sports_centre",
+            "shed",
+            "industrial",
+            "house;garage",
+            "stadium",
+            "service",
+            "silo",
+            "pavilion",
+            "parking",
+            "farm_auxiliary",
+            "tent",
+            "school",
+            "carport",
+            "warehouse",
+            "kindergarten",
+            "boat",
+            "train_station",
+            "shelter",
+            "gatehouse",
+            "greenhouse",
+            "community_centre",
+            "farm",
+            "mosque",
+            "hut",
+            "hospital",
+            "retail",
+            "cowshed",
+            "castle",
+            "no",
+            "college",
+            "government",
+            "basilica",
+            "roof",
+            "garages",
+            "construction",
+            "supermarket",
+            "stable",
+            "barn",
+            "office",
+            "steps",
+            "rooster",
+            "cathedral",
+            "conference_centre",
+            "rectory",
+            "container",
+            "garage",
+            "public",
+            "cabin",
+            "parish_hall",
+            "university",
+            "sports_hall",
+            "uitbreiding",
+            "bunker",
+            "data_center",
+            "hotel",
+            "religious",
+            "loopbrug",
+            "ruins",
+            "chapel",
+            "station",
+            "commercial",
+            "monastery"
+          ]
+          with_residents: [
+            "villa",
+            "semidetached_house",
+            "house",
+            "dormitory",
+            "apartments",
+            "detached",
+            "terrace",
+            "residential"
+          ]
+
+      point:
+        poi:
+          query: "SELECT count(*) AS count FROM basic.poi p"
+          value: "'no_residents'"
+          count: 10
+        poi1:
+          query: "SELECT count(*) as count FROM basic.poi p WHERE category IN ('primary_school', 'secondary_school', 'bus_stop', 'rail_station', 'subway_entrance', 'tram_stop')"
+          value: "'no_residents'"
+          count: 1 
+
+      polygon:
+        urban_atlas:
+          query: "SELECT geom FROM temporal.urban_atlas_belgium_subdivide WHERE class_2018 IN ('Airports', 'Arable land (annual crops)', 'Construction sites', 'Forests', 'Green urban areas', 'Herbaceous vegetation associations (natural grassland, moors...)', 'Industrial, commercial, public, military and private units', 'Isolated structures', 'Land without current use', 'Mineral extraction and dump sites','Open spaces with little or no vegetation (beaches, dunes, bare rocks, glaciers)','Pastures',	'Permanent crops (vineyards, fruit trees, olive groves)','Port areas','Railways and associated land','Sports and leisure facilities','Water','Wetlands')"
+          value: "'no_residents'"
+          share: 0.5
+
+        landuse_osm:
+          # Convert "natural" to "natural_category" to avoid conflict with quotes
+          query: "SELECT way AS geom FROM temporal.landuse_osm l WHERE (ARRAY_REMOVE(ARRAY[amenity, landuse, leisure, tourism, natural_category], NULL))[1] NOT IN ('allotments', 'apartment', 'residential', 'residential_home', 'retail;residential', 'student_accommodation', 'yes')"
+          value: "'no_residents'"
+          share: 0.5
+
+      

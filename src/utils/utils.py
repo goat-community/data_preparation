@@ -62,10 +62,22 @@ def delete_dir(dir_path: str) -> None:
         pass
 
 
+def replace_dir(dir_path: str) -> None:
+    """Delete folder from disk and recreate empty one with same path."""
+    delete_dir(dir_path)
+    os.mkdir(dir_path)
+
+
 def print_hashtags():
     print(
         "#################################################################################################################"
     )
+
+
+def print_separator_message(message: str):
+    print_hashtags()
+    print_info(message)
+    print_hashtags()
 
 
 def print_info(message: str):
@@ -170,6 +182,29 @@ def create_pgpass(db_config):
     os.system(f"""chmod 0600  ~/.pgpass_{db_name}""")
 
 
+def check_table_exists(db, table_name: str, schema: str) -> bool:
+    """_summary_
+
+    Args:
+        db (_type_): _description_
+        table_name (str): _description_
+        schema (str): _description_
+
+    Returns:
+        bool: _description_
+    """    
+
+    check_if_exists = db.select(
+        f"""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE  table_schema = '{schema}'
+                AND    table_name   = '{table_name}'
+            );"""
+    )
+    return check_if_exists[0][0]
+
+
 def create_table_dump(
     db_config: dict, schema: str, table_name: str, data_only: bool = False
 ):
@@ -184,7 +219,7 @@ def create_table_dump(
 
     try:
         dir_output = os.path.join(settings.OUTPUT_DATA_DIR, table_name + ".dump")
-        
+
         # Delete the file if it already exists
         delete_file(dir_output)
 
@@ -193,19 +228,26 @@ def create_table_dump(
         # Construct the pg_dump command
         command = [
             "pg_dump",
-            "-h", db_config.host,
-            "-p", db_config.port,
-            "-U", db_config.user,
-            "-d", db_config.path[1:],
-            "-t", f"{schema}.{table_name}",
-            "-F", "c",
-            "-f", dir_output,
-            "--no-owner"
+            "-h",
+            db_config.host,
+            "-p",
+            db_config.port,
+            "-U",
+            db_config.user,
+            "-d",
+            db_config.path[1:],
+            "-t",
+            f"{schema}.{table_name}",
+            "-F",
+            "c",
+            "-f",
+            dir_output,
+            "--no-owner",
         ]
         # Append to the end of the command if it is a data only dump
         if data_only == True:
             command.append("--data-only")
-            
+
         # Run the pg_dump command and capture the output
         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
         print_info(f"Successfully dumped {schema}.{table_name} to {dir_output}")
@@ -226,7 +268,7 @@ def restore_table_dump(
     Raises:
         ValueError: If the file is not found.
     """
-    
+
     # Define the output directory
     dir_output = os.path.join(settings.OUTPUT_DATA_DIR, table_name + ".dump")
     # Check if the file exists
@@ -239,17 +281,21 @@ def restore_table_dump(
         # Construct the pg_dump command
         command = [
             "pg_restore",
-            "-h", db_config.host,
-            "-p", db_config.port,
-            "-U", db_config.user,
-            "-d", db_config.path[1:],
-            "--no-owner", 
-            dir_output
-        ]        
-        # Append to -2 position of the command if it is a data only dump 
+            "-h",
+            db_config.host,
+            "-p",
+            db_config.port,
+            "-U",
+            db_config.user,
+            "-d",
+            db_config.path[1:],
+            "--no-owner",
+            dir_output,
+        ]
+        # Append to -2 position of the command if it is a data only dump
         if data_only == True:
             command.insert(-2, "--data-only")
-            
+
         # Run the command
         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
         print_info(f"Successfully restored {table_name}.dump from {dir_output}")
@@ -271,8 +317,10 @@ def create_table_schema(db: Database, table_full_name: str):
     db.perform(query="CREATE SCHEMA IF NOT EXISTS extra;")
     db.perform(query="DROP TABLE IF EXISTS %s" % table_full_name)
     table_name = table_full_name.split(".")[1]
+    # Set the password to the environment variable
+    os.environ["PGPASSWORD"] = db_config.password
     subprocess.run(
-        f'PGPASSFILE=~/.pgpass_{db_config.path[1:]} pg_restore -U {db_config.user} --schema-only -h {db_config.host} --no-owner -n basic -d {db_config.path[1:]} -t {table_name} {"/app/src/data/input/dump.tar"}',
+        f'pg_restore -U {db_config.user} --schema-only -h {db_config.host} --no-owner -n basic -d {db_config.path[1:]} -t {table_name} {"/app/src/data/input/dump.tar"}',
         shell=True,
         check=True,
     )
@@ -365,7 +413,7 @@ def parse_poly(dir):
     in_ring = False
     coords = []
     with open(dir, "r") as polyfile:
-        for (index, line) in enumerate(polyfile):
+        for index, line in enumerate(polyfile):
             if index == 0:
                 # first line is junk.
                 continue
@@ -533,7 +581,6 @@ def polars_df_to_postgis(
             raise ValueError("Spefified column for Geometry not found in DataFrame")
 
         if jsonb_column in df_pd.columns and jsonb_column is not None:
-
             random_column_name_jsonb = "this_is_the_jsonb_column"
             db.execute(
                 text(

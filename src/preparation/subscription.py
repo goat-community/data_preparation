@@ -9,7 +9,7 @@ from src.utils.utils import print_info, create_table_schema, create_standard_ind
 class Subscription:
     """Class to prepare the POIs from OpenStreetMap."""
 
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, region: str):
         """Constructor method.
 
         Args:
@@ -21,7 +21,7 @@ class Subscription:
         self.engine = self.db.return_sqlalchemy_engine()
 
         self.table_name = "poi"
-        self.config_pois = Config(self.table_name)
+        self.config_pois = Config(self.table_name, region)
         self.config_pois_preparation = self.config_pois.preparation
         self.repo_url = self.config_pois.subscription["repo_url"]
         self.batch_size = 10000

@@ -194,7 +194,7 @@ class DBMigrationBase(DBBridge):
             """
         elif table_name == MigrationTables.poi.value:
             sql_select_query += f"""
-                SELECT p.*
+                SELECT DISTINCT p.*
                 FROM {self.schema}.{table_name} p, {self.schema}.study_area s
                 WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
                 AND ST_Intersects({StudyAreaGeomMigration.poi.value}, p.geom)
@@ -221,6 +221,28 @@ class DBMigrationBase(DBBridge):
                 FROM {self.schema}.{MigrationTables.edge.value} e, {self.schema}.study_area s
                 WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
                 AND ST_Intersects(s.{StudyAreaGeomMigration.edge.value}, e.geom); 
+            """
+        elif table_name == MigrationTables.aoi.value:
+            sql_select_query += f"""
+                SELECT DISTINCT a.*
+                FROM {self.schema}.{table_name} a, {self.schema}.study_area s
+                WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
+                AND ST_Intersects(s.{StudyAreaGeomMigration.aoi.value}, a.geom);
+            """
+        elif table_name == MigrationTables.population.value:
+            sql_select_query += f"""
+            SELECT p.*
+            FROM {self.schema}.{table_name} p, {self.schema}.study_area s
+            WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
+            AND ST_Intersects(s.{StudyAreaGeomMigration.population.value}, p.geom);
+            """
+        elif table_name == MigrationTables.building.value:
+            sql_select_query += f"""
+            SELECT b.*
+            FROM {self.schema}.{table_name} b, {self.schema}.study_area s
+            WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
+            AND ST_Intersects(s.{StudyAreaGeomMigration.building.value}, b.geom)
+            AND ST_Intersects(s.{StudyAreaGeomMigration.building.value}, ST_CENTROID(b.geom));
             """
         else:
             raise Exception(f"Table {table_name} is not supported for migration.")
@@ -485,7 +507,9 @@ class DBMigrationBase(DBBridge):
             table_name,
             columns_to_match=columns_to_match,
         )
-        self.prepare_rows_to_delete(table_name, columns_to_match=columns_to_match)
+        
+        if with_delete == True:
+            self.prepare_rows_to_delete(table_name, columns_to_match=columns_to_match)
 
         # Ask user if migration table has been checked.
         self.prompt_user_check()

@@ -3,23 +3,22 @@ from src.config.config import Config
 from src.core.config import settings
 from src.utils.utils import print_info
 
-class PopulationPreparation():
-    
+
+class PopulationPreparation:
     def __init__(self, db: Database, region: str):
 
         self.db = db
         self.region = region
         # Get config for population
-        #self.config = Config("population", region)
-        
-        
+        # self.config = Config("population", region)
+
     def disaggregate_population(self, sub_study_area_id: int):
         """Disaggregate population for sub study area
 
         Args:
             sub_study_area_id (int): ID of sub study area
-        """        
-        
+        """
+
         print_info(f"Disaggregate population for sub study area {sub_study_area_id}")
         # Get sum of gross floor area of buildings in sub study area
         sql_sum_gross_floor_area = f"""
@@ -31,10 +30,10 @@ class PopulationPreparation():
             AND residential_status = 'with_residents'
         """
         sum_gross_floor_area = self.db.select(sql_sum_gross_floor_area)[0][0]
-        
+
         if sum_gross_floor_area is None:
             return
-        
+
         sql_disaggregate_population = f"""
             INSERT INTO temporal.population (population, building_id, geom, sub_study_area_id)
             SELECT CASE WHEN {sum_gross_floor_area}::float * s.population != 0 
@@ -47,16 +46,15 @@ class PopulationPreparation():
             AND ST_Intersects(ST_CENTROID(b.geom), s.geom)
             AND residential_status = 'with_residents'
         """
-        
+
         self.db.perform(sql_disaggregate_population)
-        
-        
+
     def run(self, study_area_ids: list[int]):
-        
+
         sql_sub_study_area_ids = f"SELECT id FROM basic.sub_study_area WHERE study_area_id IN ({str(study_area_ids)[1:-1]});"
         sub_study_area_ids = self.db.select(sql_sub_study_area_ids)
         sub_study_area_ids = [id for id, in sub_study_area_ids]
-        
+
         # Create temporal population table
         sql_create_population_table = """
             DROP TABLE IF EXISTS temporal.population;
@@ -66,16 +64,48 @@ class PopulationPreparation():
             LIMIT 0;
         """
         self.db.perform(sql_create_population_table)
-        
+
         for sub_study_area_id in sub_study_area_ids:
             self.disaggregate_population(sub_study_area_id)
-    
+
 
 def main():
-    
-    study_area_ids = [11000009]
+
+    study_area_ids = [
+        9571,
+        9677,
+        8125,
+        9679,
+        9575,
+        9676,
+        9561,
+        9663,
+        6411,
+        6432,
+        6433,
+        6437,
+        7133,
+        7134,
+        8211,
+        7339,
+        8121,
+        8126,
+        8127,
+        8212,
+        8215,
+        10043,
+        8216,
+        10045,
+        10046,
+        10041,
+        99999998,
+        99999997,
+        99999996,
+        99999995,
+    ]
     db_rd = Database(settings.RAW_DATABASE_URI)
-    PopulationPreparation(db_rd, "uk").run(study_area_ids)
-     
+    PopulationPreparation(db_rd, "de").run(study_area_ids)
+
+
 if __name__ == "__main__":
-    main()   
+    main()

@@ -31,10 +31,10 @@ class OSMPOICollection(OSMBaseCollection):
         self.merge_osm_and_import()
         
 
-def collect_poi():
+def collect_poi(region: str):
     """Main function."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region="de")
+    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region=region)
 
     osm_poi_collection.poi_collection()
     osm_poi_collection.export_osm_boundaries_db(db=db)

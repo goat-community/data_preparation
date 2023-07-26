@@ -12,8 +12,8 @@
             <connection id="UUID_292a19a4-4b67-40e6-a663-a1a59c94cb8b" loginTimeout="60" initialSize="0">
                 <description>CityGML</description>
                 <type>PostGIS</type>
-                <server>localhost</server>
-                <port>5446</port>
+                <server>3dcity</server>
+                <port>5432</port>
                 <sid>_3dcity</sid>
                 <user>postgres</user>
                 <password>change_me</password>
@@ -121,8 +121,8 @@
             <mapUnknownExtensions>false</mapUnknownExtensions>
         </cityJSONOptions>
         <indexes>
-            <spatial>unchanged</spatial>
-            <normal>unchanged</normal>
+            <spatial>deactivate_activate</spatial>
+            <normal>deactivate_activate</normal>
         </indexes>
         <importLog>
             <logImportedFeatures>false</logImportedFeatures>

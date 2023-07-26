@@ -56,6 +56,21 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-k
 RUN apt-get update
 RUN apt-get install -y postgresql-client-14
 
+# install nano and make default git editor
+RUN apt install -y nano
+RUN git config --global core.editor "nano"
+
+# install java 11
+RUN apt-get update && apt-get install -y software-properties-common
+RUN add-apt-repository -y ppa:linuxuprising/java 
+
+# get 3citydb importer 
+RUN wget "https://github.com/3dcitydb/importer-exporter/releases/download/v5.3.0/3DCityDB-Importer-Exporter-5.3.0.zip"
+RUN unzip 3DCityDB-Importer-Exporter-5.3.0.zip
+RUN rm 3DCityDB-Importer-Exporter-5.3.0.zip
+RUN mv 3DCityDB-Importer-Exporter-5.3.0 /opt/3dcitydb
+RUN chmod +x /opt/3dcitydb/bin/impexp
+
 WORKDIR /app/
 
 ENTRYPOINT ["tail"]
