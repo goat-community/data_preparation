@@ -16,6 +16,7 @@ from src.utils.utils import (
 )
 from zipfile import ZipFile
 import subprocess
+import shutil
 
 
 class CityGMLCollection:
@@ -63,6 +64,7 @@ class CityGMLCollection:
             "remote_target_schema"
         ]
         self.remote_target_table = config.collection["city_gml"]["remote_target_table"]
+        self.geographical_extent = config.collection["city_gml"]["geographical_extent"]
 
     def download_citygml_files(self, dir_zipped_files):
 
@@ -128,21 +130,26 @@ class CityGMLCollection:
                 )
                 files_in_batch = files_in_zip[i : i + self.batch_size]
 
+                path_batch = os.path.join(self.path_local_citygml, "batch")
+                if os.path.exists(path_batch):
+                    shutil.rmtree(path_batch)
+                os.makedirs(path_batch)
                 # Loop through files and extract the relevant ones
                 for single_file in files_in_batch:
-                    zip_file.extract(single_file, self.path_local_citygml)
-                    single_file_path = os.path.join(
-                        self.path_local_citygml, single_file
-                    )
 
-                    # Import file using 3DCityDB CLI
-                    subprocess.run(
-                        f"/opt/3dcitydb/bin/impexp import -c {self.settings_xml} {single_file_path}",
-                        shell=True,
-                        check=True,
-                    )
-                    # Delete file after import
-                    delete_file(single_file_path)
+                    zip_file.extract(single_file, path_batch)
+                    # single_file_path = os.path.join(
+                    #     self.path_local_citygml, path_batch
+                    # )
+
+                # Import file using 3DCityDB CLI
+                subprocess.run(
+                    f"/opt/3dcitydb/bin/impexp import -c {self.settings_xml} {path_batch}",
+                    shell=True,
+                    check=True,
+                )
+                # # Delete file after import
+                # delete_file(single_file_path)
 
                 # Convert building into 2D schema
                 self.convert_buildings(target_table)
@@ -322,9 +329,87 @@ class CityGMLCollection:
                 data_only=data_only,
             )
 
+    def replace_building(self, db_rd):
+        
+        print_separator_message("Replacing buildings in remote database.")
+        units = db_rd.select(self.geographical_extent)
+
+        for unit in units:
+
+            check_if_building_exists = db_rd.select(
+                f"""
+                SELECT id
+                FROM basic.building
+                WHERE ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), ST_CENTROID(geom))
+                AND ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), geom)
+                LIMIT 1;
+                """
+            )
+
+            if check_if_building_exists != []:
+
+                # Delete buildings in the unit
+                db_rd.perform(
+                    f"""
+                    DELETE FROM basic.building 
+                    WHERE ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), ST_CENTROID(geom))
+                    AND ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), geom);
+                    """
+                )
+                print_info(f"Deleted buildings in {unit[1]}.")
+
+            else:
+                print_info(f"No buildings to delete in {unit[1]}.")
+
+        # Temporary drop indices
+        db_rd.perform(
+            """
+            DROP INDEX IF EXISTS basic.building_geom_idx;
+            ALTER TABLE basic.building DROP CONSTRAINT IF EXISTS building_pkey;
+            """
+        )
+
+        for unit in units:
+
+            check_if_building_exists = db_rd.select(
+                f"""
+                SELECT id
+                FROM {self.remote_target_schema}.{self.remote_target_table}
+                WHERE ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), ST_CENTROID(geom))
+                AND ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), geom)
+                LIMIT 1;
+                """
+            )
+
+            if check_if_building_exists != []:
+
+                # Add new buildings
+                db_rd.perform(
+                    f"""
+                    INSERT INTO basic.building (amenity, housenumber, street, roof_levels, building_levels, building_type, height, geom)
+                    SELECT amenity, housenumber, street, roof_levels, building_levels, building_type, height, geom
+                    FROM {self.remote_target_schema}.{self.remote_target_table}
+                    WHERE ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), ST_CENTROID(geom))
+                    AND ST_Intersects(ST_GEOMFROMTEXT('{unit[2]}', 4326), geom);
+                    """
+                )
+                print_info(f"Inserted buildings in {unit[1]}.")
+            else:
+                print_info(f"No buildings to insert in {unit[1]}.")
+
+        print_info("Recreating indices...")
+        db_rd.perform(
+            """
+            CREATE INDEX ON basic.building USING GIST (geom);
+            ALTER TABLE basic.building ADD PRIMARY KEY (id);
+            """
+        )
+        
+
 
 db = Database(settings.CITYGML_DATABASE_URI)
 city_gml_collection = CityGMLCollection(db, region="de")
-city_gml_collection.building_citygml_collection(download=False)
+# city_gml_collection.building_citygml_collection(download=True)
 db_rd = Database(settings.RAW_DATABASE_URI)
-city_gml_collection.export_to_remote_db(db_rd=db_rd, on_exists_drop=True)
+# city_gml_collection.export_to_remote_db(db_rd=db_rd, on_exists_drop=False)
+city_gml_collection.replace_building(db_rd=db_rd)

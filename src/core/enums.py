@@ -34,7 +34,7 @@ class BuildingClassificationColumnTypes(str, Enum):
     """Columns that can be classified by building preparation"""
     
     residential_status = "residential_status"
-    building_levels_residential = "building_level_residential"
+    building_levels_residential = "building_levels_residential"
     
 class BuildingClassificationTypes(str, Enum):
     """Geometry types for building classification"""
@@ -63,3 +63,14 @@ class StudyAreaGeomMigration(str, Enum):
     building = "geom"
     node = "buffer_geom_heatmap"
     edge = "buffer_geom_heatmap"
+
+class Weekday(str, Enum):
+    """Weeksdays."""
+
+    monday = "monday"
+    tuesday = "tuesday"
+    wednesday = "wednesday"
+    thursday = "thursday"
+    friday = "friday"
+    saturday = "saturday"
+    sunday = "sunday"
