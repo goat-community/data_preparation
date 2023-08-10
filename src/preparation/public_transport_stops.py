@@ -18,70 +18,86 @@ def prepare_public_transport_stops(region: str):
     
     db_goat = Database(settings.GOAT_DATABASE_URI)
     db_conn_goat = db_goat.return_sqlalchemy_engine().connect()
+    
+    
+    unique_study_area_ids = pd.read_sql("""SELECT DISTINCT id FROM basic.study_area""", db_conn_goat)
+    
+    # create table for final result
+    #TODO: read from config output stop types
+    
+    create_table_sql = """
+        DROP TABLE IF EXISTS temporal.gtfs_stops_classified;
+        CREATE TABLE temporal.gtfs_stops_classified (
+            stop_id TEXT,
+            stop_code TEXT,
+            stop_name TEXT,
+            stop_desc TEXT,
+            stop_loc GEOMETRY(Point),
+            zone_id TEXT,
+            stop_url TEXT,
+            location_type TEXT,
+            parent_station TEXT,
+            stop_timezone TEXT,
+            wheelchair_boarding TEXT,
+            level_id TEXT,
+            platform_code TEXT,
+            bus TEXT,
+            tram TEXT,
+            metro TEXT,
+            rail TEXT
+        );
+    """
 
-    unique_stop_ids = pd.read_sql("""SELECT DISTINCT stop_id FROM gtfs.stop_times_optimized""", db_conn_goat)
+    db_conn_goat.execute(create_table_sql)
+    
+    for id in unique_study_area_ids:
+        classify_gtfs_stops_sql = f"""
+            INSERT INTO temporal.gtfs_stops_classified (
+                stop_id,
+                stop_code,
+                stop_name,
+                stop_desc,
+                stop_loc,
+                zone_id,
+                stop_url,
+                location_type,
+                parent_station,
+                stop_timezone,
+                wheelchair_boarding,
+                level_id,
+                platform_code,
+                bus,
+                tram,
+                metro,
+                rail
+            )
+            WITH clipped_gfts_stops AS (
+                SELECT s.*
+                FROM gtfs.stops s, basic.study_area a
+                WHERE ST_Intersects(s.stop_loc, a.geom)
+                AND a.id = {id}
+                AND parent_station IS NOT NULL
+            )
+            SELECT c.*,
+                route_types ->> 'bus' AS bus,
+                route_types ->> 'tram' AS tram,
+                route_types ->> 'metro' AS metro,
+                route_types ->> 'rail' AS rail
+            FROM clipped_gfts_stops c 
+            CROSS JOIN LATERAL (
+                SELECT jsonb_object_agg(route_type, 'yes') AS route_types
+                FROM (
+                    SELECT DISTINCT o.route_type
+                    FROM gtfs.stop_times_optimized o
+                    WHERE o.stop_id = c.stop_id
+                ) r
+            ) j;
+        """
 
-    # Set the batch size and row count
-    batch_size = 999
-    current_row_count = 0
+        db_conn_goat.execute(classify_gtfs_stops_sql)
 
-    station_types_df = None
-
-    while current_row_count < unique_stop_ids.shape[0]: 
-            
-        batch_stops = unique_stop_ids.iloc[current_row_count:current_row_count+batch_size]
-        current_row_count += batch_size+1  
-                
-        
-        return_df = pd.read_sql(
-            f"""
-            SELECT stop_id, ARRAY_AGG(route_type) AS route_types
-            FROM (
-                SELECT DISTINCT stop_id, route_type
-                FROM gtfs.stop_times_optimized sto 
-                WHERE stop_id IN {tuple(value[0] for value in batch_stops.values)}
-            ) AS subquery
-            GROUP BY stop_id                  
-            """, db_conn_goat)
-        
-        
-        if station_types_df is None:
-            station_types_df = return_df
-        else:
-            station_types_df = pd.concat([station_types_df, return_df])   
-
-
-    gtfs_stops = gpd.GeoDataFrame.from_postgis("""SELECT * FROM gtfs.stops""", geom_col = 'stop_loc',con=db_conn_goat)
-
-    gtfs_stops = gtfs_stops.merge(station_types_df, how='left', on='stop_id')
-
-    # only keep entries where parent_station is not NaN
-    gtfs_stops.dropna(subset=['parent_station'], inplace=True)
-
-    # Custom function to check if a value exists in the set
-    def check_route_type(route_set, route_value):
-        if isinstance(route_set, str):
-            return route_value in set(route_set.strip('{}').split(','))
-        return False
-
-    # TODO: move to config
-    route_values = {
-        'bus': 3,
-        'tram': 0,
-        'metro': 1,
-        'rail': 2
-    }
-
-    # Create new columns using the custom function and the input dictionary
-    for mode, value in route_values.items():
-        gtfs_stops[mode] = gtfs_stops['route_types'].apply(lambda x: 'yes' if pd.notna(x) and check_route_type(x, str(value)) else 'no')
-
-
-    # Drop the original 'route_types' column if you don't need it anymore
-    gtfs_stops.drop(columns=['route_types'], inplace=True)
-
-    #TODO: add final schema
-    gtfs_stops.to_postgis('gtfs_stops_classified', db_conn_goat, if_exists='replace', index=False, schema='temporal')
-    db_conn_goat.execute("""CREATE INDEX ON temporal.gtfs_stops_classified USING GIST(stop_loc)""")
-    db_conn_goat.execute("""ALTER TABLE temporal.gtfs_stops_classified ADD PRIMARY KEY(stop_id)""")
-
+    #TODO: drop duplicates (stop_id) and add index + primary key
+    # db_conn_goat.execute("""CREATE INDEX ON temporal.gtfs_stops_classified USING GIST(stop_loc)""")
+    # db_conn_goat.execute("""ALTER TABLE temporal.gtfs_stops_classified ADD PRIMARY KEY(stop_id)""")       
+    
+    
