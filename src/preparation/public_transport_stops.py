@@ -84,15 +84,18 @@ def prepare_public_transport_stops(region: str):
                 route_types ->> 'metro' AS metro,
                 route_types ->> 'rail' AS rail
             FROM clipped_gfts_stops c 
-            CROSS JOIN LATERAL (
-                SELECT jsonb_object_agg(route_type, 'yes') AS route_types
-                FROM (
-                    SELECT DISTINCT o.route_type
-                    FROM gtfs.stop_times_optimized o
-                    WHERE o.stop_id = c.stop_id
-                ) r
-            ) j;
+                CROSS JOIN LATERAL 
+                (
+                    SELECT jsonb_object_agg(KEY, value) AS route_types
+                    FROM 
+                    (
+                        SELECT DISTINCT o.route_type
+                        FROM gtfs.stop_times_optimized o
+                        WHERE o.stop_id = c.stop_id
+                    ) r, LATERAL jsonb_each_text(('{{"0": {{"tram": "yes"}}, "1": {{"metro": "yes"}}, "2": {{"rail": "yes"}}, "3": {{"bus": "yes"}}}}'::jsonb ->> route_type::text)::jsonb) t
+                ) j;
         """
+
 
         db_conn_goat.execute(classify_gtfs_stops_sql)
 
