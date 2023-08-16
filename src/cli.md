@@ -21,6 +21,7 @@ The different actions can be executed by the `--action` or `-a` argument. Each a
 - population
 - building 
 - landuse
+- public_transport_stop
 
 The data sets can be defined by the `--data-set` or by `-d` argument. A region can be defined by `--region` or `-r`. A region can be understood as geographical area such as a country or state. The CLI will use the region and data-set tag to find the right configuration file inside the `config/data_variables` folder. There should be a check whether the configuration file exists. If not, the CLI should exit with an error message. 
 

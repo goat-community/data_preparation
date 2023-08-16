@@ -10,7 +10,7 @@ from src.preparation.poi import prepare_poi
 from src.preparation.network import export_network
 from src.preparation.building import prepare_building
 from src.preparation.poi import export_poi
-from src.preparation.public_transport_stops import prepare_public_transport_stops
+from src.preparation.public_transport_stop import prepare_public_transport_stop
 from src.utils.utils import print_hashtags, print_info
 from src.db.db import Database
 
@@ -31,7 +31,7 @@ action_dict = {
         "poi": prepare_poi,
         "network": prepare_network,
         "building": prepare_building,
-        "public_transport_stops": prepare_public_transport_stops
+        "public_transport_stop": prepare_public_transport_stop
     },
     "export": {
         "poi": export_poi,
