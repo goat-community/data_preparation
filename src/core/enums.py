@@ -55,7 +55,7 @@ class MigrationTables(str, Enum):
 
 class StudyAreaGeomMigration(str, Enum):
     """Specify whether to choose the buffer or the geometry for the study area."""
-    poi = "buffer_geom_heatmap"
+    poi = "geom"
     aoi = "buffer_geom_heatmap"
     study_area = "geom"
     sub_study_area = "geom"

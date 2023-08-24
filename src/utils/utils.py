@@ -290,6 +290,7 @@ def restore_table_dump(
             "-d",
             db_config.path[1:],
             "--no-owner",
+            "--no-privileges",
             dir_output,
         ]
         # Append to -2 position of the command if it is a data only dump
