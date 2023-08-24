@@ -1,0 +1,134 @@
+region_pbf : [
+  "https://download.geofabrik.de/europe/italy/nord-est-latest.osm.pbf"
+]
+collection:
+  osm_tags:
+    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
+                "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
+                "charging_station", "bus_station", "playground"]
+    shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+    tourism : ["hotel", "museum", "hostel", "guest_house"]
+    railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
+    leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
+    sport   : ["yoga", "fitness"]
+    highway : ["bus_stop"]
+    public_transport : ["stop_position", "station"]
+
+  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
+                        "opening_hours", "operator", "origin", "organic", "subway"]
+  nodes : True
+  ways : True
+  relations : True
+  
+preparation:
+  supermarket:
+    classify_by_name:
+      supermarket: 
+        children:
+          basko : ["basko"]
+          carrefour : ["carrefour", "carrefour express", "carrefour market"]
+          conad : ["conad", "conad city", "connad superstore"]
+          coop: ["coop", "incoop", "coop superstore", "coop&coop", "coop.fi"]
+          crai: ["crai"]
+          despar: ["despar"]
+          esselunga: ["esselunga"]
+          famila: ["famila"]
+          il gigante: ["il gigante"]
+          pam: ["pam"]
+          sigma: ["sigma"]
+          unes: ["unes"]
+          a&o: ["a&o"]
+        threshold: 0.7
+
+      discount_supermarket: 
+        children:
+          aldi : ["aldi"]
+          lidl : ["lidl"]
+          eurospin : ["eurospin"]
+          mercato : ["mercato"]
+          md : ["md"]
+          penny : ["penny"]
+          dico : ["dico"]
+          in's mercato : ["in's mercato"]
+          dpiù : ["dpiù"]
+          todis : ["todis"]
+          prix quality : ["prix quality"]
+          sosty : ["sosty"]
+          ard : ["ard"]
+          tuodì : ["tuodì"]
+        threshold: 0.8
+
+      hypermarket: 
+        children:
+          bennet : ["bennet"]
+          ipermercato carrefour : ["ipermercato carrefour"]
+          ipercoop : ["ipercoop"]
+          esselunga superstore : ["esselunga superstore"]
+          spazio conad : ["spazio conad"]
+          ipercoop : ["extracoop", "ipercoop"]
+          interspar : ["interspar"]
+          il gigante : ["il gigante"]
+          conad superstore : ["conad superstore"]
+          familia superstore : ["familia superstore"]
+          pam panorama : ["pam panorama", "panorama"]
+          iper : ["iper"]
+        threshold: 0.9
+      
+      organic_supermarket:
+        children:
+          naturasi : ["naturasi"]
+          biosapori : ["biosapori"]
+        threshold: 0.7
+      
+      chemist: 
+        children:
+          acqua e sapone : ["acqua e sapone", "acqua & sapone"]
+          tigotà: ["tigotà"]
+          promotre : ["promotre"]
+          dm : ["dm"]
+
+        threshold: 0.7
+
+      # This should be international_supermarket, but it is merged with convenience
+      convenience:
+        children:
+          turco : ["turco", "turkish", "turk"]
+          asia : ["asia", "asiatico", "asian"]
+          other : ["italiano", "polacco", "spagnolo", "russo"]
+        threshold: 0.7
+
+    classify_by_tag:
+      # This should be international_supermarket, but it is merged with convenience
+      international_supermarket:
+        origin: [True] 
+      organic_supermarket:
+        organic: ["only"]
+      discount_supermarket: 
+        name: ["np"]
+      supermarket:
+        name: ["combi"]
+      chemist:
+        name: ["dm"]
+    unmatched: "convenience"
+
+  health_food: 
+    classify_by_tag:
+      organic_supermarket:
+        shop: ["health_food"]
+
+  chemist:
+    classify_by_tag:
+      chemist:
+        shop: ["chemist"]
+
+  convenience: 
+    inherit: "supermarket"
+  grocery: 
+    inherit: "supermarket"
+  deli: 
+    inherit: "supermarket"
+  
+subscription:
+  repo_url: "https://github.com/goat-community/poi"
+    
