@@ -5,7 +5,7 @@ collection:
   osm_tags:
     amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
                 "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
-                "charging_station", "bus_station", "playground"]
+                "charging_station", "bus_station", "playground", "post_box", "post_office"]
     shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
                 "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
     tourism : ["hotel", "museum", "hostel", "guest_house"]
