@@ -6,11 +6,10 @@ from src.utils.utils import print_info
 
 class PopulationPreparation:
     def __init__(self, db: Database, region: str):
-
         self.db = db
         self.region = region
         # Get config for population
-        # self.config = Config("population", region)
+        self.config = Config("population", region)
 
     def disaggregate_population(self, sub_study_area_id: int):
         """Disaggregate population for sub study area
@@ -49,8 +48,10 @@ class PopulationPreparation:
 
         self.db.perform(sql_disaggregate_population)
 
-    def run(self, study_area_ids: list[int]):
+    def run(self):
+        """Run the population preparation."""
 
+        study_area_ids = self.config.preparation['study_area_ids']
         sql_sub_study_area_ids = f"SELECT id FROM basic.sub_study_area WHERE study_area_id IN ({str(study_area_ids)[1:-1]});"
         sub_study_area_ids = self.db.select(sql_sub_study_area_ids)
         sub_study_area_ids = [id for id, in sub_study_area_ids]
@@ -69,43 +70,7 @@ class PopulationPreparation:
             self.disaggregate_population(sub_study_area_id)
 
 
-def main():
-
-    study_area_ids = [
-        9571,
-        9677,
-        8125,
-        9679,
-        9575,
-        9676,
-        9561,
-        9663,
-        6411,
-        6432,
-        6433,
-        6437,
-        7133,
-        7134,
-        8211,
-        7339,
-        8121,
-        8126,
-        8127,
-        8212,
-        8215,
-        10043,
-        8216,
-        10045,
-        10046,
-        10041,
-        99999998,
-        99999997,
-        99999996,
-        99999995,
-    ]
+def prepare_population(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)
-    PopulationPreparation(db_rd, "de").run(study_area_ids)
-
-
-if __name__ == "__main__":
-    main()
+    PopulationPreparation(db=db_rd, region=region).run()
+    print_info("Finished population preparation. Check the results in the database inside temporal.population and do the final migration manually.")
