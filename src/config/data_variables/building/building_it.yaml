@@ -19,6 +19,9 @@ collection:
 preparation:
   average_building_levels: 3
   average_roof_levels: 1
+  study_area_ids: [
+    37006
+]
 
   classification:
     residential_status:
@@ -32,6 +35,11 @@ preparation:
                     1331, 1332, 1411, 1412, 1413, 1421, 1422, 1423, 1424, 1425, 1430, 2110, 2121, 2122, 2123, 2210, 2220, 2230, 2241, 2242, 2310, 2410, 
                     2420, 2430, 3112, 3113, 3114, 3116, 3120, 3130, 3231, 3232, 3331, 3332, 4110, 5111, 5112, 5113, 5114, 5123
                   )'  
+          value: "'no_residents'"
+          share: 0.5
+
+        building_osm:
+          query: "SELECT way AS geom FROM building_osm WHERE amenity IN ('hospital', 'university', 'community_centre', 'school', 'kindergarten', 'recreation_ground', 'wood', 'church') OR leisure IN ('zoo')"
           value: "'no_residents'"
           share: 0.5
 

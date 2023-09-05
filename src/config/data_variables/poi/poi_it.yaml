@@ -3,16 +3,16 @@ region_pbf : [
 ]
 collection:
   osm_tags:
-    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
-                "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
-                "charging_station", "bus_station", "playground", "post_box", "post_office"]
+    amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "bar", "biergarten", "cafe", 
+                "pub", "fast_food", "ice_cream", "restaurant", "nightclub", "car_sharing", "bicycle_rental", 
+                "playground", "post_box", "post_office"]
     shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
                 "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
-    tourism : ["hotel", "museum", "hostel", "guest_house"]
+    tourism : ["hotel", "hostel", "guest_house"]
     railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
     leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
     sport   : ["yoga", "fitness"]
-    highway : ["bus_stop"]
+    highway : []
     public_transport : ["stop_position", "station"]
 
   additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
