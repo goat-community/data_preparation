@@ -1,0 +1,7 @@
+# max 5 route types as we have 5 poi categories
+classification:
+  gtfs_route_types: 
+    "0": "tram_stop"
+    "1": "subway_entrance"
+    "2": "rail_station"
+    "3": "bus_stop"
