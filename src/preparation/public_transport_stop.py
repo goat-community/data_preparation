@@ -1,5 +1,4 @@
 import json
-
 from src.config.config import Config
 from src.db.db import Database
 from src.core.config import settings
@@ -16,11 +15,11 @@ class PublicTransportStopPreparation:
         self.config_public_transport_stop = Config("public_transport_stop", region).config['classification'] 
             
     def run(self):
+        """Run the public transport stop preparation."""
                    
         unique_study_area_ids = self.db.select("""SELECT DISTINCT id FROM basic.study_area""")
         
-        # create table for final result
-        
+        # Create table for public transport stops
         self.db.perform(create_poi_table(data_set_type="poi", schema_name="basic", data_set="public_transport_stop"))  
               
         category_columns = ", ".join([f"category_{i}" for i in range(1, len(self.config_public_transport_stop['gtfs_route_types']) + 1)])
