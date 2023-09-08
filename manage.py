@@ -12,6 +12,7 @@ from src.preparation.building import prepare_building
 from src.preparation.poi import export_poi
 from src.preparation.public_transport_stop import prepare_public_transport_stop
 from src.preparation.population import prepare_population
+from src.preparation.gtfs import prepare_gtfs
 from src.utils.utils import print_hashtags, print_info
 from src.db.db import Database
 
@@ -34,6 +35,7 @@ action_dict = {
         "building": prepare_building,
         "public_transport_stop": prepare_public_transport_stop,
         "population": prepare_population,
+        "gtfs": prepare_gtfs
     },
     "export": {
         "poi": export_poi,

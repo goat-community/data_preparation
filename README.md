@@ -48,6 +48,18 @@ The data preparation action will prepare the data using fusing, disaggregation a
 As the name suggests, the export action will export the data from the data preparation database to the target database.
 
 
-# Import GTFS data
+# GTFS DB import
 
-docker run --rm --network=data_preparation_data_preparation_proxy --volume $(pwd)/src/data/gtfs:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt"
+The workflow to import and prepare the GTFS into the PostgreSQL database is a bit different to the other data sets as we are making use of the library gtfs-via-postgres that is operated with a docker container. The following steps are necessary to import the GTFS data into the database.
+
+1. Download the GTFS data from the source and store it in the `src/data/input/gtfs` folder.
+2. Run the following command to import the data into the database. 
+
+```bash
+docker run --rm --network=data_preparation_data_preparation_proxy --volume path-to-gtfs-data:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt"
+```
+3. In the next step we can run last data preparations steps to prepare the GTFS data for the GOAT application. 
+
+```bash
+python manage.py --action preparation --data-set gtfs --region {REGION}
+```
