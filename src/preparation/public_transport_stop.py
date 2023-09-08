@@ -27,6 +27,7 @@ class PublicTransportStopPreparation:
         category_aliases = ', '.join([f"route_types[{i}] AS category{i}" for i in range(1, len(self.config_public_transport_stop['gtfs_route_types']) + 1)])
 
         for id in unique_study_area_ids:
+            print(id)
             classify_gtfs_stop_sql = f"""
                 INSERT INTO basic.poi_public_transport_stop(
                     {category_columns},
@@ -34,12 +35,21 @@ class PublicTransportStopPreparation:
                     geom,
                     tags                
                 )
-                WITH clipped_gfts_stops AS (
-                    SELECT s.stop_name AS name, s.stop_loc AS geom, json_build_object('stop_id', s.stop_id) AS tags
+                WITH parent_station_name AS (
+                    SELECT s.stop_name AS name, s.stop_id
                     FROM gtfs.stops s, basic.study_area a
                     WHERE ST_Intersects(s.stop_loc, a.geom)
                     AND a.id = {id[0]}
+                    AND parent_station IS NULL
+                ),
+                clipped_gfts_stops AS (
+                    SELECT ST_MULTI(ST_UNION(s.stop_loc)) AS geom, p.name, json_build_object('stop_id', ARRAY_AGG(s.stop_id)) AS tags
+                    FROM gtfs.stops s, basic.study_area a, parent_station_name p
+                    WHERE ST_Intersects(s.stop_loc, a.geom)
+                    AND a.id = {id[0]}
                     AND parent_station IS NOT NULL
+                    AND s.parent_station = p.stop_id
+                    GROUP BY s.parent_station, p.name
                 )
                 SELECT {category_aliases}, c.*
                 FROM clipped_gfts_stops c 
@@ -58,10 +68,13 @@ class PublicTransportStopPreparation:
                         WHERE route_type IS NOT NULL 
                         ORDER BY r.route_type
                     ) x 
-                ) j;
+                ) j
+                ;
             """
 
             self.db.perform(classify_gtfs_stop_sql)
+            
+    #TODO: drop entries without category (category_1 = NULL etc.)
         
 def prepare_public_transport_stop(region: str):
 
