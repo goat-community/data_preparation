@@ -197,7 +197,7 @@ class DBMigrationBase(DBBridge):
                 SELECT DISTINCT p.*
                 FROM {self.schema}.{table_name} p, {self.schema}.study_area s
                 WHERE s.id IN ({str(self.study_area_ids)[1:-1]})
-                AND ST_Intersects({StudyAreaGeomMigration.poi.value}, p.geom)
+                AND ST_Intersects(s.{StudyAreaGeomMigration.poi.value}, p.geom)
             """
         elif table_name == MigrationTables.node.value:
             sql_helper_table = f"""

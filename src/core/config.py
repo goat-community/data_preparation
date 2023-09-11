@@ -119,9 +119,6 @@ class Settings(BaseSettings):
             aws_secret_access_key=values.get("AWS_SECRET_ACCESS_KEY"),
             region_name=values.get("AWS_DEFAULT_REGION")
         )
-    OPENROUTESERVICE_API_KEY: str = None
-    GEOAPIFY_API_KEY: str = None
-    GOOGLE_API_KEY: str = None
     GITHUB_ACCESS_TOKEN: str = None
     
 settings = Settings()

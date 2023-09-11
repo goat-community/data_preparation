@@ -2,10 +2,7 @@ from src.migration.db_migration_base import DBMigrationBase
 from src.core.enums import MigrationTables
 from src.utils.utils import (
     print_info,
-    print_warning,
     print_hashtags,
-    create_table_dump,
-    restore_table_dump,
 )
 from src.core.config import settings
 from sqlalchemy import text
@@ -33,10 +30,10 @@ class DBMigration(DBMigrationBase):
         self.check_table_schema_matches(MigrationTables.edge.value)
 
         # Get columns of table and their types.
-        node_columns = self.create_migration_table(MigrationTables.node.value, ["id"])[
+        self.create_migration_table(MigrationTables.node.value, ["id"])[
             0
         ]
-        edge_columns = self.create_migration_table(MigrationTables.edge.value, ["id"])[
+        self.create_migration_table(MigrationTables.edge.value, ["id"])[
             0
         ]
 
@@ -65,7 +62,7 @@ class DBMigration(DBMigrationBase):
                 text(
                     f"""
                     DELETE FROM {self.schema}.{table_name}
-                    WHERE scenario_id IS NOT NULL 
+                    WHERE scenario_id IS NOT NULL
                     """
                 )
             )
@@ -88,7 +85,7 @@ class DBMigration(DBMigrationBase):
         # Get relevant scenario ids
         scenario_ids = self.engine_target.execute(
             text(
-                f"""
+                """
                 SELECT DISTINCT scenario_id
                 FROM customer.way_modified
                 """
