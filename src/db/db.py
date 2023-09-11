@@ -60,3 +60,6 @@ class Database:
     def cursor(self):
         """This will return the query as string for testing"""
         return self.conn.cursor()
+
+    def close(self):
+        self.conn.close()

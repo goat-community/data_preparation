@@ -1,0 +1,7 @@
+region_pbf: [
+    "https://download.geofabrik.de/europe-latest.osm.pbf"
+]
+gtfs: [
+    "s3://plan4better-data/network_pt",
+]
+regions: "SELECT id, buffer_geom FROM public.gtfs_regions"
