@@ -12,14 +12,11 @@
     "extensions": [
 		"ms-python.python",
 		"github.copilot",
-		"ms-vscode.cpptools",
-		"twxs.cmake",
-		"ms-vscode.cmake-tools",
 		"donjayamanne.python-extension-pack",
-		"njpwerner.autodocstring",
 		"ms-azuretools.vscode-docker",
 		"genieai.chatgpt-vscode",
-		"ms-python.black-formatter"
+		"ms-python.black-formatter",
+        "charliermarsh.ruff",
 	],
     "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
