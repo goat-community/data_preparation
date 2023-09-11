@@ -1,24 +1,126 @@
 from src.db.db import Database
 from src.config.config import Config
-from src.utils.utils import print_info, create_table_dump, restore_table_dump
+from src.utils.utils import print_info, create_table_dump
 from src.core.config import settings
 
-class GTFS():
-    def __init__(self, db: Database, db_rd: Database, region: str):
+
+class GTFS:
+    def __init__(self, db: Database, region: str):
         self.db = db
         self.region = region
-        # Get config for population
         self.config = Config("gtfs", region)
+        self.small_bulk = 500
+        self.large_bulk = 10000
 
-    def prepare_optimized_tables(self):
-        """Prepare GTFS data for the region."""
+    def prepare_stops(self):
+        """Prepare stops table."""
 
-        print_info("Prepare GTFS data for the region.")
+        sql_create_stops_optimized = """
+        DROP TABLE IF EXISTS gtfs.stops_optimized;
+        CREATE TABLE gtfs.stops_optimized (
+            stop_id text NOT NULL,
+            stop_code text NULL,
+            stop_name text NULL,
+            stop_desc text NULL,
+            geom public.geometry(point, 4326) NULL,
+            zone_id text NULL,
+            stop_url text NULL,
+            location_type text NULL,
+            parent_station text NULL,
+            stop_timezone text NULL,
+            wheelchair_boarding text NULL,
+            level_id text NULL,
+            platform_code text NULL,
+            h3_3 int4 NULL
+        );
+        """
+        self.db.perform(sql_create_stops_optimized)
+
+        # Add h3 index to stops
+        sql_create_stops_h3 = """
+            INSERT INTO gtfs.stops_optimized(stop_id, stop_code, stop_name, stop_desc, geom, zone_id, stop_url, location_type, parent_station, stop_timezone, wheelchair_boarding, level_id, platform_code, h3_3)
+            SELECT stop_id, stop_code, stop_name, stop_desc, stop_loc, zone_id, stop_url,
+            location_type::text, parent_station, stop_timezone, wheelchair_boarding::text, level_id, platform_code,
+            public.to_short_h3_3(h3_lat_lng_to_cell(stop_loc::point, 3)::bigint) AS h3_3
+            FROM gtfs.stops
+        """
+        self.db.perform(sql_create_stops_h3)
+
+        # Create indices for stops
+        sql_create_indices_stops = """
+            CREATE INDEX ON gtfs.stops_optimized USING btree (parent_station);
+            CREATE INDEX ON gtfs.stops_optimized  USING gist (geom);
+            ALTER TABLE gtfs.stops_optimized ADD PRIMARY KEY (stop_id);
+        """
+        self.db.perform(sql_create_indices_stops)
+
+    def prepare_trips(self):
+        """Prepare trips table."""
+
+        # Create result table
+        sql_create_trip_optimized = """
+        DROP TABLE IF EXISTS gtfs.trips_optimized;
+        CREATE TABLE gtfs.trips_optimized (
+            trip_id text NOT NULL,
+            route_id text NOT NULL,
+            service_id text NOT NULL,
+            trip_headsign text NULL,
+            trip_short_name text NULL,
+            direction_id int4 NULL,
+            block_id text NULL,
+            shape_id text NULL,
+            wheelchair_accessible text NULL,
+            bikes_allowed text NULL,
+            loop_id serial4 NOT NULL,
+            length_m int4 NULL
+        );
+        """
+        self.db.perform(sql_create_trip_optimized)
         
-        # Create results tables 
-        sql_create_trips_weekday = f"""DROP TABLE IF EXISTS gtfs.trips_weekday;  
-        CREATE TABLE gtfs.trips_weekday (id serial, trip_id TEXT, route_type smallint, weekdays boolean[]);"""
-        self.db.perform(sql_create_trips_weekday)
+        
+        sql_create_trips_columns = """
+            ALTER TABLE gtfs.trips DROP COLUMN IF EXISTS loop_id;
+            ALTER TABLE gtfs.trips ADD COLUMN loop_id serial;
+            CREATE INDEX ON gtfs.trips (loop_id);
+        """
+        self.db.perform(sql_create_trips_columns)
+
+        # Get max loop_id from routes
+        sql_get_max_loop_id = """SELECT MAX(loop_id) FROM gtfs.trips;"""
+        max_loop_id = self.db.select(sql_get_max_loop_id)[0][0]
+
+        # Add length of trip to trips
+        for i in range(0, max_loop_id, self.large_bulk):
+            sql_create_length_m = f"""
+                WITH to_insert AS
+                (
+                    SELECT x.*, j.*
+                    FROM (
+                        SELECT *
+                        FROM gtfs.trips
+                        WHERE loop_id BETWEEN {i} AND {i+self.large_bulk}
+                    )x
+                    CROSS JOIN LATERAL
+                    (
+                        SELECT max(shape_dist_traveled) AS length_m
+                        FROM gtfs.shapes
+                        WHERE shape_id = x.shape_id
+                    ) j
+                )
+                INSERT INTO gtfs.trips_optimized(trip_id, route_id, service_id, trip_headsign, trip_short_name, direction_id, block_id, shape_id, wheelchair_accessible, bikes_allowed, loop_id, length_m)
+                SELECT trip_id, route_id, service_id, trip_headsign, trip_short_name, direction_id, block_id, shape_id, 
+                wheelchair_accessible, bikes_allowed, loop_id, length_m
+                FROM to_insert;
+            """
+            self.db.perform(sql_create_length_m)
+            print_info(
+                f"Finished processing trips {i} to {i+self.large_bulk} out of {max_loop_id}."
+            )
+
+    def prepare_stop_times(self):
+        """Prepare stop_times table."""
+
+        # Create result table
         sql_create_stop_times_optimized = """
             DROP TABLE IF EXISTS gtfs.stop_times_optimized;
             CREATE TABLE gtfs.stop_times_optimized (
@@ -27,22 +129,25 @@ class GTFS():
                 arrival_time interval NULL,
                 stop_id text NULL,
                 route_type smallint NULL,
-                weekdays _bool NULL
+                weekdays _bool NULL,
+                h3_3 integer NOT NULL
             );
         """
         self.db.perform(sql_create_stop_times_optimized)
-        
-        # Create helper columns in routes for loop 
-        sql_create_routes_helper = f"""ALTER TABLE gtfs.routes ADD COLUMN loop_id serial;""" 
+
+        # Create helper columns in routes for loop
+        sql_create_routes_helper = (
+            """ALTER TABLE gtfs.routes ADD COLUMN IF NOT EXISTS loop_id serial;"""
+        )
         self.db.perform(sql_create_routes_helper)
-        
+
         # Get max loop_id from routes
-        sql_get_max_loop_id = f"""SELECT MAX(loop_id) FROM gtfs.routes;"""
+        sql_get_max_loop_id = """SELECT MAX(loop_id) FROM gtfs.routes;"""
         max_loop_id = self.db.select(sql_get_max_loop_id)[0][0]
-        
-        # Run processing in batches of 500 routes to avoid memory issues
-        for i in range(0, max_loop_id, 500):
-            f"""DROP TABLE IF EXISTS gtfs.temp_trips_weekday;  
+
+        # Run processing in batches of routes to avoid memory issues
+        for i in range(0, max_loop_id, self.small_bulk):
+            sql_create_trips_weekday = f"""DROP TABLE IF EXISTS gtfs.temp_trips_weekday;
             CREATE TABLE gtfs.temp_trips_weekday AS
             SELECT t.trip_id, t.route_type::text::smallint, ARRAY[
             (('{'{'}"available": "true", "not_available": "false"{'}'}'::jsonb) ->> c.monday::text)::boolean,
@@ -55,68 +160,111 @@ class GTFS():
             ] AS weekdays
             FROM
             (
-                SELECT t.trip_id, t.service_id, r.route_type 
-                FROM gtfs.trips t, gtfs.routes r  
-                WHERE t.route_id = r.route_id 
-                AND r.loop_id > {i}
+                SELECT t.trip_id, t.service_id, r.route_type
+                FROM gtfs.trips t, gtfs.routes r
+                WHERE t.route_id = r.route_id
+                AND r.loop_id BETWEEN {i} AND {i+self.small_bulk}
             ) t, gtfs.calendar c
             WHERE t.service_id = c.service_id
-            AND '{self.config.preparation["start_date"]}' >= start_date 
-            AND '{self.config.preparation["end_date"]}' <= end_date; 
+            AND '{self.config.preparation["start_date"]}' >= start_date
+            AND '{self.config.preparation["end_date"]}' <= end_date;
             ALTER TABLE gtfs.temp_trips_weekday ADD COLUMN id serial;
             ALTER TABLE gtfs.temp_trips_weekday ADD PRIMARY KEY (id);
             CREATE INDEX ON gtfs.temp_trips_weekday (trip_id);"""
             self.db.perform(sql_create_trips_weekday)
-        
 
-            #Creates table with optimized structure for counting services on the station level
+            # Creates table with optimized structure for counting services on the station level
             sql_create_stop_times_optimized = """
+            DROP TABLE IF EXISTS gtfs.temp_stop_times_optimized;
             CREATE TABLE gtfs.temp_stop_times_optimized AS
-            SELECT st.trip_id, st.arrival_time, stop_id, route_type::text::smallint, weekdays  
-            FROM gtfs.stop_times st, gtfs.trips_weekday w 
+            SELECT st.trip_id, st.arrival_time, stop_id, route_type::text::smallint, weekdays
+            FROM gtfs.stop_times st, gtfs.temp_trips_weekday w
             WHERE st.trip_id = w.trip_id;
+            CREATE INDEX ON gtfs.temp_stop_times_optimized (stop_id);
             """
             self.db.perform(sql_create_stop_times_optimized)
-            
-            
-            #INSERT INTO gtfs.stop_times_optimized(trip_id, arrival_time, stop_id, route_type, weekdays)
-        self.db.perform(sql_create_stop_times_optimized)
 
-    def create_table_partitions(self):
-        """Create table partitions for the gtfs data."""
-        
-        # Move the gtfs data to db_rd
-        
-        # Create schema gtfs if not exists in db_rd
-        sql_create_schema_gtfs = "CREATE SCHEMA IF NOT EXISTS gtfs;"
-        self.db_rd.perform(sql_create_schema_gtfs)
-        
-        create_table_dump(self.db.db_config, "gtfs", "stops", data_only=True)
-        create_table_dump(self.db.db_config, "gtfs", "stop_times_optimized", data_only=True)
-        create_table_dump(self.db.db_config, "gtfs", "stop_times_optimized", data_only=True)
-        restore_table_dump(self.db_rd.db_config, "gtfs", "stops", data_only=True)
-        restore_table_dump(self.db_rd.db_config, "gtfs", "stop_times_optimized", data_only=True)
-         
-    
+            # Insert data into the results table
+            sql_insert_stop_times_optimized = """
+            INSERT INTO gtfs.stop_times_optimized(trip_id, arrival_time, stop_id, route_type, weekdays, h3_3)
+            SELECT t.trip_id, t.arrival_time, t.stop_id, t.route_type, t.weekdays, s.h3_3
+            FROM gtfs.temp_stop_times_optimized t, gtfs.stops_optimized s
+            WHERE t.stop_id = s.stop_id;
+            """
+            self.db.perform(sql_insert_stop_times_optimized)
+
+            print_info(
+                f"Finished processing routes {i} to {i+self.small_bulk} out of {max_loop_id}."
+            )
+            
+    #TODO: Citus needs to be finished and tested further, currently not used.
+    def make_citus(self):
+        """Make tables distributed."""
+
+        # Drop primary key from stops
+        sql_drop_primary_key = """
+            ALTER TABLE gtfs.stops_optimized DROP CONSTRAINT stops_optimized_pkey;
+        """
+        self.db.perform(sql_drop_primary_key)
+
+        # Make tables distributed
+        sql_make_citus = """
+            SELECT create_distributed_table('gtfs.stops_optimized', 'h3_3');
+            SELECT create_distributed_table('gtfs.stop_times_optimized', 'h3_3');
+        """
+        self.db.perform(sql_make_citus)
+
+        # Create indices for stops
+        sql_create_indices_stops = """
+            ALTER TABLE gtfs.stops_optimized ADD PRIMARY KEY (h3_3, stop_id);
+            ALTER TABLE gtfs.stops_optimized ADD FOREIGN KEY (h3_3, parent_station)
+            REFERENCES gtfs.stops_optimized(h3_3, stop_id);
+        """
+        self.db.perform(sql_create_indices_stops)
+
+        # Create indices for stop_times
+        sql_create_indices_stop_times = """
+            ALTER TABLE gtfs.stop_times_optimized ADD PRIMARY KEY (h3_3, id);
+            CREATE INDEX ON gtfs.stop_times_optimized (h3_3, stop_id, arrival_time);
+        """
+        self.db.perform(sql_create_indices_stop_times)
+
+    def add_indices(self):
+
+        sql_create_indices_stops = """
+            ALTER TABLE gtfs.stops_optimized ADD FOREIGN KEY (parent_station)
+            REFERENCES gtfs.stops_optimized(stop_id);
+        """
+        self.db.perform(sql_create_indices_stops)
+
+        sql_create_indices_stop_times = """
+            ALTER TABLE gtfs.stop_times_optimized ADD PRIMARY KEY (id);
+            CREATE INDEX ON gtfs.stop_times_optimized (stop_id, arrival_time);
+        """
+        self.db.perform(sql_create_indices_stop_times)
+
+
     def run(self):
         """Run the gtfs preparation."""
-        self.prepare_optimized_tables()
+
+        self.prepare_stops()
+        self.prepare_trips()
+        self.prepare_stop_times()
+        self.add_indices()
 
 def prepare_gtfs(region: str):
+    print_info(f"Prepare GTFS data for the region {region}.")
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
 
-    GTFS(db=db, db_rd=db_rd, region=region).run()
+    GTFS(db=db_rd, region=region).run()
     db.close()
     db_rd.close()
     print_info("Finished GTFS preparation.")
 
+def export_gtfs():
+    db = Database(settings.RAW_DATABASE_URI)
+    create_table_dump(db.db_config, "gtfs", "stops_optimized")
+    create_table_dump(db.db_config, "gtfs", "stop_times_optimized")
+    create_table_dump(db.db_config, "gtfs", "trips")
 
-"""
-    ALTER TABLE gtfs.stop_times_optimized ADD PRIMARY KEY(id); 
-    CREATE INDEX ON gtfs.stop_times_optimized(stop_id, arrival_time);
-"""
-# TODO: 
-# Refactor preparation 
-# Test logic with tables partitions using Citus and h3 logic
-# Run queries against the database and check results

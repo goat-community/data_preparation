@@ -13,6 +13,8 @@ from src.preparation.poi import export_poi
 from src.preparation.public_transport_stop import prepare_public_transport_stop
 from src.preparation.population import prepare_population
 from src.preparation.gtfs import prepare_gtfs
+from src.preparation.gtfs import export_gtfs
+from src.migration.gtfs import migrate_gtfs
 from src.utils.utils import print_hashtags, print_info
 from src.db.db import Database
 
@@ -21,13 +23,13 @@ app = typer.Typer()
 db = Database(settings.LOCAL_DATABASE_URI)
 db_rd = Database(settings.RAW_DATABASE_URI)
 
-#TODO: Add prepare_landuse, export_building, export_landuse, export_population
+# TODO: Add prepare_landuse, export_building, export_landuse, export_population
 action_dict = {
     "collection": {
-        "building": collect_building, 
+        "building": collect_building,
         "poi": collect_poi,
         "landuse": collect_landuse,
-        "network": collect_network
+        "network": collect_network,
     },
     "preparation": {
         "poi": prepare_poi,
@@ -35,13 +37,12 @@ action_dict = {
         "building": prepare_building,
         "public_transport_stop": prepare_public_transport_stop,
         "population": prepare_population,
-        "gtfs": prepare_gtfs
+        "gtfs": prepare_gtfs,
     },
-    "export": {
-        "poi": export_poi,
-        "network": export_network
-    }   
+    "export": {"poi": export_poi, "network": export_network, "gtfs": export_gtfs},
+    "migration": {"gtfs": migrate_gtfs},
 }
+
 
 def check_input(actions: list[str], datasets: list[str]) -> bool:
     """Check if input is valid.
@@ -55,30 +56,35 @@ def check_input(actions: list[str], datasets: list[str]) -> bool:
 
     Returns:
         bool: True if input is valid.
-    """    
-    # Check if action in action_dict keys 
+    """
+    # Check if action in action_dict keys
     for action in actions:
         if action not in action_dict.keys():
             typer.echo(f"Action {action} is not supported.")
             raise typer.Abort()
-    
-    # Check if dataset supports action if not print that dataset does not support action but continue 
+
+    # Check if dataset supports action if not print that dataset does not support action but continue
     for action in actions:
         for dataset in datasets:
             if dataset not in action_dict[action].keys():
                 typer.echo(f"Dataset {dataset} does not support action {action}.")
-    
+
     return True
+
 
 def check_config_file_exists(data_set: str, region: str) -> bool:
     """Check if the configuration file exists."""
     config_path = os.path.join(
-        settings.CONFIG_DIR, "data_variables", data_set, data_set + "_" + region + ".yaml"
+        settings.CONFIG_DIR,
+        "data_variables",
+        data_set,
+        data_set + "_" + region + ".yaml",
     )
     if not os.path.isfile(config_path):
         typer.echo(f"Configuration file {config_path} does not exist.")
         raise typer.Abort()
     return True
+
 
 @app.command()
 def run(
@@ -93,15 +99,22 @@ def run(
     # Check if all data sets are valid
     check_input(actions=all_actions, datasets=data_sets)
 
-    # Loop through actions dicts and check if action and dataset are requested. If so, compute  
+    # Loop through actions dicts and check if action and dataset are requested. If so, compute
     for action in all_actions:
         for dataset in data_sets:
             if dataset in action_dict[action].keys() and action in action_dict.keys():
                 print_hashtags()
-                print_info(f"Performing {action} on {dataset} for region <{region}>")
+                if region is not None:
+                    print_info(f"Performing {action} on {dataset} for region <{region}>")
+                else:
+                    print_info(f"Performing {action} on {dataset}")
                 print_hashtags()
-                check_config_file_exists(data_set=dataset, region=region)
-                action_dict[action][dataset](region=region)
+                
+                if region is not None:
+                    check_config_file_exists(data_set=dataset, region=region)
+                    action_dict[action][dataset](region=region)
+                else:
+                    action_dict[action][dataset]()
 
 if __name__ == "__main__":
     app()

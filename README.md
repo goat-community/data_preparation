@@ -56,7 +56,7 @@ The workflow to import and prepare the GTFS into the PostgreSQL database is a bi
 2. Run the following command to import the data into the database. 
 
 ```bash
-docker run --rm --network=data_preparation_data_preparation_proxy --volume path-to-gtfs-data:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt"
+docker run --rm --network=data_preparation_data_preparation_proxy --volume path-to-gtfs-data:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt
 ```
 3. In the next step we can run last data preparations steps to prepare the GTFS data for the GOAT application. 
 
