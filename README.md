@@ -9,6 +9,57 @@ This is a repository containing the data preparation steps for GOAT.
 3. Run `docker-compose up -d`
 4. Work inside the docker container
 
-# Import GTFS data
+# Data Preparation CLI
 
-docker run --rm --network=data_preparation_data_preparation_proxy --volume $(pwd)/src/data/gtfs:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt"
+We are running data preparation scripts that involve data from three locations. It reads data from OpenStreetMap(OSM) using predefined URLs to the planet OSM files. Furthermore, it interacts with a target database, which acts as the rawdatabase and is supposed to be a remote database. It is used to manage the data for GOAT. Meanwhile, for temporary storage a local Preparation Database is used. The data preparation process is visualized in the following diagram. 
+
+```mermaid
+graph LR
+OSM --> Processing
+Processing <--> TargetDB
+Processing <--> PreparationDB
+```
+
+The Data Preparation CLI is a command line interface to orchestrate the data preparation process. It consist of three main actions: 
+- collection
+- preparation 
+- export. 
+
+The different actions can be executed by the `--action` or `-a` argument. Each action can be used individually or in combination. Each action will be performed on one or more data sets. The supported data sets are currently:
+
+- network 
+- poi 
+- population
+- building 
+- landuse
+- public_transport_stop
+
+The data sets can be defined by the `--data-set` or by `-d` argument. A region can be defined by `--region` or `-r`. A region can be understood as geographical area such as a country or state. The CLI will use the region and data-set tag to find the right configuration file inside the `config/data_variables` folder. There should be a check whether the configuration file exists. If not, the CLI should exit with an error message. 
+
+It should be possible to chain the different process. So it should be possible to execute the collection,preparation and export action in one command. It is important that the processes are execute in the order: collection, preparation and export. Furthermore it should be possible to execute the command for multiple data sets at once. 
+
+### Collection
+The data collection action will collect the data mostly from OSM and perform the classification specified in the config files. 
+
+### Data Preparation
+The data preparation action will prepare the data using fusing, disaggregation and integration techniques. It might read data from the target database and write the results back to the data preparation database.
+
+### Export
+As the name suggests, the export action will export the data from the data preparation database to the target database.
+
+
+# GTFS DB import
+
+The workflow to import and prepare the GTFS into the PostgreSQL database is a bit different to the other data sets as we are making use of the library gtfs-via-postgres that is operated with a docker container. The following steps are necessary to import the GTFS data into the database.
+
+1. Download the GTFS data from the source and store it in the `src/data/input/gtfs` folder.
+2. Run the following command to import the data into the database. 
+
+```bash
+docker run --rm --network=data_preparation_data_preparation_proxy --volume path-to-gtfs-data:/gtfs -e PGHOST={PGHOST} -e PGPASSWORD={PGPASSWORD} -e PGUSER={PGUSER} -e PGDATABASE={PGDATABASE} majkshkurti/gtfs-via-postgres:4.3.4 --trips-without-shape-id --schema gtfs  -- *.txt
+```
+3. In the next step we can run last data preparations steps to prepare the GTFS data for the GOAT application. 
+
+```bash
+python manage.py --action preparation --data-set gtfs --region {REGION}
+```

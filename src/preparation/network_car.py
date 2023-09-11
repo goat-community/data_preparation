@@ -24,7 +24,7 @@ class NetworkCar:
 
         self.bulk_size = 100000
 
-        sql_query_cnt = "SELECT COUNT(*) FROM dds_street_with_speed_subset;"
+        sql_query_cnt = "SELECT COUNT(*) FROM dds_street_with_speed;"
         cnt_network = self.db.select(sql_query_cnt)
         self.cnt_network = cnt_network[0][0]
 
@@ -85,7 +85,7 @@ class NetworkCar:
                 FROM dds_street
                 WHERE loop_serial >= {offset} AND loop_serial < {offset + self.bulk_size};
                 ALTER TABLE selected_dds_street ADD PRIMARY KEY (id);
-            """
+            """            
             self.db.perform(sql_create_selected_streets)
 
             # Create temp table with speed for the repective bulk
@@ -156,7 +156,7 @@ class NetworkCar:
                 raise Exception("Duplicated ids found")
 
             print_info(
-                f"Inserted {offset + self.bulk_size} of {self.cnt_network} streets with speed"
+                f"Inserted {offset + self.bulk_size} of {max_loop_serial} streets with speed"
             )
 
         # Create primary key and index on the geometry column
@@ -172,12 +172,29 @@ class NetworkCar:
     def create_network_nodes(self):
         """This function creates the nodes of the network and saves them into the database."""
 
-        # Create empty dataframe for the nodes
-        df = pl.DataFrame()
+        # Create empty table for nodes 
+        sql_create_nodes_table = """
+            DROP TABLE IF EXISTS dds_street_nodes;
+            CREATE TABLE dds_street_nodes (
+                lat float,
+                lon float,
+                coords float[]
+            );
+            CREATE INDEX ON dds_street_nodes (coords); 
+        """
+        self.db.perform(sql_create_nodes_table)
+        
+        max_id = self.db.select(
+            """SELECT max(loop_serial) FROM public.dds_street_with_speed_subset;"""
+        )[0][0]
+        
         # Create nodes of the network in batches
-        for offset in range(0, self.cnt_network, self.bulk_size):
+        for offset in range(0, max_id, self.bulk_size):
             sql_get_nodes = f"""
-                SELECT DISTINCT (coords -> 1)::float lat, (coords -> 0)::float lon
+                DROP TABLE IF EXISTS tmp_dds_street_nodes;
+                CREATE /*TEMP*/ TABLE tmp_dds_street_nodes AS 
+                SELECT DISTINCT (coords -> 1)::float lat, (coords -> 0)::float lon, 
+                ARRAY[(coords -> 1)::float, (coords -> 0)::float] coords
                 FROM (
                     SELECT geom 
                     FROM dds_street_with_speed_subset
@@ -187,33 +204,31 @@ class NetworkCar:
                 ) s,  
                 LATERAL jsonb_array_elements(
                     (st_asgeojson(ST_SETSRID(geom, 4326))::jsonb -> 'coordinates')
-                ) coords
+                ) coords;
+                ALTER TABLE tmp_dds_street_nodes ADD PRIMARY KEY (coords);
             """
-            df = pl.concat([df, pl.read_database(sql_get_nodes, self.db_uri)])
-
+            self.db.perform(sql_get_nodes)
+            
+            # Insert using left join to avoid adding duplicates
+            sql_insert_nodes = f"""
+                INSERT INTO dds_street_nodes (lat, lon, coords)
+                SELECT DISTINCT x.lat, x.lon, x.coords 
+                FROM tmp_dds_street_nodes x
+                LEFT JOIN dds_street_nodes n
+                ON x.coords = n.coords
+                WHERE n.coords IS NULL;
+            """
+            self.db.perform(sql_insert_nodes)
             print_info(
-                f"Reading nodes for {offset + self.bulk_size} of {self.cnt_network} ways"
+                f"Reading nodes for {offset + self.bulk_size} of {max_id} ways"
             )
-        # Get distinct nodes
-        df = df.unique()
-
-        # Write nodes to database
-        df.write_database(
-            table_name="dds_street_nodes",
-            connection_uri=self.db_uri,
-            if_exists="replace",
-        )
 
         # Create id and primary key on id column
         self.db.perform(
             """
             ALTER TABLE dds_street_nodes ADD COLUMN id serial;
             ALTER TABLE dds_street_nodes ADD PRIMARY KEY (id);
-            ALTER TABLE dds_street_nodes ADD COLUMN coords float[]; 
-            UPDATE dds_street_nodes 
-            SET coords = ARRAY[lat, lon];
-            CREATE INDEX ON dds_street_nodes (coords); 
-        """
+            """
         )
         print_info("Finished inserting nodes")
 
@@ -335,7 +350,7 @@ class NetworkCar:
         
             self.db.perform(sql_query_read_network_car)
             print_info(
-                f"Saved {offset + self.bulk_size} of {self.cnt_network} ways into xml"
+                f"Saved {offset + self.bulk_size} of {max_id} ways into xml"
             )
 
         sql_index_sort = """
@@ -389,122 +404,6 @@ class NetworkCar:
             shell=True,
         )
 
-    def export_to_osm(self):
-
-        # Create osm file with header
-        with open(os.path.join(self.results_dir, f"network.osm"), "w") as f:
-            f.write(
-                """<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.59 e21c39fe">\n"""
-            )
-
-        # Create empty file for nodes 
-        with open(os.path.join(self.results_dir, f"network_node.osm"), "w") as f:
-            f.write("") 
-
-        # Create empty file for ways
-        with open(os.path.join(self.results_dir, f"network_way.osm"), "w") as f:
-            f.write("")
-
-        # Max id of ways 
-        sql_max_id_ways =  """
-            SELECT MAX(loop_serial) FROM dds_street_with_speed_subset;
-        """
-        max_id_ways = self.db.select(sql_max_id_ways)[0][0]
-        max_node_id = 1 
-        for offset in range(0, max_id_ways, self.bulk_size):
-
-            # Get node is for respective ways
-            sql_create_table_node_cnt = f"""
-            DROP TABLE IF EXISTS node_cnt;
-            CREATE TABLE node_cnt AS 
-            WITH node_counts AS (
-                SELECT id,
-                    array_length(ARRAY(
-                        SELECT ARRAY[(coords -> 1)::float, (coords -> 0)::float]        
-                        FROM jsonb_array_elements(st_asgeojson(ST_SETSRID(geom, 4326))::jsonb -> 'coordinates') coords
-                    ), 1) AS count_nodes 
-                FROM dds_street_with_speed_subset
-                WHERE loop_serial >= {offset} AND loop_serial < {offset + self.bulk_size}
-            ),
-            node_cum_count AS 
-            (
-                SELECT id, SUM(count_nodes) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS cumulative_count
-                FROM node_counts
-            )
-            SELECT id, ({max_node_id} + COALESCE(cumulative_count, 0))::integer AS cumulative_count
-            FROM node_cum_count c; 
-            ALTER TABLE node_cnt ADD PRIMARY KEY(id);"""
-            self.db.perform(sql_create_table_node_cnt)
-
-            max_node_id = self.db.select("SELECT MAX(cumulative_count) FROM node_cnt")[0][0]
-
-            # Read converted nodes and ways from the DB
-            sql_export_to_osm = f"""
-                WITH ways_to_export AS 
-                (
-                    SELECT w.id, geom, jsonb_strip_nulls(jsonb_build_object('highway', highway, 'maxspeed', maxspeed)) AS tags, w.cumulative_count
-                    FROM 
-                    (
-                        SELECT w.id, geom, '{'{'}"0": "road",
-                        "1": "motorway",
-                        "2": "primary",
-                        "3": "secondary", 
-                        "4": "secondary", 
-                        "5": "tertiary", 
-                        "6": "road",
-                        "9": "unclassified",
-                        "11": "unclassified"{'}'}'::jsonb 
-                        ->> stil::TEXT AS highway, 
-                        ((hin_speed_tuesday ->> 'h08_00')::integer + (rueck_speed_tuesday ->> 'h08_00')::integer) / 2 AS maxspeed                    
-                        , n.cumulative_count
-                        FROM dds_street_with_speed_subset w, node_cnt n
-                        WHERE w.id = n.id 
-                        AND loop_serial >= {offset} AND loop_serial < {offset + self.bulk_size}
-                    ) w
-                )
-                SELECT o.nodes, o.way
-                FROM ways_to_export x, LATERAL basic.convert_way_to_osm(cumulative_count, x.id, geom, tags)  o
-            """
-            data = self.db.select(sql_export_to_osm)
-    
-            nodes_osm = [x[0] for x in data]
-            nodes_osm = [item for sublist in nodes_osm for item in sublist]
-            ways_osm = [x[1] for x in data]
-            nodes_osm = "\n".join(nodes_osm)
-            ways_osm = "\n".join(ways_osm)
-
-            # Write ways to file
-            with open(os.path.join(self.results_dir, f"network_node.osm"), "a") as f:
-                f.write(nodes_osm)
-         
-            with open(os.path.join(self.results_dir, f"network_way.osm"), "a") as f:
-                f.write(ways_osm)
-         
-            print_info(f"Exported {offset + self.bulk_size} of {max_id_ways}")
-
-        # Add nodes to osm files using command line for perfmance reasons
-        subprocess.run(
-            f"""cat {self.results_dir}/network_node.osm {self.results_dir}/network_way.osm >> {self.results_dir}/network.osm""",
-            shell=True,
-        )
-
-        # Add footer to osm file
-        with open(os.path.join(self.results_dir, f"network.osm"), "a") as f:
-            f.write("</osm>")
-
-        # Fix file
-        subprocess.run(
-            f"""osmium sort {self.results_dir}/network.osm -o {self.results_dir}/network.osm --overwrite""",
-            shell=True,
-        )
-
-        # Convert to pbf
-        subprocess.run(
-            f"""osmconvert {self.results_dir}/network.osm -o={self.results_dir}/network.osm.pbf""",
-            shell=True,
-        )
-
-
 def main():
     """Main function."""
     db = Database(settings.RAW_DATABASE_URI)
@@ -512,19 +411,10 @@ def main():
 
     # network_car.create_serial_for_loop()
     # network_car.create_streets_with_speed(weekday=Weekday["tuesday"])
-    # network_car.export_to_osm()
     network_car.create_network_nodes()
     network_car.nodes_to_xml()
     network_car.ways_to_xml()
     network_car.write_xml_to_file()
-    # network_car.merge_nodes_and_ways()
-
-    # print("Creating the files...")
-    # network_car.read_network_car()
-    # print("Files have been created")
-    # print("Started colliding all the files into one...")
-    # network_car.collide_all_data()
-
 
 if __name__ == "__main__":
     main()
