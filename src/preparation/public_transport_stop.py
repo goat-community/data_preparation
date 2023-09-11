@@ -20,13 +20,10 @@ class PublicTransportStopPreparation:
         # Create table for public transport stops
         self.db.perform(create_poi_table(data_set_type="poi", schema_name="basic", data_set="public_transport_stop"))  
               
-        category_columns = ", ".join([f"category_{i}" for i in range(1, len(self.config_public_transport_stop['gtfs_route_types']) + 1)])
-        category_aliases = ', '.join([f"route_types[{i}] AS category_{i}" for i in range(1, len(self.config_public_transport_stop['gtfs_route_types']) + 1)])
-
         for id in unique_study_area_ids:
             classify_gtfs_stop_sql = f"""
                 INSERT INTO basic.poi_public_transport_stop(
-                    {category_columns},
+                    category_1,
                     name,
                     geom,
                     tags                
@@ -47,7 +44,7 @@ class PublicTransportStopPreparation:
                     AND s.parent_station = p.stop_id
                 ), 
                 categorized_gtfs_stops AS (
-                SELECT {category_aliases}, c.name, c.geom, c.tags
+                SELECT UNNEST(route_types) AS route_type, c.name, c.geom, c.tags
                 FROM clipped_gfts_stops c 
                 CROSS JOIN LATERAL 
                 (
@@ -60,19 +57,20 @@ class PublicTransportStopPreparation:
                             SELECT DISTINCT o.route_type
                             FROM gtfs.stop_times_optimized o
                             WHERE o.stop_id = tags ->> 'stop_id'
+                            AND o.route_type IN {tuple(self.config_public_transport_stop['gtfs_route_types'].keys())}
                         ) r
                         WHERE route_type IS NOT NULL 
                         ORDER BY r.route_type
                     ) x 
                 ) j
                 )
-                SELECT {category_columns}, name, ST_MULTI(ST_UNION(geom)) AS geom, json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')) AS tags
+                SELECT route_type AS category, name, ST_MULTI(ST_UNION(geom)) AS geom, json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')) AS tags
                 FROM categorized_gtfs_stops
-                WHERE category_1 IS NOT NULL
-                GROUP BY {category_columns}, tags ->> 'parent_station', name
+                GROUP BY route_type, tags ->> 'parent_station', name 
                 ;
             """
-
+            #TODO:2 in der subscription definiere, dass public transport entries von OSM und z.B. Bus von GTFS
+            
             self.db.perform(classify_gtfs_stop_sql)
         
 def prepare_public_transport_stop(region: str):
