@@ -5,3 +5,15 @@ classification:
     "1": "subway_entrance"
     "2": "rail_station"
     "3": "bus_stop"
+    "100": "rail_station"
+    "101": "rail_station"
+    "102": "rail_station"
+    "103": "rail_station"
+    "105": "rail_station"
+    "106": "rail_station"
+    "109": "rail_station" # suburban train -> S-Bahn?
+    "402": "rail_station" # underground service -> U-Bahn?
+    "700": "bus_stop"
+    "704": "bus_stop"
+    "715": "bus_stop"
+    "900": "tram_stop"
