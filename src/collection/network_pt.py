@@ -1,23 +1,39 @@
 import os
-import yaml
 import subprocess
 from pathlib import Path
 from src.db.db import Database
+from src.config.config import Config
 from src.core.config import settings
 from src.utils.utils import delete_file
+from src.utils.utils import ensure_dir_exists
 from src.utils.utils import download_link_with_progress
 
 
 class NetworkPTCollection():
     """Collects GTFS network and OSM data for a specified region and its sub-regions"""
     
-    def __init__(self, db_rd, region, region_conf):
+    def __init__(self, db_rd, config, region):
         self.db_rd = db_rd
         self.region = region
-        self.s3_client = settings.S3_CLIENT
-        self.region_osm_url = region_conf.get("region_pbf")
-        self.region_gtfs_uri = region_conf.get("region_gtfs")
-        self.sub_regions = self.db_rd.select(region_conf.get("sub_regions_query"))
+        self.region_osm_url = config.get("region_pbf")
+        self.s3_sub_region_osm_dir = config.get("s3_sub_region_osm_dir")
+        self.s3_sub_region_gtfs_dir = config.get("s3_sub_region_gtfs_dir")
+        self.sub_regions = self.db_rd.select(config.get("sub_regions_query"))
+        
+        self.region_osm_filename = os.path.basename(self.region_osm_url)
+        self.region_osm_input_dir = os.path.join(settings.INPUT_DATA_DIR, "network_pt", region)
+        self.sub_region_gtfs_input_dir = os.path.join(settings.INPUT_DATA_DIR, "network_pt", region)
+        self.sub_region_osm_output_dir = os.path.join(settings.OUTPUT_DATA_DIR, "network_pt", region)
+    
+    
+    def collect_osm(self):
+        """Downloads the latest OSM data for this region"""
+        
+        print(f"Downloading OSM data for region: {self.region}")
+        download_link_with_progress(
+            url=self.region_osm_url, 
+            output_directory=self.region_osm_input_dir
+        )
     
     
     def collect_gtfs(self):
@@ -26,49 +42,53 @@ class NetworkPTCollection():
         for id in self.sub_regions:
             id = int(id[0])
             print(f"Downloading GTFS network for region: {self.region}, sub-region: {id}")
-
-            region_gtfs_network_dir = f"{settings.INPUT_DATA_DIR}/network_pt/{self.region}"
-            if not os.path.exists(region_gtfs_network_dir):
-                os.makedirs(region_gtfs_network_dir)
-
-            self.s3_client.download_file(
+            ensure_dir_exists(dir_path=self.sub_region_gtfs_input_dir)
+            settings.S3_CLIENT.download_file(
                 settings.AWS_BUCKET_NAME,
-                f"network-pt/gtfs-regions/{self.region}/{id}.zip",
-                f"{region_gtfs_network_dir}/{id}.zip"
+                f"{self.s3_sub_region_gtfs_dir}/{id}.zip",
+                os.path.join(self.sub_region_gtfs_input_dir, f"{id}.zip")
             )
     
     
-    def collect_osm(self):
-        """Downloads and crops OSM data for all sub-regions within this region"""
+    def process_osm(self):
+        """Crops OSM data for all sub-regions within this region"""
         
-        # Download OSM data for this region
-        print(f"Downloading OSM data for region: {self.region}")
-        region_osm_data_dir = f"{settings.INPUT_DATA_DIR}/network_pt/{self.region}"
-        region_osm_data_filename = os.path.basename(self.region_osm_url)
-        download_link_with_progress(url=self.region_osm_url, output_directory=region_osm_data_dir)
+        # Generate sub-region polygon filters
+        print(f"Generating sub-region filters for region: {self.region}")
+        ensure_dir_exists(dir_path=self.sub_region_osm_output_dir)
+        for id in self.sub_regions:
+            id = int(id[0])
+            self.generate_polygon_file(
+                sub_region_id=id,
+                dest_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.poly")
+            )
         
-        # Split OSM data into sub-regions as per GTFS network boundaries
-        print(f"Generating sub-regions for region: {self.region}")
-        sub_region_output_dir = f"{settings.OUTPUT_DATA_DIR}/network_pt/{self.region}"
-        if not os.path.exists(sub_region_output_dir):
-            os.makedirs(sub_region_output_dir)
+        # Crop region OSM data as per sub-region polygon filters
+        for id in self.sub_regions:
+            id = int(id[0])
+            print(f"Cropping OSM data for region: {self.region}, sub-region: {id}")
+            self.crop_osm_polygon(
+                orig_file_path=os.path.join(self.region_osm_input_dir, self.region_osm_filename),
+                dest_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.pbf"),
+                poly_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.poly")
+            )
+            delete_file(file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.poly"))
+    
+    
+    def upload_osm(self):
+        """Uploads cropped OSM sub-region data to S3"""
         
         for id in self.sub_regions:
             id = int(id[0])
-            sub_region_poly_file_path = f"{settings.OUTPUT_DATA_DIR}/network_pt/{self.region}/{id}.poly"
-            self.generate_polygon_file(sub_region_id=id, file_path=sub_region_poly_file_path)
-            self.crop_osm_polygon(region_osm_data_path=f"{region_osm_data_dir}/{region_osm_data_filename}", sub_region_id=id)
-            delete_file(file_path=sub_region_poly_file_path)
-            self.s3_client.upload_file(
-                f"{settings.OUTPUT_DATA_DIR}/network_pt/{self.region}/{id}.pbf",
+            print(f"Uploading cropped OSM data for region: {self.region}, sub-region: {id}")
+            settings.S3_CLIENT.upload_file(
+                os.path.join(self.sub_region_osm_output_dir, f"{id}.pbf"),
                 settings.AWS_BUCKET_NAME,
-                f"network-pt/osm-regions/{self.region}/{id}.pbf"
+                f"{self.s3_sub_region_osm_dir}/{id}.pbf"
             )
-            
-        print("Done!")
         
     
-    def generate_polygon_file(self, sub_region_id: int, file_path: str):
+    def generate_polygon_file(self, sub_region_id: int, dest_file_path: str):
         """Generates polygon filter files for cropping a region into subregions"""
         
         coordinates = self.db_rd.select(f"""SELECT ST_x(coord.geom), ST_y(coord.geom)
@@ -78,7 +98,7 @@ class NetworkPTCollection():
                                                 WHERE id = {sub_region_id}
                                             ) coord;"""
                                         )
-        with open(file_path, "w") as file:
+        with open(dest_file_path, "w") as file:
             file.write(f"{sub_region_id}\n")
             file.write("polygon\n")
             file.write("\n".join([f" {i[0]} {i[1]}" for i in coordinates]))
@@ -86,24 +106,13 @@ class NetworkPTCollection():
             
     
     
-    def crop_osm_polygon(self, region_osm_data_path:str, sub_region_id:int):
+    def crop_osm_polygon(self, orig_file_path: str, dest_file_path: str, poly_file_path: str):
         """Crops OSM data as per polygon file"""
         
-        sub_region_osm_polygon_path = f"{settings.OUTPUT_DATA_DIR}/network_pt/{self.region}/{sub_region_id}.poly"
-        sub_region_osm_data_path = f"{settings.OUTPUT_DATA_DIR}/network_pt/{self.region}/{sub_region_id}.pbf"
         subprocess.run(
-            f"osmconvert {region_osm_data_path} -B={sub_region_osm_polygon_path} --complete-ways -o={sub_region_osm_data_path}",
+            f"osmconvert {orig_file_path} -B={poly_file_path} --complete-ways -o={dest_file_path}",
             shell=True,
             check=True,
-        )
-        
-    def upload_file_s3(self, filename: str, file_path: str, bucket_path: str):
-        """Upload a file to an S3 bucket"""
-        
-        self.s3_client.upload_file(
-            file_path,
-            bucket_path,
-            filename
         )
 
 
@@ -111,16 +120,16 @@ def collect_network_pt(region: str):
     """Main function."""
     
     db_rd = Database(settings.RAW_DATABASE_URI)
-    
-    config_path = os.path.join(settings.CONFIG_DIR, "data_variables", "network_pt", "network_pt" + "_" + region + ".yaml")
-    config_file = open(config_path)
-    region_conf = yaml.safe_load(config_file)
-    
-    network_pt_collection = NetworkPTCollection(db_rd=db_rd, region=region, region_conf=region_conf)
-    network_pt_collection.collect_gtfs()
+    config = Config(name="network_pt", region=region)
+    network_pt_collection = NetworkPTCollection(
+        db_rd=db_rd,
+        config=config.config,
+        region=region
+    )
     network_pt_collection.collect_osm()
-    
-    config_file.close()
+    network_pt_collection.collect_gtfs()
+    network_pt_collection.process_osm()
+    network_pt_collection.upload_osm()
     db_rd.conn.close()
 
 

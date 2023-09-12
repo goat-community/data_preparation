@@ -48,6 +48,12 @@ def timing(f):
     return wrap
 
 
+def ensure_dir_exists(dir_path: str):
+    """Creates a new directory if it doesn't already exist"""
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
     try:
@@ -109,8 +115,7 @@ def download_link(directory: str, link: str, new_filename: str = None):
 
 def download_link_with_progress(url: str, output_directory: str):
     """Downloads a file and displays a progress bar"""
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    ensure_dir_exists(dir_path=output_directory)
     output_file_path = Path(output_directory) / os.path.basename(url)
     
     response = requests.get(url, stream=True)
