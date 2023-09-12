@@ -5,6 +5,7 @@ from src.collection.building import collect_building
 from src.collection.poi import collect_poi
 from src.collection.landuse import collect_landuse
 from src.collection.network import collect_network
+from src.collection.network_pt import collect_network_pt
 from src.preparation.network import prepare_network
 from src.preparation.poi import prepare_poi
 from src.preparation.network import export_network
@@ -27,7 +28,8 @@ action_dict = {
         "building": collect_building, 
         "poi": collect_poi,
         "landuse": collect_landuse,
-        "network": collect_network
+        "network": collect_network,
+        "network_pt": collect_network_pt
     },
     "preparation": {
         "poi": prepare_poi,

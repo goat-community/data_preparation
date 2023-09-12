@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import random
 import string
+import requests
 
 from cdifflib import CSequenceMatcher
 from pathlib import Path
@@ -21,6 +22,7 @@ from io import StringIO
 import time
 from src.core.enums import TableDumpFormat
 from src.core.config import settings
+from tqdm import tqdm
 
 
 def timing(f):
@@ -103,6 +105,25 @@ def download_link(directory: str, link: str, new_filename: str = None):
         f.write(image.read())
 
     print_info(f"Downloaded ended for {link}")
+    
+
+def download_link_with_progress(url: str, output_directory: str):
+    """Downloads a file and displays a progress bar"""
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+    output_file_path = Path(output_directory) / os.path.basename(url)
+    
+    response = requests.get(url, stream=True)
+    total_size = int(response.headers.get('content-length', 0))
+    block_size = 1024  # 1 KB
+    progress_bar = tqdm(total=total_size, unit='B', unit_scale=True)
+
+    with open(output_file_path, 'wb') as file:
+        for data in response.iter_content(block_size):
+            progress_bar.update(len(data))
+            file.write(data)
+
+    progress_bar.close()
 
 
 def check_string_similarity(
