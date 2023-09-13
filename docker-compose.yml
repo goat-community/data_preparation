@@ -38,6 +38,7 @@ services:
       - R5_FRONTEND_PORT=${R5_FRONTEND_PORT}
       - R5_BACKEND_HOST=${R5_BACKEND_HOST}
       - R5_BACKEND_PORT=${R5_BACKEND_PORT}
+      - R5_AUTHORIZATION=${R5_AUTHORIZATION}
     volumes:
       - .:/app
     networks:

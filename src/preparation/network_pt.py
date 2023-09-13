@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from src.db.db import Database
 from src.config.config import Config
@@ -19,6 +20,10 @@ class NetworkPTPreparation:
         
         self.sub_region_gtfs_input_dir = os.path.join(settings.INPUT_DATA_DIR, "network_pt", region)
         self.sub_region_osm_output_dir = os.path.join(settings.OUTPUT_DATA_DIR, "network_pt", region)
+        
+        self.headers = {}
+        if settings.R5_AUTHORIZATION:
+            self.headers["Authorization"] = settings.R5_AUTHORIZATION
     
     
     def upload_processed_data(self):
@@ -30,31 +35,40 @@ class NetworkPTPreparation:
             region_name = f"region-{self.region}_{id}"
             success = self.delete_region_r5(name=region_name) # Delete old region
             if not success:
-                print(f"Unable to delete old R5 region {region_name}")
+                print(f"Unable to delete old R5 region: {region_name}")
                 break
-            region_id = self.create_region_r5(
+            region_id = self.create_region_r5( # Create new region with latest bounds for this sub-region
                 name=region_name,
                 description="",
                 bounds=self.get_sub_region_bounds(id=id)
-            ) # Create new region with latest bounds for this sub-region
+            )
             if region_id == None:
-                print(f"Unable to create new R5 region {region_name}")
+                print(f"Unable to create new R5 region: {region_name}")
                 break
             
             print(f"Creating R5 network bundle for region: {self.region}, sub-region: {id}")
             bundle_name = f"bundle-{self.region}_{id}"
             success = self.delete_bundle_r5(name=bundle_name) # Delete old bundle
             if not success:
-                print(f"Unable to delete old R5 bundle {bundle_name}")
+                print(f"Unable to delete old R5 bundl: {bundle_name}")
                 break
-            success = self.create_bundle_r5(
+            bundle_id = self.create_bundle_r5( # Create new bundle with latest OSM & GTFS data for this sub-region
                 name=bundle_name,
                 region_id=region_id,
                 osm_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.pbf"),
                 gtfs_path=os.path.join(self.sub_region_gtfs_input_dir, f"{id}.zip")
-            ) # Create new bundle with latest OSM & GTFS data for this sub-region
-            if not success:
-                print(f"Unable to create new R5 bundle {bundle_name}")
+            )
+            if bundle_id == None:
+                print(f"Unable to create new R5 bundle: {bundle_name}")
+                break
+            
+            # Wait until previous bundle is processed
+            bundle_status = self.get_bundle_status_r5(id=bundle_id)
+            while bundle_status == "PROCESSING_OSM":
+                time.sleep(5)
+                bundle_status = self.get_bundle_status_r5(id=bundle_id)
+            if bundle_status != "DONE":
+                print(f"R5 engine failed to process bundle: {bundle_name}")
                 break
     
     
@@ -75,7 +89,7 @@ class NetworkPTPreparation:
         """Get the ID of a previously created region in R5"""
         
         region_id = None
-        response = requests.get(url=R5_FRONTEND_URL_REGIONS)
+        response = requests.get(url=R5_FRONTEND_URL_REGIONS, headers=self.headers)
         if response.status_code == 200:
             for region in response.json():
                 if region["name"] == name:
@@ -91,7 +105,8 @@ class NetworkPTPreparation:
         if region_id is None:
             return True
         response = requests.delete(
-            url=f"{R5_FRONTEND_URL_REGIONS}/{region_id}"
+            url=f"{R5_FRONTEND_URL_REGIONS}/{region_id}",
+            headers=self.headers
         )
         return (response.status_code == 200)
     
@@ -111,7 +126,8 @@ class NetworkPTPreparation:
         }
         response = requests.post(
             url=R5_FRONTEND_URL_REGIONS,
-            json=request_body
+            json=request_body,
+            headers=self.headers
         )
         region_id = None
         if response.status_code == 201:
@@ -123,13 +139,20 @@ class NetworkPTPreparation:
         """Get the ID of a previously created bundle in R5"""
         
         bundle_id = None
-        response = requests.get(url=R5_BACKEND_URL_BUNDLE)
+        response = requests.get(url=R5_BACKEND_URL_BUNDLE, headers=self.headers)
         if response.status_code == 200:
             for bundle in response.json():
                 if bundle["name"] == name:
                     bundle_id = bundle["_id"]
                     break
         return bundle_id
+    
+    
+    def get_bundle_status_r5(self, id: str):
+        """Get the status of a bundle in R5"""
+        
+        response = requests.get(url=f"{R5_BACKEND_URL_BUNDLE}/{id}", headers=self.headers)
+        return response.json()["status"] if response.status_code == 200 else None
     
     
     def delete_bundle_r5(self, name: str):
@@ -139,7 +162,8 @@ class NetworkPTPreparation:
         if bundle_id is None:
             return True
         response = requests.delete(
-            url=f"{R5_BACKEND_URL_BUNDLE}/{bundle_id}"
+            url=f"{R5_BACKEND_URL_BUNDLE}/{bundle_id}",
+            headers=self.headers
         )
         return (response.status_code == 200)
     
@@ -158,9 +182,10 @@ class NetworkPTPreparation:
         response = requests.post(
             url=R5_BACKEND_URL_BUNDLE,
             data=request_body,
-            files=data_files
+            files=data_files,
+            headers=self.headers
         )
-        return (response.status_code == 200)
+        return response.json()["_id"] if response.status_code == 200 else None
     
 
 def prepare_network_pt(region: str):
