@@ -18,11 +18,11 @@ def create_poi_table(data_set_type: str, schema_name: str, data_set: str) -> str
             opening_hours text NULL,
             wheelchair text NULL,
             tags jsonb NULL,
-            geom public.geometry(point, 4326) NOT NULL,
+            geom geometry NOT NULL,
             id serial4 NOT NULL,
             CONSTRAINT {data_set_type}_{data_set}_pkey PRIMARY KEY (id)
         );
-        CREATE INDEX {schema_name}_{data_set_type}_{data_set}_geom_idx ON {schema_name}.{data_set_type}_{data_set} USING gist (geom);
+        CREATE INDEX  ON {schema_name}.{data_set_type}_{data_set} USING gist (geom);
         """
     
     return sql_create_poi_table
