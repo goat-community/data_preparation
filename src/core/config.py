@@ -121,4 +121,10 @@ class Settings(BaseSettings):
         )
     GITHUB_ACCESS_TOKEN: str = None
     
+    # R5
+    R5_FRONTEND_HOST: str = None
+    R5_FRONTEND_PORT: str = None
+    R5_BACKEND_HOST: str = None
+    R5_BACKEND_PORT: str = None
+    
 settings = Settings()
