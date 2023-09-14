@@ -1,7 +1,6 @@
 import geopandas as gpd
 import numpy as np
 import polars as pl
-from sqlalchemy.engine.base import Connection as SQLAlchemyConnectionType
 
 from src.config.config import Config
 from src.core.config import settings
@@ -43,8 +42,8 @@ class PoiPreparation:
 
         # Relevant column names
         column_names = """
-        osm_id::bigint, name, brand, "addr:street" AS street, "addr:housenumber" AS housenumber, 
-        "addr:postcode" AS zipcode, phone, website, opening_hours, operator, origin, organic, 
+        osm_id::bigint, name, brand, "addr:street" AS street, "addr:housenumber" AS housenumber,
+        "addr:postcode" AS zipcode, phone, website, opening_hours, operator, origin, organic,
         subway, amenity, shop, tourism, railway, leisure, sport, highway, public_transport, tags::jsonb AS tags
         """
 
@@ -81,10 +80,10 @@ class PoiPreparation:
 
         # Check if values are True then only check if tag has value
         if new_column_names == []:
-            when_condition = pl.when((pl.col(tag) != None))
+            when_condition = pl.when((pl.col(tag) is not None))
         elif new_column_names != [] and values == [True]:
             when_condition = pl.when(
-                (pl.col(tag) != None) & ~pl.any(pl.col(new_column_names) == True)
+                (pl.col(tag) is not None) & ~pl.any(pl.col(new_column_names) is True)
             )
         # Check if values are in list of conditions
         elif new_column_names == [] and values != [True]:
@@ -94,7 +93,7 @@ class PoiPreparation:
             values = [x.lower() for x in values]
             when_condition = pl.when(
                 (pl.col(tag).str.to_lowercase().is_in(values))
-                & ~pl.any(pl.col(new_column_names) == True)
+                & ~pl.any(pl.col(new_column_names) is True)
             )
         else:
             raise ValueError("Conditions for tags cannot be set.")
@@ -136,7 +135,7 @@ class PoiPreparation:
 
         # Check if values are in list of conditions
         when_condition = pl.when(
-            ~pl.any(pl.col(new_column_names) == True)
+            ~pl.any(pl.col(new_column_names) is True)
             & (
                 (pl.col("name").str.to_lowercase().is_in(values))
                 | (pl.col("brand").str.to_lowercase().is_in(values))
@@ -177,8 +176,8 @@ class PoiPreparation:
             list[pl.DataFrame, list[str]]: Classified POIs and the list with new column names.
         """
 
-        df_unclassified = df.filter(~pl.any(pl.col(new_column_names) == True))
-        df_classified = df.filter(pl.any(pl.col(new_column_names) == True))
+        df_unclassified = df.filter(~pl.any(pl.col(new_column_names) is True))
+        df_classified = df.filter(pl.any(pl.col(new_column_names) is True))
 
         arr_names = df_unclassified["name"].to_numpy()
         arr_brands = df_unclassified["brand"].to_numpy()
@@ -238,7 +237,7 @@ class PoiPreparation:
                 ]
                 # Make one dimensional list
                 poi_config = list(
-                    set([item for sublist in poi_config for item in sublist])
+                    {item for sublist in poi_config for item in sublist}
                 )
 
                 # Check if name inside list or wise versa
@@ -252,6 +251,7 @@ class PoiPreparation:
         # Classify by name and brand similarity
         if config_by_name is not None:
             for key in config_by_name:
+                print(key)
                 df, new_column_names = self.check_name_similarity(
                     df=df,
                     poi_config=config_by_name[key]["children"],
@@ -265,7 +265,7 @@ class PoiPreparation:
             # Assign category
             value = column_name.split("__")[0]
             df = df.with_columns(
-                pl.when(pl.col(column_name) == True)
+                pl.when(pl.col(column_name) is True)
                 .then(value)
                 .otherwise(pl.col("category"))
                 .alias("category")
@@ -381,8 +381,8 @@ class PoiPreparation:
             pl.when(
                 (pl.col(["railway"]) == "station")
                 & (pl.col("name").is_not_null())
-                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
-                & (pl.col("tags").str.json_path_match(r"$.railway:disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.disused") is None)
+                & (pl.col("tags").str.json_path_match(r"$.railway:disused") is None)
                 & (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
             )
             .then("rail_station")
@@ -405,7 +405,7 @@ class PoiPreparation:
                     (pl.col("tags").str.json_path_match(r"$.train") == "yes")
                     | (pl.col("tags").str.json_path_match(r"$.rail") == "yes")
                 )
-                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.disused") is None)
                 & (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
             )
             .then("rail_station")
@@ -484,7 +484,7 @@ class PoiPreparation:
                 .alias("name")
             )
             .with_columns(
-                pl.when((pl.col("name") != None))
+                pl.when((pl.col("name") is not None))
                 .then("subway_entrance")
                 .otherwise(pl.col("category"))
                 .alias("category")
@@ -526,7 +526,7 @@ class PoiPreparation:
         df = df.with_columns(
             pl.when(
                 (pl.col("amenity") == "bicycle_rental")
-                & (pl.col("shop") == None)
+                & (pl.col("shop") is None)
                 & (pl.col("osm_type") == "n")
             )
             .then("bike_sharing")
@@ -545,9 +545,9 @@ class PoiPreparation:
                 )
                 & (
                     pl.col("sport").is_in(["multi", "fitness"])
-                    | (pl.col("sport") == None)
+                    | (pl.col("sport") is None)
                 )
-                & (pl.col("name").str.to_lowercase().str.contains("yoga") == False)
+                & (pl.col("name").str.to_lowercase().str.contains("yoga") is False)
             )
             .then("gym")
             .otherwise(pl.col("category"))
@@ -563,7 +563,7 @@ class PoiPreparation:
                     (pl.col("sport") == "yoga")
                     | (pl.col("name").str.to_lowercase().str.contains("yoga"))
                 )
-                & (pl.col("shop") == None)
+                & (pl.col("shop") is None)
             )
             .then("yoga")
             .otherwise(pl.col("category"))
@@ -590,12 +590,16 @@ class PoiPreparation:
             else:
                 category = key
 
-            df_classified = self.classify_by_config(
-                df=df.filter(pl.col("shop") == key), category=category
-            )
-            df_classified_config = pl.concat(
-                [df_classified_config, df_classified], how="diagonal"
-            )
+            # If filter returns nothing continue
+            if df.filter(pl.col("shop") == key).height == 0:
+                break
+            else:
+                df_classified = self.classify_by_config(
+                    df=df.filter(pl.col("shop") == key), category=category
+                )
+                df_classified_config = pl.concat(
+                    [df_classified_config, df_classified], how="diagonal"
+                )
 
         # Remove rows classified by config
         df = df.filter(~pl.col("shop").is_in(list(self.config_pois_preparation.keys())))
@@ -652,7 +656,7 @@ def prepare_poi(region: str):
         create_geom_index=True,
         jsonb_column="tags",
     )
-    
+
     # Update kart repo with fresh OSM data
     subscription = Subscription(db=db, region=region)
     subscription.subscribe_osm()
