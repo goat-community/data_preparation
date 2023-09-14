@@ -1,4 +1,5 @@
 -- Function that snaps a polygon to a reference border consisting of other polygons
+DROP FUNCTION IF EXISTS basic.polygon_snap_to_border;
 CREATE OR REPLACE FUNCTION basic.polygon_snap_to_border(geom_to_expand geometry, geoms_border geometry[], snapping_distance integer) 
 RETURNS geometry
 AS $$

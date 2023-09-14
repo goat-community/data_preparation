@@ -60,6 +60,7 @@ services:
       - DB_INSTANCE_NAME=${COMPOSE_PROJECT_NAME}_db
       - DB_ADMIN_PASSWORD=${POSTGRES_PASSWORD}
       - DB_BACKUP_LOCAL=1
+      - DB_DATABASE_PREPARATION=${POSTGRES_DB}
     volumes:
       - goat_data_preparation_backup:/storage/backup:rw
       - goat_data_preparation_data:/storage/data:rw
