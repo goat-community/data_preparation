@@ -2,6 +2,8 @@ import os
 import typer
 from src.collection.building import collect_building
 from src.collection.gtfs import collect_gtfs
+from src.collection.poi import collect_poi
+from src.collection.poi_overture import collect_poi_overture
 from src.collection.landuse import collect_landuse
 from src.collection.network import collect_network
 from src.collection.network_pt import collect_network_pt
@@ -31,6 +33,7 @@ action_dict = {
     "collection": {
         "building": collect_building,
         "poi": collect_poi,
+        "poi_overture": collect_poi_overture,
         "landuse": collect_landuse,
         "network": collect_network,
         "network_pt": collect_network_pt,
@@ -115,7 +118,7 @@ def run(
                 else:
                     print_info(f"Performing {action} on {dataset}")
                 print_hashtags()
-                
+
                 if region is not None:
                     check_config_file_exists(data_set=dataset, region=region)
                     action_dict[action][dataset](region=region)
