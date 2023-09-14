@@ -32,7 +32,8 @@ class PrepareKart:
         # Get repo name and user name from URL
         self.repo_owner, self.repo_name = parsed_url.path.strip("/").split("/")
         self.git_domain = parsed_url.netloc
-        self.repo_ssh_url = f"git@{self.git_domain}:{self.repo_owner}/{self.repo_name}"
+        # self.repo_ssh_url = f"git@{self.git_domain}:{self.repo_owner}/{self.repo_name}"
+        self.repo_ssh_url = f"https://{self.git_domain}/{self.repo_owner}/{self.repo_name}"
         self.path_repo = os.path.join(
             settings.DATA_DIR, self.repo_name + "_" + self.maintainer
         )

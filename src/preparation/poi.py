@@ -439,7 +439,7 @@ class PoiPreparation:
 
         # Get dataframe without subway entrances
         df = df.filter(
-            ~((pl.col("railway") == "subway_entrance") & (pl.col("category") == "str"))
+            ((pl.col("railway") != "subway_entrance") | pl.col("railway").is_null())
         )
 
         # Convert pandas dataframe to geopandas dataframe
