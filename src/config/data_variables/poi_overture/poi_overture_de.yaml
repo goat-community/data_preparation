@@ -1,0 +1,17 @@
+collection:
+  bounding_box:
+    # Germany
+    bbox.minx: 5.8663153
+    bbox.maxx: 15.0419319
+    bbox.miny: 47.2701114
+    bbox.maxy: 55.099161
+  boundary:
+    table: public."DEU_adm0"
+    geom_column: "the_geom"
+  source: s3://overturemaps-us-west-2/release/2023-07-26-alpha.0/theme=places/type=*/*
+
+  
+
+preparation:
+
+subscription:
