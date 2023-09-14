@@ -5,8 +5,10 @@ from src.db.db import Database
 from src.config.config import Config
 from src.core.config import settings
 from src.utils.utils import delete_file
+from src.utils.utils import download_link
 from src.utils.utils import ensure_dir_exists
-from src.utils.utils import download_link_with_progress
+from src.utils.utils import osm_crop_to_polygon
+from src.utils.utils import osm_generate_polygon
 
 
 class NetworkPTCollection():
@@ -30,9 +32,10 @@ class NetworkPTCollection():
         """Downloads the latest OSM data for this region"""
         
         print(f"Downloading OSM data for region: {self.region}")
-        download_link_with_progress(
-            url=self.region_osm_url, 
-            output_directory=self.region_osm_input_dir
+        ensure_dir_exists(dir_path=self.region_osm_input_dir)
+        download_link(
+            directory=self.region_osm_input_dir,
+            link=self.region_osm_url
         )
     
     
@@ -58,7 +61,8 @@ class NetworkPTCollection():
         ensure_dir_exists(dir_path=self.sub_region_osm_output_dir)
         for id in self.sub_regions:
             id = int(id[0])
-            self.generate_polygon_file(
+            osm_generate_polygon(
+                db_rd=self.db_rd,
                 sub_region_id=id,
                 dest_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.poly")
             )
@@ -67,7 +71,7 @@ class NetworkPTCollection():
         for id in self.sub_regions:
             id = int(id[0])
             print(f"Cropping OSM data for region: {self.region}, sub-region: {id}")
-            self.crop_osm_polygon(
+            osm_crop_to_polygon(
                 orig_file_path=os.path.join(self.region_osm_input_dir, self.region_osm_filename),
                 dest_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.pbf"),
                 poly_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.poly")
@@ -86,34 +90,6 @@ class NetworkPTCollection():
                 settings.AWS_BUCKET_NAME,
                 f"{self.s3_sub_region_osm_dir}/{id}.pbf"
             )
-        
-    
-    def generate_polygon_file(self, sub_region_id: int, dest_file_path: str):
-        """Generates polygon filter files for cropping a region into subregions"""
-        
-        coordinates = self.db_rd.select(f"""SELECT ST_x(coord.geom), ST_y(coord.geom)
-                                            FROM (
-                                                SELECT (ST_dumppoints(buffer_geom)).geom
-                                                FROM public.gtfs_regions
-                                                WHERE id = {sub_region_id}
-                                            ) coord;"""
-                                        )
-        with open(dest_file_path, "w") as file:
-            file.write(f"{sub_region_id}\n")
-            file.write("polygon\n")
-            file.write("\n".join([f" {i[0]} {i[1]}" for i in coordinates]))
-            file.write("\nEND\nEND")
-            
-    
-    
-    def crop_osm_polygon(self, orig_file_path: str, dest_file_path: str, poly_file_path: str):
-        """Crops OSM data as per polygon file"""
-        
-        subprocess.run(
-            f"osmconvert {orig_file_path} -B={poly_file_path} --complete-ways -o={dest_file_path}",
-            shell=True,
-            check=True,
-        )
 
 
 def collect_network_pt(region: str):

@@ -43,6 +43,9 @@ services:
       - .:/app
     networks:
       data_preparation_proxy:
+    # Enable if R5 is running locally on the host machine
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
 
 
   db:

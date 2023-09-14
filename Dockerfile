@@ -71,9 +71,6 @@ RUN rm 3DCityDB-Importer-Exporter-5.3.0.zip
 RUN mv 3DCityDB-Importer-Exporter-5.3.0 /opt/3dcitydb
 RUN chmod +x /opt/3dcitydb/bin/impexp
 
-# Install tqdm
-RUN pip install tqdm
-
 WORKDIR /app/
 
 ENTRYPOINT ["tail"]

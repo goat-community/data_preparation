@@ -3,7 +3,6 @@ import shutil
 import subprocess
 import random
 import string
-import requests
 
 from cdifflib import CSequenceMatcher
 from pathlib import Path
@@ -22,7 +21,6 @@ from io import StringIO
 import time
 from src.core.enums import TableDumpFormat
 from src.core.config import settings
-from tqdm import tqdm
 
 
 def timing(f):
@@ -111,24 +109,6 @@ def download_link(directory: str, link: str, new_filename: str = None):
         f.write(image.read())
 
     print_info(f"Downloaded ended for {link}")
-    
-
-def download_link_with_progress(url: str, output_directory: str):
-    """Downloads a file and displays a progress bar"""
-    ensure_dir_exists(dir_path=output_directory)
-    output_file_path = Path(output_directory) / os.path.basename(url)
-    
-    response = requests.get(url, stream=True)
-    total_size = int(response.headers.get('content-length', 0))
-    block_size = 1024  # 1 KB
-    progress_bar = tqdm(total=total_size, unit='B', unit_scale=True)
-
-    with open(output_file_path, 'wb') as file:
-        for data in response.iter_content(block_size):
-            progress_bar.update(len(data))
-            file.write(data)
-
-    progress_bar.close()
 
 
 def check_string_similarity(
@@ -693,3 +673,30 @@ def polars_df_to_postgis(
 
     # Close connection
     db.close()
+    
+    
+def osm_crop_to_polygon(orig_file_path: str, dest_file_path: str, poly_file_path: str):
+    """Crops OSM data as per polygon file"""
+    
+    subprocess.run(
+        f"osmconvert {orig_file_path} -B={poly_file_path} --complete-ways -o={dest_file_path}",
+        shell=True,
+        check=True,
+    )
+
+
+def osm_generate_polygon(db_rd, sub_region_id: int, dest_file_path: str):
+        """Generates a polygon filter file for cropping OSM data"""
+        
+        coordinates = db_rd.select(f"""SELECT ST_x(coord.geom), ST_y(coord.geom)
+                                            FROM (
+                                                SELECT (ST_dumppoints(buffer_geom)).geom
+                                                FROM public.gtfs_regions
+                                                WHERE id = {sub_region_id}
+                                            ) coord;"""
+                                    )
+        with open(dest_file_path, "w") as file:
+            file.write(f"{sub_region_id}\n")
+            file.write("polygon\n")
+            file.write("\n".join([f" {i[0]} {i[1]}" for i in coordinates]))
+            file.write("\nEND\nEND")

@@ -6,8 +6,8 @@ from src.config.config import Config
 from src.core.config import settings
 
 
-R5_FRONTEND_URL_REGIONS = f"http://{settings.R5_FRONTEND_HOST}:{settings.R5_FRONTEND_PORT}/api/db/regions"
-R5_BACKEND_URL_BUNDLE = f"http://{settings.R5_BACKEND_HOST}:{settings.R5_BACKEND_PORT}/api/bundle"
+R5_FRONTEND_URL_REGIONS = f"{settings.R5_FRONTEND_HOST}:{settings.R5_FRONTEND_PORT}/api/db/regions"
+R5_BACKEND_URL_BUNDLE = f"{settings.R5_BACKEND_HOST}:{settings.R5_BACKEND_PORT}/api/bundle"
 
 
 class NetworkPTPreparation:
