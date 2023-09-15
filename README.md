@@ -8,6 +8,7 @@ This is a repository containing the data preparation steps for GOAT.
 2. Create your personal id.rsa and id.rsa.pub from the templates
 3. Run `docker-compose up -d`
 4. Work inside the docker container
+5. Init the database with `python initdb.py`
 
 # Data Preparation CLI
 
