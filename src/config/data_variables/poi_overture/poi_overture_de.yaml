@@ -1,17 +1,43 @@
 collection:
-  bounding_box:
-    # Germany
-    bbox.minx: 5.8663153
-    bbox.maxx: 15.0419319
-    bbox.miny: 47.2701114
-    bbox.maxy: 55.099161
-  boundary:
-    table: public."DEU_adm0"
-    geom_column: "the_geom"
+  region: 'SELECT the_geom AS geom FROM public."DEU_adm0"'
   source: s3://overturemaps-us-west-2/release/2023-07-26-alpha.0/theme=places/type=*/*
-
-  
+  #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
 
 preparation:
+  category:
+    religion: [
+      'church_cathedral', 'catholic_church', 'evangelical_church', 'mosque', 'convents_and_monasteries', 'baptist_church', 'buddhist_temple', 'hindu_temple', 'sikh_temple'
+    ]
+    sights_and_cultural_sites: [
+      'landmark_and_historical_building', 'monument', 'bridge', 'cultural_center', 'castle', 'fountain', 'botanical_garden', 'palace', 'aquarium', 'sculpture_statue',
+      'lighthouse', 'fort'
+    ]
+    water_recreation_and_wellness_facilities: [
+      'beauty_and_spa', 'water_park', 'massage', 'health_spa', 'onsen', 'day_spa'  
+    ]
+    recreational_and_adventure_facilities: [
+      'amusement_park', 'zoo', 'escape_rooms', 'miniature_golf_course', 'pool_billiards', 'arcade', 'skate_park', 'circus', 'laser_tag', 'paintball', 'observatory',
+      'boat_tours', 'surfing', 'paddleboarding_center', 'sky_diving', 'canoe_and_kayak_hire_service', 'bus_tours', 'hot_air_balloons_tour', 'petting_zoo', 'historical_tours',
+      'food_tours', 
+    ]
+    accommodation: [
+      'hotel', 'holiday_rental_home', 'campground', 'hostel', 'bed_and_breakfast', 'rv_park', 'resort', 'lodge', 'cottage', 'service_apartments',
+      'cabin', 'inn', 'mobile_home_park'
+    ]
+    museum: [
+      'art_gallery', 'arts_and_entertainment', 'museum', 'history_museum', 'art_museum', 'modern_art_museum', 'science_museum', 'community_museum',
+      'planetarium', 'civilization_museum', 'contemporary_art_museum', "children's_museum", 'design_museum', 'sports_museum', 'asian_art_museum',
+      'decorative_arts_museum', 'aviation_museum', 'computer_museum', 'costume_museum', 'textile_museum'
+    ]
+    gallery: [
+      'art_gallery', 'arts_and_entertainment'
+    ]
+    theatre: [
+      'topic_concert_venue', 'music_venue', 'theatre', 'comedy_club', 'opera_and_ballet', 'theaters_and_performance_venues'
+    ]
+
+
 
 subscription:
+
+

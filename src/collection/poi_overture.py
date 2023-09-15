@@ -1,13 +1,17 @@
 import duckdb
 import os
 import subprocess
+import time
+from src.utils.utils import (
+    print_hashtags
+)
 from src.config.config import Config
 from src.db.db import Database
 from src.core.config import settings
 from src.db.tables.poi import create_poi_table
 
 class OverturePOICollection:
-    """Collection of POIs from Overture Maps"""
+    """Collection of the places data set from the Overture Maps Foundation"""
     def __init__(self, db_rd: Database, region: str = "de"):
         self.region = region
         self.db_rd = db_rd
@@ -38,12 +42,28 @@ class OverturePOICollection:
 
     def run(self):
 
+        start_time = time.time()
+
         file_path_raw_data = os.path.join(self.dataset_dir, f"places_{self.region}.geojsonseq")
 
         # Create the directory if it doesn't exist
         if not os.path.exists(self.dataset_dir):
             os.makedirs(self.dataset_dir)
 
+        get_bounding_box = f"""
+            WITH region AS (
+                {self.data_config_collection['region']}
+            )
+            SELECT
+                ST_XMin(ST_Envelope(geom)) AS minx,
+                ST_XMax(ST_Envelope(geom)) AS maxx,
+                ST_YMin(ST_Envelope(geom)) AS miny,
+                ST_YMax(ST_Envelope(geom)) AS maxy
+            FROM region;
+        """
+        bounding_box = self.db_rd.select(get_bounding_box)
+
+        #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
         download_overture_places =f"""
             LOAD httpfs;
             LOAD spatial;
@@ -67,10 +87,10 @@ class OverturePOICollection:
                 FROM
                     read_parquet('{self.data_config_collection['source']}', hive_partitioning=1)
                 WHERE
-                    bbox.minx > {self.data_config_collection['bounding_box']['bbox.minx']}
-                    AND bbox.maxx < {self.data_config_collection['bounding_box']['bbox.maxx']}
-                    AND bbox.miny > {self.data_config_collection['bounding_box']['bbox.miny']}
-                    AND bbox.maxy < {self.data_config_collection['bounding_box']['bbox.maxy']}
+                    bbox.minx > {bounding_box[0][0]}
+                    AND bbox.maxx < {bounding_box[0][1]}
+                    AND bbox.miny > {bounding_box[0][2]}
+                    AND bbox.maxy < {bounding_box[0][3]}
             ) TO '{file_path_raw_data}'
             WITH (FORMAT GDAL, DRIVER 'GeoJSONSeq');
         """
@@ -78,23 +98,25 @@ class OverturePOICollection:
         self.duckdb_cursor.execute(download_overture_places)
 
         # # drop table if exists first
-        self.db_rd.perform(f"DROP TABLE IF EXISTS temporal.places_{self.region};")
+        self.db_rd.perform(f"DROP TABLE IF EXISTS temporal.places_{self.region}_raw;")
 
         subprocess.run(
-            f"""ogr2ogr -f "PostgreSQL" PG:"host={self.host} user={self.user} dbname={self.dbname} password={self.password} port={self.port}" -nln temporal.places_{self.region} {file_path_raw_data} """,
+            f"""ogr2ogr -f "PostgreSQL" PG:"host={self.host} user={self.user} dbname={self.dbname} password={self.password} port={self.port}" -nln temporal.places_{self.region}_raw {file_path_raw_data} """,
             shell=True,
             check=True,
         )
 
         # clip data
         clip_poi_overture = f"""
-            DELETE FROM temporal.places_{self.region} p
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM {self.data_config_collection['boundary']['table']} a
-                WHERE ST_Intersects(p.wkb_geometry, a.{self.data_config_collection['boundary']['geom_column']})
-                AND p.wkb_geometry && a.{self.data_config_collection['boundary']['geom_column']}
-            );
+            DROP TABLE IF EXISTS temporal.places_{self.region};
+            CREATE TABLE temporal.places_{self.region} AS
+            WITH region AS (
+                {self.data_config_collection['region']}
+            )
+            SELECT p.*
+            FROM temporal.places_{self.region}_raw p, region r
+            WHERE ST_Intersects(p.wkb_geometry, r.geom)
+            AND p.wkb_geometry && r.geom;
         """
         self.db_rd.perform(clip_poi_overture)
 
@@ -141,6 +163,7 @@ class OverturePOICollection:
         self.db_rd.perform(adjust_addresses_column)
 
         # tags jsonb NULL, -> confidence, websites, socials, emails, phones
+        # TODO: add emails (currently only NULLs in orginial data set)
         create_tags_column = f"""
         ALTER TABLE temporal.places_{self.region}
         ADD COLUMN tags jsonb;
@@ -155,10 +178,10 @@ class OverturePOICollection:
         """
         self.db_rd.perform(create_tags_column)
 
-        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set="overture"))
+        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"overture_{self.region}_raw"))
 
         insert_into_poi_table = f"""
-            INSERT INTO temporal.poi_overture(category_1, category_2, category_3, name, street, housenumber, zipcode, tags, geom)
+            INSERT INTO temporal.poi_overture_{self.region}_raw(category_1, category_2, category_3, name, street, housenumber, zipcode, tags, geom)
             SELECT
                 categories,
                 category_2,
@@ -174,10 +197,9 @@ class OverturePOICollection:
 
         self.db_rd.perform(insert_into_poi_table)
 
-        #TODO: data cleaning
-        # check for NULL values? exclude something? confidence? -> maybe in the end
-        # drop categories = NULL? probably yes
-        # drop confidence < 0.6? probably yes
+        print_hashtags()
+        print(f"Calculation took {time.time() - start_time} seconds ---")
+        print_hashtags()
 
 def collect_poi_overture(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)

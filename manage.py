@@ -8,6 +8,7 @@ from src.collection.landuse import collect_landuse
 from src.collection.network import collect_network
 from src.preparation.network import prepare_network
 from src.preparation.poi import prepare_poi
+from src.preparation.poi_overture import prepare_poi_overture
 from src.preparation.network import export_network
 from src.preparation.building import prepare_building
 from src.preparation.poi import export_poi
@@ -35,6 +36,7 @@ action_dict = {
     },
     "preparation": {
         "poi": prepare_poi,
+        "poi_overture": prepare_poi_overture,
         "network": prepare_network,
         "building": prepare_building,
         "public_transport_stop": prepare_public_transport_stop,
