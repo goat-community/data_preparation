@@ -50,7 +50,7 @@ class OSMNetworkCollection(OSMBaseCollection):
 
             if cnt_link == 1 and cnt_link == total_cnt_links:
                 subprocess.run(
-                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --clean --conf {settings.CONFIG_DIR}/mapconfig.xml --chunk 40000",
+                    f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgrouting --dbname {self.dbname} --host {self.host} --username {self.username}  --file {network_file_name} --clean --conf {settings.CONFIG_DIR}/data_variables/network/mapconfig.xml --chunk 40000",
                     shell=True,
                     check=True,
                 )

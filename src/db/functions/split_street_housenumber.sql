@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.split_street_housenumber;
 CREATE OR REPLACE FUNCTION public.split_street_housenumber(address text)
  RETURNS text[]
  LANGUAGE plpgsql
