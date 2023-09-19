@@ -1,0 +1,6 @@
+collection:
+preparation:
+  fusion:
+    category_osm: ['restaurant']
+    category_overture: ['restaurant']
+subscription:

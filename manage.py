@@ -10,6 +10,7 @@ from src.collection.network_pt import collect_network_pt
 from src.preparation.network import prepare_network
 from src.preparation.poi import prepare_poi
 from src.preparation.poi_overture import prepare_poi_overture
+from src.preparation.poi_osm_overture_fusion import prepare_poi_osm_overture_fusion
 from src.preparation.network import export_network
 from src.preparation.network_pt import prepare_network_pt
 from src.collection.poi import collect_poi
@@ -43,6 +44,7 @@ action_dict = {
     "preparation": {
         "poi": prepare_poi,
         "poi_overture": prepare_poi_overture,
+        "poi_osm_overture_fusion": prepare_poi_osm_overture_fusion,
         "network": prepare_network,
         "network_pt": prepare_network_pt,
         "building": prepare_building,

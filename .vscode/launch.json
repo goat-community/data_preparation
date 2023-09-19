@@ -23,7 +23,7 @@
             "args": [
                 "--actions", "preparation",
                 "--region", "de",
-                "--datasets", "poi_overture" 
+                "--datasets", "poi_osm_overture_fusion" 
             ],
             "cwd": "${workspaceFolder}"
         }
