@@ -13,33 +13,31 @@ class OverturePOIPreparation:
 
     def run(self):
 
-        clean_data = """
-            DROP TABLE IF EXISTS temporal.poi_overture_{region};
-            CREATE TABLE temporal.poi_overture_{region} AS (
+        categories = ', '.join(["'{}'".format(cat.replace("'", "''")) for cats in self.data_config.preparation['category'].values() for cat in cats])
+
+        clean_data = f"""
+            DROP TABLE IF EXISTS temporal.poi_overture_{self.region};
+            CREATE TABLE temporal.poi_overture_{self.region} AS (
                 SELECT *
-                FROM temporal.poi_overture_{region}_raw
+                FROM temporal.poi_overture_{self.region}_raw
                 WHERE category_1 IS NOT NULL
                 AND (tags ->> 'confidence')::numeric > 0.6
-                AND category_1 IN %s
+                AND category_1 IN ({categories})
             );
-        """.format(region = self.region)
-
-        categories = tuple(overture_category for category in self.data_config.preparation['category'].values() for overture_category in category)
-
-        self.db_rd.perform(clean_data, (categories,))
+        """
+        self.db_rd.perform(clean_data)
 
         # reclassify data -> overture categories to our categories
         for category, values in self.data_config_preparation['category'].items():
-            # Use a parameterized query to update category_1 values
-            update_query = """
-                UPDATE temporal.poi_overture_{region}
-                SET category_1 = %s
-                WHERE category_1 IN %s;
-            """.format(region=self.region)
 
-            self.db_rd.perform(update_query, (category, tuple(values)))
+            overture_categories = ', '.join(["'{}'".format(cat.replace("'", "''")) for cat in values])
 
-
+            update_query = f"""
+                UPDATE temporal.poi_overture_{self.region}
+                SET category_1 = '{category}'
+                WHERE category_1 IN ({overture_categories});
+            """
+            self.db_rd.perform(update_query)
 
 def prepare_poi_overture(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)
