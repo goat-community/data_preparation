@@ -643,12 +643,27 @@ def prepare_poi(region: str):
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
 
-    # Export to PostGIS
+    # Export to local PostGIS
     engine = db.return_sqlalchemy_engine()
     polars_df_to_postgis(
         engine=engine,
         df=df.filter(pl.col("category") != "str"),
         table_name="poi_osm",
+        schema="public",
+        if_exists="replace",
+        geom_column="geom",
+        srid=4326,
+        create_geom_index=True,
+        jsonb_column="tags",
+    )
+
+    # Export OSM data to Geonode
+    db_rd = Database(settings.RAW_DATABASE_URI)
+    engine_rd = db_rd.return_sqlalchemy_engine()
+    polars_df_to_postgis(
+        engine=engine_rd,
+        df=df.filter(pl.col("category") != "str"),
+        table_name=f"poi_osm_{region}",
         schema="public",
         if_exists="replace",
         geom_column="geom",
