@@ -9,6 +9,7 @@ def init_db(db):
     db.perform("CREATE EXTENSION IF NOT EXISTS postgis_raster;")
     db.perform("CREATE EXTENSION IF NOT EXISTS hstore;")
     db.perform("CREATE EXTENSION IF NOT EXISTS h3;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
 
     # Create schema
     db.perform("CREATE SCHEMA IF NOT EXISTS basic;")
