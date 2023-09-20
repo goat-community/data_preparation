@@ -1,6 +1,8 @@
 # function returns sql as string with input variables
 # input: data set type e.g. poi, schema name e.g. temporal, data set e.g. public_transport_stop
 
+#TODO: add other_id
+
 def create_poi_table(data_set_type: str, schema_name: str, data_set: str) -> str:
 
     sql_create_poi_table = f"""

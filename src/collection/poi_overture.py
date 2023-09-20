@@ -206,6 +206,7 @@ def collect_poi_overture(region: str):
     overture_poi_collection = OverturePOICollection(db_rd=db_rd, region=region)
     overture_poi_collection.initialize_duckdb()
     overture_poi_collection.run()
+    db_rd.conn.close()
 
 
 

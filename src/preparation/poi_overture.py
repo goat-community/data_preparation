@@ -13,6 +13,8 @@ class OverturePOIPreparation:
 
     def run(self):
 
+        #TODO: store Overture category in tags or put it in category_2 -> alternate categories in category_3 etc.
+
         categories = ', '.join(["'{}'".format(cat.replace("'", "''")) for cats in self.data_config.preparation['category'].values() for cat in cats])
 
         clean_data = f"""
@@ -43,3 +45,4 @@ def prepare_poi_overture(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)
     overture_poi_preparation = OverturePOIPreparation(db_rd, region)
     overture_poi_preparation.run()
+    db_rd.conn.close()

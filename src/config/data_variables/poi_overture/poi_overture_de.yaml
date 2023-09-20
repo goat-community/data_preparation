@@ -8,14 +8,14 @@ preparation:
     religion: [
       'church_cathedral', 'catholic_church', 'evangelical_church', 'mosque', 'convents_and_monasteries', 'baptist_church', 'buddhist_temple', 'hindu_temple', 'sikh_temple'
     ]
-    sights_and_cultural_sites: [
+    sight_or_cultural_site: [
       'landmark_and_historical_building', 'monument', 'bridge', 'cultural_center', 'castle', 'fountain', 'botanical_garden', 'palace', 'aquarium', 'sculpture_statue',
       'lighthouse', 'fort'
     ]
-    water_recreation_and_wellness_facilities: [
+    water_recreation_or_wellness_facility: [
       'beauty_and_spa', 'water_park', 'massage', 'health_spa', 'onsen', 'day_spa'  
     ]
-    recreational_and_adventure_facilities: [
+    recreational_or_adventure_facility: [
       'amusement_park', 'zoo', 'escape_rooms', 'miniature_golf_course', 'pool_billiards', 'arcade', 'skate_park', 'circus', 'laser_tag', 'paintball', 'observatory',
       'boat_tours', 'surfing', 'paddleboarding_center', 'sky_diving', 'canoe_and_kayak_hire_service', 'bus_tours', 'hot_air_balloons_tour', 'petting_zoo', 'historical_tours',
       'food_tours', 
