@@ -10,6 +10,7 @@ from src.utils.utils import (
     polars_df_to_postgis,
     create_table_dump,
     restore_table_dump,
+    print_info,
 )
 from src.db.db import Database
 from src.preparation.subscription import Subscription
@@ -28,9 +29,28 @@ class PoiPreparation:
         self.db_config = self.db.db_config
         self.db_uri = f"postgresql://{self.db_config.user}:{self.db_config.password}@{self.db_config.host}:{self.db_config.port}{self.db_config.path}"
         self.engine = self.db.return_sqlalchemy_engine()
-
         self.config_pois = Config("poi", region)
+
         self.config_pois_preparation = self.config_pois.preparation
+        # Extend config with values that are not in the preparation config but in the collection config
+        self.extended_pois_preparation = self.extend_config()
+        self.config_pois_preparation.update(self.extended_pois_preparation)
+
+    def extend_config(self):
+        """Build an extended config with all values that are not in the preparation config but in the collection config."""
+        
+        config_collection = self.config_pois.collection
+        # Check if config not in preparation but in collection
+        new_config_collection = {}
+        for osm_tag in config_collection["osm_tags"]:
+            values = config_collection["osm_tags"][osm_tag]
+            for value in values:
+                if value not in self.config_pois_preparation:
+                    new_config_collection[value] = {
+                        "classify_by_tag": {value: {osm_tag: [value]}}
+                    }
+        print_info("For key-value pairs that are not in the preparation config but in the collection config the POIs are added as preperation by tag.")
+        return new_config_collection
 
     @timing
     def read_poi(self) -> pl.DataFrame:
@@ -512,7 +532,6 @@ class PoiPreparation:
         return df
 
     def classify_poi(self, df):
-
         # Create dictionary with empty lists to track classified tags
         classified_tags = {
             k: [] for k in self.config_pois.collection["osm_tags"].keys()
