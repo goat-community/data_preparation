@@ -63,7 +63,7 @@ class NetworkPTCollection():
             id = int(id[0])
             osm_generate_polygon(
                 db_rd=self.db_rd,
-                sub_region_id=id,
+                geom_query=f"SELECT buffer_geom as geom FROM public.gtfs_regions WHERE id = {id}",
                 dest_file_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.poly")
             )
         
