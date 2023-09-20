@@ -40,9 +40,9 @@ $function$  LANGUAGE plpgsql;
 Existing code
 - creates copies of table_1 and table_2
 - new table -> does map matching + string similarity based on name column (could be others id needed -> generic) of table_1 and table_2
-- find pois that are only in table_2 and not in table_3 -> same id, but similarity IS NULL
-- find pois that should be updated in table_1 -> same id, but similarity > 0.2 (or other threshold maybe based on input)
-- find pois that are only in table_1 and not in table_3 -> based on id -> option if dropped or kept
+- poi_to_add: find pois that are only in table_2 and not in table_3 -> same id, but similarity IS NULL
+- poi_to_update: find pois that should be updated in table_1 -> same id, but similarity > 0.2 (or other threshold maybe based on input)
+- poi_to_delete: find pois that are only in table_1 and not in table_3 -> based on id -> option if dropped or kept
 
 Option1: should be to update table_1 (existing data) based on table_2 (new data) 
 e.g. update our POIs
