@@ -10,17 +10,19 @@ class PublicTransportStopPreparation:
     def __init__(self, db: Database, region: str):
         self.db = db
         self.region = region
-        self.config_public_transport_stop = Config("public_transport_stop", region).config['classification']
+        self.data_config = Config("public_transport_stop", region)
+        self.data_config_preparation = self.data_config.preparation
 
     def run(self):
         """Run the public transport stop preparation."""
 
-        unique_study_area_ids = self.db.select("""SELECT DISTINCT id FROM basic.study_area""")
+        # unique_study_area_ids = self.db.select("""SELECT DISTINCT id FROM basic.study_area""")
+        region_geoms = self.db.select(self.data_config_preparation['region'])
 
         # Create table for public transport stops
         self.db.perform(create_poi_table(data_set_type="poi", schema_name="basic", data_set="public_transport_stop"))
 
-        for id in unique_study_area_ids:
+        for geom in region_geoms:
             classify_gtfs_stop_sql = f"""
                 INSERT INTO basic.poi_public_transport_stop(
                     category_1,
@@ -30,39 +32,33 @@ class PublicTransportStopPreparation:
                 )
                 WITH parent_station_name AS (
                     SELECT s.stop_name AS name, s.stop_id
-                    FROM gtfs.stops s, basic.study_area a
-                    WHERE ST_Intersects(s.stop_loc, a.geom)
-                    AND a.id = {id[0]}
+                    FROM gtfs.stops s
+                    WHERE ST_Intersects(s.stop_loc, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
                     AND parent_station IS NULL
                 ),
                 clipped_gfts_stops AS (
                     SELECT p.name, s.stop_loc AS geom, json_build_object('stop_id', s.stop_id, 'parent_station', s.parent_station) AS tags
-                    FROM gtfs.stops s, basic.study_area a, parent_station_name p
-                    WHERE ST_Intersects(s.stop_loc, a.geom)
-                    AND a.id = {id[0]}
+                    FROM gtfs.stops s, parent_station_name p
+                    WHERE ST_Intersects(s.stop_loc, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
                     AND parent_station IS NOT NULL
                     AND s.parent_station = p.stop_id
-                ), 
+                ),
                 categorized_gtfs_stops AS (
-                SELECT UNNEST(route_types) AS route_type, c.name, c.geom, c.tags
-                FROM clipped_gfts_stops c
-                CROSS JOIN LATERAL
-                (
-                    SELECT ARRAY_AGG(route_type) AS route_types
-                    FROM
+                    SELECT route_type, c.name, c.geom, c.tags
+                    FROM clipped_gfts_stops c
+                    CROSS JOIN LATERAL
                     (
-                        SELECT  '{json.dumps(self.config_public_transport_stop['gtfs_route_types'])}'::jsonb ->> r.route_type::TEXT AS route_type
+                        SELECT  '{json.dumps(self.data_config_preparation['classification']['gtfs_route_types'])}'::jsonb ->> r.route_type::TEXT AS route_type
                         FROM
                         (
                             SELECT DISTINCT o.route_type
                             FROM gtfs.stop_times_optimized o
                             WHERE o.stop_id = tags ->> 'stop_id'
-                            AND o.route_type IN {tuple(int(key) for key in self.config_public_transport_stop['gtfs_route_types'].keys())}
+                            AND o.route_type IN {tuple(int(key) for key in self.data_config_preparation['classification']['gtfs_route_types'].keys())}
                         ) r
                         WHERE route_type IS NOT NULL
                         ORDER BY r.route_type
-                    ) x
-                ) j
+                    ) j
                 )
                 SELECT route_type AS category, name, ST_MULTI(ST_UNION(geom)) AS geom, json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')) AS tags
                 FROM categorized_gtfs_stops
