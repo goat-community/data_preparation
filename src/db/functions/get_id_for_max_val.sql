@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS get_id_for_max_val; 
 CREATE OR REPLACE FUNCTION get_id_for_max_val(arr_val integer[], arr_id bigint[]) 
 RETURNS bigint
 AS $$

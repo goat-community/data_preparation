@@ -187,17 +187,17 @@ class OSMBaseCollection:
             filepath (str, optional): Filepath to file can specified. Defaults to None and therefore will use default data directory.
         """
         if not filepath:
-            filepath = os.path.join(self.dataset_dir, "dem.tif")
+            filepath = os.path.join(settings.INPUT_DATA_DIR, "dem.tif")
 
         if not os.path.exists(filepath):
             print_warning(f"{filepath} for dem.tif does not exist. Processing will be continued but without DEM data.")
             return
 
-        filepath_no_ext = os.path.splitext(filepath)[0]
+        filepath_no_ext = os.path.splitext(filepath)[0] #TODO needs to be fixed
         filepath_converted_dem = filepath_no_ext + "_conv.tif"
         filepath_sql_dem = filepath_no_ext + ".sql"
 
-        delete_file(filepath_converted_dem)
+        delete_file(filepath_converted_dem) 
         delete_file(filepath_sql_dem)
 
         # Prepare and import digital elevation model
