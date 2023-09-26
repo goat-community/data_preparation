@@ -46,7 +46,7 @@ def timing(f):
     return wrap
 
 
-def ensure_dir_exists(dir_path: str):
+def make_dir(dir_path: str):
     """Creates a new directory if it doesn't already exist"""
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)

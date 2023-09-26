@@ -6,7 +6,7 @@ from src.config.config import Config
 from src.core.config import settings
 from src.utils.utils import delete_file
 from src.utils.utils import download_link
-from src.utils.utils import ensure_dir_exists
+from src.utils.utils import make_dir
 from src.utils.utils import osm_crop_to_polygon
 from src.utils.utils import osm_generate_polygon
 
@@ -32,7 +32,7 @@ class NetworkPTCollection():
         """Downloads the latest OSM data for this region"""
         
         print(f"Downloading OSM data for region: {self.region}")
-        ensure_dir_exists(dir_path=self.region_osm_input_dir)
+        make_dir(dir_path=self.region_osm_input_dir)
         download_link(
             directory=self.region_osm_input_dir,
             link=self.region_osm_url
@@ -45,7 +45,7 @@ class NetworkPTCollection():
         for id in self.sub_regions:
             id = int(id[0])
             print(f"Downloading GTFS network for region: {self.region}, sub-region: {id}")
-            ensure_dir_exists(dir_path=self.sub_region_gtfs_input_dir)
+            make_dir(dir_path=self.sub_region_gtfs_input_dir)
             settings.S3_CLIENT.download_file(
                 settings.AWS_BUCKET_NAME,
                 f"{self.s3_sub_region_gtfs_dir}/{id}.zip",
@@ -58,7 +58,7 @@ class NetworkPTCollection():
         
         # Generate sub-region polygon filters
         print(f"Generating sub-region filters for region: {self.region}")
-        ensure_dir_exists(dir_path=self.sub_region_osm_output_dir)
+        make_dir(dir_path=self.sub_region_osm_output_dir)
         for id in self.sub_regions:
             id = int(id[0])
             osm_generate_polygon(
@@ -96,17 +96,22 @@ def collect_network_pt(region: str):
     """Main function."""
     
     db_rd = Database(settings.RAW_DATABASE_URI)
-    config = Config(name="network_pt", region=region)
-    network_pt_collection = NetworkPTCollection(
-        db_rd=db_rd,
-        config=config.config,
-        region=region
-    )
-    network_pt_collection.collect_osm()
-    network_pt_collection.collect_gtfs()
-    network_pt_collection.process_osm()
-    network_pt_collection.upload_osm()
-    db_rd.conn.close()
+    try:
+        config = Config(name="network_pt", region=region)
+        network_pt_collection = NetworkPTCollection(
+            db_rd=db_rd,
+            config=config.config,
+            region=region
+        )
+        network_pt_collection.collect_osm()
+        network_pt_collection.collect_gtfs()
+        network_pt_collection.process_osm()
+        network_pt_collection.upload_osm()
+    except Exception as e:
+        print(e)
+        raise e
+    finally:
+        db_rd.conn.close()
 
 
 if __name__ == "__main__":

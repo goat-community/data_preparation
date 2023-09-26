@@ -192,16 +192,19 @@ def prepare_network_pt(region: str):
     """Main function"""
     
     db_rd = Database(settings.RAW_DATABASE_URI)
-    config = Config(name="network_pt", region=region)
-    
-    network_pt_preparation = NetworkPTPreparation(
-        db_rd=db_rd,
-        config=config.config,
-        region=region
-    )
-    network_pt_preparation.upload_processed_data()
-    
-    db_rd.conn.close()
+    try:
+        config = Config(name="network_pt", region=region)
+        network_pt_preparation = NetworkPTPreparation(
+            db_rd=db_rd,
+            config=config.config,
+            region=region
+        )
+        network_pt_preparation.upload_processed_data()
+    except Exception as e:
+        print(e)
+        raise e
+    finally:
+        db_rd.conn.close()
 
 
 if __name__ == "__main__":
