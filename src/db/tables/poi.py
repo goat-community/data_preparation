@@ -2,7 +2,7 @@
 # input: data set type e.g. poi, schema name e.g. temporal, data set e.g. public_transport_stop
 
 def create_poi_table(data_set_type: str, schema_name: str, data_set: str) -> str:
-    
+
     sql_create_poi_table = f"""
         DROP TABLE IF EXISTS {schema_name}.{data_set_type}_{data_set};
         CREATE TABLE {schema_name}.{data_set_type}_{data_set} (
@@ -24,5 +24,5 @@ def create_poi_table(data_set_type: str, schema_name: str, data_set: str) -> str
         );
         CREATE INDEX {schema_name}_{data_set_type}_{data_set}_geom_idx ON {schema_name}.{data_set_type}_{data_set} USING gist (geom);
         """
-    
+
     return sql_create_poi_table

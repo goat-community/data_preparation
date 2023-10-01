@@ -1,4 +1,5 @@
 preparation:
-  start_date: "2022-05-08"
-  end_date: "2022-05-14"
-  target_schema: "gtfs_region_11"
+  start_date: "2023-06-26"
+  end_date: "2023-07-02"
+  target_schema: "gtfs"
+  regions: "SELECT nuts_id as id, name, geom FROM public.nuts"

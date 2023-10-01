@@ -705,9 +705,9 @@ def export_poi(region: str):
     subscription.export_to_poi_schema()
 
     # Dump table and restore in remote database
-    create_table_dump(db.db_config, "basic", "poi", False)
+    create_table_dump(db.db_config, "basic", "poi")
     db_rd.perform("DROP TABLE IF EXISTS basic.poi")
-    restore_table_dump(db_rd.db_config, "basic", "poi", False)
+    restore_table_dump(db_rd.db_config, "basic", "poi")
     db.conn.close()
     db_rd.conn.close()
 

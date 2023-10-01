@@ -253,14 +253,12 @@ class DBMigrationBase(DBBridge):
             db_config=self.db_source.db_config,
             schema=self.schema_migration,
             table_name=table_name,
-            data_only=False,
         )
         # Restore table to target database.
         restore_table_dump(
             db_config=self.db_target.db_config,
             schema=self.schema_migration,
             table_name=table_name,
-            data_only=False,
         )
         # Create indices for the migration table.
         self.engine_target.execute(
