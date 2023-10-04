@@ -1,11 +1,11 @@
-from src.db.db import Database
-from src.config.config import Config
-from src.utils.utils import print_info
-from src.core.config import settings
 import os
 import subprocess
-from src.utils.utils import replace_dir
+
+from src.config.config import Config
+from src.core.config import settings
+from src.db.db import Database
 from src.db.tables.gtfs import GtfsTables
+from src.utils.utils import print_info, replace_dir
 
 
 class GTFSCollection:
@@ -129,7 +129,7 @@ class GTFSCollection:
             file_path_postgres = os.path.join("/tmp/gtfs/temp", file)
             sql_copy = f"""
                 COPY {self.schema}.{table}_temp ({",".join(header)}) FROM '{file_path_postgres}'
-                CSV DELIMITER ',' QUOTE '"' ESCAPE '"';
+                CSV DELIMITER ',' QUOTE '"' ESCAPE '"' ENCODING 'ISO 8859-15';
             """
             self.db.perform(sql_copy)
 
@@ -194,8 +194,6 @@ class GTFSCollection:
             sql_command = f"""
                 ALTER TABLE {self.schema}.stop_times ADD FOREIGN KEY (h3_3, stop_id)
                 REFERENCES {self.schema}.stops(h3_3, stop_id);
-                ALTER TABLE {self.schema}.stop_times ADD FOREIGN KEY (h3_3, trip_id)
-                REFERENCES {self.schema}.trips(trip_id);
                 CREATE INDEX ON {self.schema}.stop_times (h3_3, stop_id);
                 CREATE INDEX ON {self.schema}.stop_times (h3_3, trip_id);
                 """
@@ -228,13 +226,11 @@ class GTFSCollection:
 
     def run(self):
         """Run the gtfs preparation."""
-        #self.create_table_schema()
+        self.create_table_schema()
 
         # Check if for all table there is a gtfs file
 
         for table in self.create_queries:
-            if table not in ["shapes", "calendar"]:
-                continue
             file_dir = os.path.join(settings.INPUT_DATA_DIR, "gtfs", table + ".txt")
             if not os.path.exists(file_dir):
                 raise Exception(f"File {file_dir} not found.")
