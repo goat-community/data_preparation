@@ -29,6 +29,7 @@ class GTFSCollection:
         )[0][0]
         if not schema_exists:
             print_info(f"Create schema {self.schema}.")
+            self.db.perform(f"CREATE SCHEMA {self.schema};")
         else:
             print_info(
                 f"Schema {self.schema} already exists. It will be dropped and recreated."
@@ -209,7 +210,6 @@ class GTFSCollection:
             """
         elif table == "shapes":
             sql_command = f"""
-                CREATE EXTENSION IF NOT EXISTS btree_gist;
                 CREATE INDEX ON {self.schema}.shapes (h3_3, shape_id);
                 CREATE INDEX ON {self.schema}.shapes USING GIST(h3_3, geom);
             """
