@@ -9,7 +9,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--repo_url", "https://github.com/goat-community/poi",
-                "--maintainer", "goat",
+                "--maintainer", "rds",
                 "--table_name", "poi"
             ],
             "cwd": "${workspaceFolder}"
