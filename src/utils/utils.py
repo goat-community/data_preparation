@@ -46,6 +46,12 @@ def timing(f):
     return wrap
 
 
+def make_dir(dir_path: str):
+    """Creates a new directory if it doesn't already exist"""
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+
 def delete_file(file_path: str) -> None:
     """Delete file from disk."""
     try:
@@ -667,3 +673,45 @@ def polars_df_to_postgis(
 
     # Close connection
     db.close()
+    
+    
+def osm_crop_to_polygon(orig_file_path: str, dest_file_path: str, poly_file_path: str):
+    """
+    Crops OSM data as per polygon file
+
+    Args:
+            orig_file_path (str): Path to the input OSM data file
+            dest_file_path (str): Path to the output OSM data file (incl. filename with extension ".pbf") where OSM data is to be written
+            poly_file_path (str): Path to a polygon filter file (as per the format described here: https://wiki.openstreetmap.org/wiki/Osmosis/Polygon_Filter_File_Format)
+    """
+    
+    subprocess.run(
+        f"osmconvert {orig_file_path} -B={poly_file_path} --complete-ways -o={dest_file_path}",
+        shell=True,
+        check=True,
+    )
+
+
+def osm_generate_polygon(db_rd, geom_query: str, dest_file_path: str):
+    """
+    Generates a polygon filter file for cropping OSM data
+
+    Args:
+        db_rd (Database): A database connection object
+        geom_query (str): The query to be run for retrieving geometry data for a region (returned column must be named "geom")
+        dest_file_path (str): Path to the output file (incl. filename with extension ".poly") where polygon data is to be written
+    """
+    
+    coordinates = db_rd.select(f"""SELECT ST_x(coord.geom), ST_y(coord.geom)
+                                        FROM (
+                                            SELECT (ST_dumppoints(geom_data.geom)).geom
+                                            FROM (
+                                                {geom_query}
+                                            ) geom_data
+                                        ) coord;"""
+                                )
+    with open(dest_file_path, "w") as file:
+        file.write("1\n")
+        file.write("polygon\n")
+        file.write("\n".join([f" {i[0]} {i[1]}" for i in coordinates]))
+        file.write("\nEND\nEND")
