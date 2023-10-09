@@ -19,16 +19,16 @@ collection:
   osm_tags:
     amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
                 "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
-                "charging_station", "bus_station", "playground", "monastery", "place_of_worship", "kneipp_water_cure", "public_bath", "planetarium",
+                "charging_station", "bus_station", "playground", "monastery", "place_of_worship", "kneipp_water_cure", "planetarium",
                 "arts_centre", "events_venue"]
     shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
                 "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
-    tourism : ["hotel", "museum", "hostel", "guest_house", "aquarium", "zoo", "theme_park", "alpine_hut", "apartment", "camp_pitch", "camp_site", "caravan_site",
+    tourism : ["hotel", "museum", "hostel", "guest_house", "aquarium", "zoo", "theme_park", "alpine_hut", "apartment", "camp_site", "caravan_site",
                 "chalet", "motel", "gallery"]
     railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
-    leisure : ["playground", "fitness_station", "sports_centre", 'sports_hall', "fitness_centre", "water_park", "swimming_area", "swimming_pool",
+    leisure : ["playground", "fitness_station", "sports_centre", 'sports_hall', "fitness_centre", "water_park", "swimming_area",
                 "amusement_arcade", "disc_golf_course", "dog_park", "escape_game", "miniature_golf"]
-    sport   : ["yoga", "fitness"]
+    sport   : ["yoga", "fitness", "swimming"]
     highway : ["bus_stop"]
     public_transport : ["stop_position", "station"]
     historic: ["aircraft", "aqueduct", "archaeological_site", "battlefield", "bomb_crater", "castle", "church", "city_gate", "citywalls", "farm",
