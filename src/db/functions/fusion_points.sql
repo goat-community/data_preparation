@@ -1,65 +1,123 @@
-DROP FUNCTION IF EXISTS fusion_points;
-/*
-Table 1&2 input columns: name, geom, category, id
-*/
+DROP FUNCTION IF EXISTS fusion_points();
 
-/*
-run prior to the code the poi table creation function -> to create two temp tables
-
-*/
-
-CREATE OR REPLACE FUNCTION fusion_points(table_1 text, table_2 text, fusion_radius float, fusion_threshold float, comparison_column_table_1 text, comparison_column_table_2 text)
-RETURNS TABLE () /* add column to separate the table afterwards (matched, only in first, only in second) */
+CREATE OR REPLACE FUNCTION fusion_points(
+    table_1 text,
+    table_2 text,
+    fusion_radius float,
+    fusion_threshold float,
+    comparison_column_table_1 text,
+    comparison_column_table_2 TEXT,
+    decision_table_1 TEXT,
+    decision_fusion TEXT,
+    decision_table_2 TEXT
+)
+RETURNS void
 AS $function$
 BEGIN
     DROP TABLE IF EXISTS temporal.comparison_poi; 
-    EXECUTE
-        'CREATE TABLE temporal.comparison_poi AS 
-        SELECT n.id, (ARRAY_AGG(old_id))[1] AS old_id, (ARRAY_AGG(similarity))[1] AS similarity
+    EXECUTE '
+        CREATE TABLE temporal.comparison_poi AS 
+        SELECT n.*, (ARRAY_AGG(id_table_2))[1] AS id_table_2, (ARRAY_AGG(similarity))[1] AS similarity
         FROM ' || table_1 || ' n
         LEFT JOIN LATERAL 
-        (	
-            SELECT y.id AS old_id, similarity(y.name, n.'|| comparison_column_table_1 ||')
+        (   
+            SELECT y.id AS id_table_2, similarity(lower(y.name), lower(n.'|| comparison_column_table_1 ||')) AS similarity
             FROM 
             (
-                SELECT p.auto_pk AS id, lower('|| comparison_column_table_2 ||') AS name 
-                FROM temporal.poi_old p 
+                SELECT p.id AS id, lower('|| comparison_column_table_2 ||') AS name 
+                FROM ' || table_2 || ' p 
                 WHERE ST_DWithin(n.geom, p.geom, ' || fusion_radius || ')
             ) y 
+			WHERE similarity(y.name, n.'|| comparison_column_table_1 ||') >= ' || fusion_threshold || '
             ORDER BY similarity(y.name, n.'|| comparison_column_table_1 ||')
             DESC
+            LIMIT 1
         ) j ON TRUE 
-        GROUP BY n.id';
+        GROUP BY n.id
+	';
 
-        CREATE INDEX ON temporal.comparison_poi (id); 
+    CREATE INDEX ON temporal.comparison_poi (id); 
+   
+	ALTER TABLE temporal.comparison_poi 
+	ADD COLUMN decision varchar;
+
+    -- Use separate IF and ELSIF statements for different decisions
+    IF decision_table_1 = 'keep' THEN
+        EXECUTE '
+            UPDATE temporal.comparison_poi 
+            SET decision = ''keep''
+            WHERE id_table_2 IS NULL;
+        ';
+    ELSIF decision_table_1 = 'drop' THEN
+        EXECUTE '
+            DELETE FROM temporal.comparison_poi 
+            WHERE id_table_2 IS NULL;
+        ';
+    END IF;
+
+    IF decision_fusion = 'keep' THEN
+        EXECUTE '
+            UPDATE temporal.comparison_poi 
+            SET decision = ''keep''
+            WHERE similarity >= ' || fusion_threshold || ';
+        ';
+    ELSIF decision_fusion = 'combine' THEN
+        EXECUTE '
+	        UPDATE temporal.comparison_poi AS c
+	        SET 
+	            category_1 = COALESCE(t2.category_1, c.category_1),
+	            category_2 = COALESCE(t2.category_2, c.category_2),
+	            category_3 = COALESCE(t2.category_3, c.category_3),
+	            category_4 = COALESCE(t2.category_4, c.category_4),
+	            category_5 = COALESCE(t2.category_5, c.category_5),
+	            "name" = COALESCE(t2."name", c."name"),
+	            street = COALESCE(t2.street, c.street),
+	            housenumber = COALESCE(t2.housenumber, c.housenumber),
+	            zipcode = COALESCE(t2.zipcode, c.zipcode),
+	            opening_hours = COALESCE(t2.opening_hours, c.opening_hours),
+	            wheelchair = COALESCE(t2.wheelchair, c.wheelchair),
+	            tags = t2.tags || c.tags, -- Merge JSONB tags
+	            geom = CASE WHEN ST_X(t2.geom) IS NULL OR ST_Y(t2.geom) IS NULL THEN c.geom ELSE t2.geom END,
+	            decision = ''combined''
+	        FROM ' || table_2 || ' AS t2
+	        WHERE c.id_table_2 = t2.id
+			AND similarity >= ' || fusion_threshold || ';
+        ';
+    ELSIF decision_fusion = 'replace' THEN
+        EXECUTE '
+            UPDATE temporal.comparison_poi AS c
+	        SET 
+	            category_1 = t2.category_1,
+	            category_2 = t2.category_2,
+	            category_3 = t2.category_3,
+	            category_4 = t2.category_4,
+	            category_5 = t2.category_5,
+	            "name" = t2."name",
+	            street = t2.street,
+	            housenumber = t2.housenumber,
+	            zipcode = t2.zipcode,
+	            opening_hours = t2.opening_hours,
+	            wheelchair = t2.wheelchair,
+	            tags = t2.tags,
+	            geom = t2.geom,
+	            decision = ''replaced''
+	        FROM ' || table_2 || ' AS t2
+	        WHERE c.id_table_2 = t2.id
+			AND similarity >= ' || fusion_threshold || ';
+        ';
+    END IF;
+
+    IF decision_table_2 = 'add' THEN
+        EXECUTE '
+            INSERT INTO temporal.comparison_poi
+            SELECT *, id as id_table_2, NULL as similarity ,''add''::varchar AS decision
+            FROM ' || table_2 || '
+            WHERE id NOT IN (SELECT DISTINCT id_table_2 FROM temporal.comparison_poi WHERE id_table_2 IS NOT NULL);
+        ';
+    ELSIF decision_table_2 = 'drop' THEN
+        -- Do nothing or add any necessary logic
+        NULL;
+    END IF;
+
 END;
-$function$  LANGUAGE plpgsql;
-
-/* 
-
-Existing code
-- creates copies of table_1 and table_2
-- new table -> does map matching + string similarity based on name column (could be others id needed -> generic) of table_1 and table_2
-- poi_to_add: find pois that are only in table_2 and not in table_3 -> same id, but similarity IS NULL
-- poi_to_update: find pois that should be updated in table_1 -> same id, but similarity > 0.2 (or other threshold maybe based on input)
-- poi_to_delete: find pois that are only in table_1 and not in table_3 -> based on id -> option if dropped or kept
-
-Option1: should be to update table_1 (existing data) based on table_2 (new data) 
-e.g. update our POIs
-    -> drop data only in table_1
-    -> keep data that is in both tables (without duplicates)
-    -> add new data from table_2
-
-Option2: enrich table_1 with table_2 
-e.g. Fusion OSM and Overture where we have more confindence in OSM -> could add attributes or confidence
-    -> keep data only in table_1
-    -> keep data that is in both tables (without duplicates)
-    -> drop new data from table_2
-
-Option3: combine two tables without duplicates
-e.g. combine OSM and Overture where we have the same confidence in both sources
-    -> keep data only in table_1
-    -> keep data that is in both tables (without duplicates)
-    -> keep new data from table_2
-
-*/ 
+$function$ LANGUAGE plpgsql;
