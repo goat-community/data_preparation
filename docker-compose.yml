@@ -64,13 +64,15 @@ services:
       - DB_ADMIN_PASSWORD=${POSTGRES_PASSWORD}
       - DB_BACKUP_LOCAL=1
       - DB_DATABASE_PREPARATION=${POSTGRES_DB}
+      - DB_USERNAME_PREPARATION=${POSTGRES_USER}
+      - DB_PASSWORD_PREPARATION=${POSTGRES_PASSWORD}
     volumes:
       - goat_data_preparation_backup:/storage/backup:rw
       - goat_data_preparation_data:/storage/data:rw
     ports:
       - "${POSTGRES_OUTER_PORT}:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -h ${COMPOSE_PROJECT_NAME}_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
