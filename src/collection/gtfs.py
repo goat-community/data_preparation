@@ -13,6 +13,7 @@ class GTFSCollection:
         self.db = db
         self.region = region
         self.config = Config("gtfs", region)
+        self.network_dir = self.config.preparation["network_dir"]
         self.schema = self.config.preparation["target_schema"]
         self.chunk_size = 1000000
         # Create tables
@@ -54,7 +55,7 @@ class GTFSCollection:
     def split_file(self, table: str, output_dir: str):
         """Split file into chunks and removes header."""
 
-        input_file = os.path.join(settings.INPUT_DATA_DIR, "gtfs", table + ".txt")
+        input_file = os.path.join(settings.INPUT_DATA_DIR, "gtfs", self.network_dir, table + ".txt")
         print_info(
             f"Split file {input_file} into chunks of max. {self.chunk_size} rows."
         )
@@ -79,12 +80,12 @@ class GTFSCollection:
             print_info(f"Columns of table {table} are missing in the gtfs file.")
 
         # Columns are missing in table return them to drop them later.
-        excess_columns = None
-
-        if set(header) - set(columns):
-            raise ValueError(
+        excess_columns = set(header) - set(columns)
+        if excess_columns:
+            print_info(f"Columns {excess_columns} are missing in table {table} but are in the gtfs file. Continuing with table columns only.")
+            """raise ValueError(
                 f"Columns {excess_columns} are missing in table {table} that are in the gtfs file. Import stopped."
-            )
+            )"""
 
         # Split file into chunks and use file name as prefix
         subprocess.run(
@@ -106,9 +107,9 @@ class GTFSCollection:
         with open(first_file, "w", encoding="utf-8") as f:
             f.writelines(lines[1:])
 
-        return header
+        return header, columns
 
-    def import_file(self, input_dir: str, table: str, header: list):
+    def import_file(self, input_dir: str, table: str, header: list, table_columns: list):
         """Import file into database using copy."""
 
         files = os.listdir(input_dir)
@@ -119,42 +120,65 @@ class GTFSCollection:
             # Create temp table
             sql_create_temp_table = f"""
                 DROP TABLE IF EXISTS {self.schema}.{table}_temp;
-                CREATE UNLOGGED TABLE {self.schema}.{table}_temp AS
-                SELECT *
-                FROM {self.schema}.{table}
-                LIMIT 0;
+                CREATE UNLOGGED TABLE {self.schema}.{table}_temp
+                ({",".join([value + " text" for value in header])})
             """
             self.db.perform(sql_create_temp_table)
 
+            sql_get_column_datatypes = f"""
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_schema = '{self.schema}'
+                AND table_name = '{table}';
+            """
+            columns = self.db.select(sql_get_column_datatypes)
+            for column_name, column_type in columns:
+                if column_name not in header:
+                    continue
+
+                sql_update_column_type = f"""
+                    ALTER TABLE {self.schema}.{table}_temp
+                    ALTER COLUMN {column_name} TYPE {column_type};
+                """ if column_type == "text" else f"""
+                    ALTER TABLE {self.schema}.{table}_temp
+                    ALTER COLUMN {column_name} TYPE {column_type}
+                    USING {column_name}::{column_type};
+                """
+                self.db.perform(sql_update_column_type)
+
             # Copy data to temp table
-            file_path_postgres = os.path.join("/tmp/gtfs/temp", file)
+            file_path_postgres = os.path.join("/tmp/gtfs", self.network_dir, "temp", file)
             sql_copy = f"""
                 COPY {self.schema}.{table}_temp ({",".join(header)}) FROM '{file_path_postgres}'
                 CSV DELIMITER ',' QUOTE '"' ESCAPE '"' ENCODING 'ISO 8859-15';
             """
             self.db.perform(sql_copy)
 
+            # Get list of only the data columns that we use
+            output_cols = set(table_columns) - (set(table_columns) - set(header))
+            output_cols_formatted = ",".join(output_cols)
+
             # Check if table not shapes or stops
             if table not in ["shapes", "stops", "stop_times"]:
                 # Copy data directly from temp table to table
                 sql_copy = f"""
-                    INSERT INTO {self.schema}.{table} ({",".join(header)})
-                    SELECT {",".join(header)}
+                    INSERT INTO {self.schema}.{table} ({output_cols_formatted})
+                    SELECT {output_cols_formatted}
                     FROM {self.schema}.{table}_temp;
                 """
             elif table == "shapes":
                 # Copy data and create geometry
                 sql_copy = f"""
-                    INSERT INTO {self.schema}.{table} ({",".join(header)}, geom, h3_3)
-                    SELECT {",".join(header)}, ST_SetSRID(ST_MakePoint(shape_pt_lon, shape_pt_lat), 4326) AS geom,
+                    INSERT INTO {self.schema}.{table} ({output_cols_formatted}, geom, h3_3)
+                    SELECT {output_cols_formatted}, ST_SetSRID(ST_MakePoint(shape_pt_lon, shape_pt_lat), 4326) AS geom,
                     public.to_short_h3_3(h3_lat_lng_to_cell(ST_SetSRID(ST_MakePoint(shape_pt_lon, shape_pt_lat), 4326)::point, 3)::bigint) AS h3_3
                     FROM {self.schema}.{table}_temp;
                 """
             elif table == "stops":
                 sql_copy = f"""
-                    INSERT INTO {self.schema}.{table} ({",".join(header)}, geom, h3_3)
-                    SELECT {",".join(header)}, ST_SetSRID(ST_MakePoint(stop_lon, stop_lat), 4326) AS geom,
-                    public.to_short_h3_3(h3_lat_lng_to_cell(ST_SetSRID(ST_MakePoint(stop_lon, stop_lat), 4326)::point, 3)::bigint) AS h3_3
+                    INSERT INTO {self.schema}.{table} ({output_cols_formatted}, geom, h3_3)
+                    SELECT {output_cols_formatted}, ST_SetSRID(ST_MakePoint(stop_lon::float4, stop_lat::float4), 4326) AS geom,
+                    public.to_short_h3_3(h3_lat_lng_to_cell(ST_SetSRID(ST_MakePoint(stop_lon::float4, stop_lat::float4), 4326)::point, 3)::bigint) AS h3_3
                     FROM {self.schema}.{table}_temp;
                 """
             elif table == "stop_times":
@@ -163,15 +187,18 @@ class GTFSCollection:
                 self.db.perform(f"CREATE INDEX ON {self.schema}.{table}_temp (stop_id);")
 
                 # Get h3_3 from stops table
-                columns = ", t.".join(header)
+                columns = ", t.".join(output_cols)
                 columns = "t." + columns
                 sql_copy = f"""
-                    INSERT INTO {self.schema}.{table} ({",".join(header)}, h3_3)
+                    INSERT INTO {self.schema}.{table} ({output_cols_formatted}, h3_3)
                     SELECT {columns}, s.h3_3
                     FROM {self.schema}.{table}_temp t
                     LEFT JOIN {self.schema}.stops s ON t.stop_id = s.stop_id;
                 """
             self.db.perform(sql_copy)
+
+            sql_drop_temp_table = f"DROP TABLE IF EXISTS {self.schema}.{table}_temp;"
+            self.db.perform(sql_drop_temp_table)
 
             cnt += 1
             print_info(f"Imported {cnt} of {len(files)} files for table {table}.")
@@ -203,6 +230,8 @@ class GTFSCollection:
                 ALTER TABLE {self.schema}.trips ADD PRIMARY KEY (trip_id);
                 ALTER TABLE {self.schema}.trips ADD FOREIGN KEY (route_id) REFERENCES {self.schema}.routes(route_id);
                 CREATE INDEX ON {self.schema}.trips (shape_id);
+                CREATE INDEX ON {self.schema}.trips (route_id);
+                CREATE INDEX ON {self.schema}.trips (service_id);
             """
         elif table == "routes":
             sql_command = f"""
@@ -225,23 +254,23 @@ class GTFSCollection:
 
 
     def run(self):
-        """Run the gtfs preparation."""
+        """Run the gtfs collection."""
         self.create_table_schema()
 
         # Check if for all table there is a gtfs file
 
         for table in self.create_queries:
-            file_dir = os.path.join(settings.INPUT_DATA_DIR, "gtfs", table + ".txt")
+            file_dir = os.path.join(settings.INPUT_DATA_DIR, "gtfs", self.network_dir, table + ".txt")
             if not os.path.exists(file_dir):
                 raise Exception(f"File {file_dir} not found.")
 
             # Create temp dir
-            temp_dir = os.path.join(settings.INPUT_DATA_DIR, "gtfs", "temp")
+            temp_dir = os.path.join(settings.INPUT_DATA_DIR, "gtfs", self.network_dir, "temp")
             replace_dir(temp_dir)
             # Split file into chunks
-            header = self.split_file(table, temp_dir)
+            header, table_columns = self.split_file(table, temp_dir)
             # Import file into database
-            self.import_file(temp_dir, table, header)
+            self.import_file(temp_dir, table, header, table_columns)
             self.create_indices(table)
 
 

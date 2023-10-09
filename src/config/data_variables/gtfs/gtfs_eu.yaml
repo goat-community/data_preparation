@@ -1,5 +1,6 @@
 preparation:
   start_date: "2023-06-26"
   end_date: "2023-07-02"
+  network_dir: "eu"
   target_schema: "gtfs"
   regions: "SELECT nuts_id as id, name, geom FROM public.nuts"
