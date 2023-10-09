@@ -1,7 +1,8 @@
 from src.config.config import Config
-from src.db.db import Database
 from src.core.config import settings
+from src.db.db import Database
 from src.db.tables.poi import create_poi_table
+
 
 class OSMOverturePOIFusion:
     """Fusion of OSM POIs and the places data set from the Overture Maps Foundation"""
@@ -13,34 +14,76 @@ class OSMOverturePOIFusion:
         self.data_config_preparation = self.data_config.preparation
 
     def run(self):
-        # create temp table for osm data needed for the fusion
-        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"osm_{self.region}_fusion"))
-        sql_insert_poi_osm = f"""
-            INSERT INTO temporal.poi_osm_{self.region}_fusion(category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom)
-            SELECT category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
-            tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
-            phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)),
-            geom
-            FROM public.poi_osm_{self.region}
-            WHERE category IN ({', '.join(["'{}'".format(cat.replace("'", "''")) for cat in self.data_config_preparation['fusion']['category_osm']])});
-        """
-        #TODO: completes sql in config
+        # adds a serial key
+        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"{self.region}_fusion_result"))
+        self.db_rd.perform(f"""
+                           ALTER TABLE temporal.poi_{self.region}_fusion_result
+                           DROP COLUMN IF EXISTS id,
+                           ADD COLUMN id SERIAL PRIMARY KEY;
+                           """)
 
-        # table schema and table name of public.poi_osm_{self.region} might change
-        self.db_rd.perform(sql_insert_poi_osm)
+        for top_level_category in self.data_config_preparation['fusion'].keys():
+            for category in self.data_config_preparation['fusion'][top_level_category].keys():
+                # create temp table of the input_1 data needed for the fusion
+                self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"input_1_{self.region}_fusion"))
 
-        # create temp table for overture data needed for the fusion
-        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"overture_{self.region}_fusion"))
-        sql_insert_poi_overture = f"""
-            INSERT INTO temporal.poi_overture_{self.region}_fusion(category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
-            SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
-            FROM temporal.poi_overture_{self.region}
-            WHERE category_1 IN ({', '.join(["'{}'".format(cat.replace("'", "''")) for cat in self.data_config_preparation['fusion']['category_overture']])});
-        """
-        self.db_rd.perform(sql_insert_poi_overture)
+                # create temp table of the input_2 data needed for the fusion
+                self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"input_2_{self.region}_fusion"))
 
-        # additional input id column?
-        self.db_rd.perform(f"""SELECT fusion_points('temporal.poi_osm_{self.region}_fusion', 'temporal.poi_overture_{self.region}_fusion', {self.data_config_preparation['fusion']['radius']}, {self.data_config_preparation['fusion']['threshold']}, 'name', 'name')""")
+                sql_insert_poi_input_1 = self.data_config_preparation['fusion'][top_level_category][category]['input_1']
+                self.db_rd.perform(sql_insert_poi_input_1)
+
+                sql_insert_poi_input_2 = self.data_config_preparation['fusion'][top_level_category][category]['input_2']
+                self.db_rd.perform(sql_insert_poi_input_2)
+
+                sql_poi_fusion = f"""
+                    SELECT fusion_points('temporal.poi_input_1_{self.region}_fusion', 'temporal.poi_input_2_{self.region}_fusion',
+                    {self.data_config_preparation['fusion'][top_level_category][category]['radius']}, {self.data_config_preparation['fusion'][top_level_category][category]['threshold']},
+                    '{self.data_config_preparation['fusion'][top_level_category][category]['matching_column_1']}', '{self.data_config_preparation['fusion'][top_level_category][category]['matching_column_2']}',
+                    '{self.data_config_preparation['fusion'][top_level_category][category]['decision_table_1']}', '{self.data_config_preparation['fusion'][top_level_category][category]['decision_fusion']}',
+                    '{self.data_config_preparation['fusion'][top_level_category][category]['decision_table_2']}')
+                """
+                self.db_rd.perform(sql_poi_fusion)
+
+                # add top level category
+                sql_top_level_category = f"""
+                    UPDATE temporal.comparison_poi
+                    SET
+                        category_1 = '{top_level_category}',
+                        category_2 = CASE WHEN category_2 = '{top_level_category}' THEN NULL ELSE category_2 END
+                    ;
+                """
+                self.db_rd.perform(sql_top_level_category)
+
+                #TODO: do we want to track the source? if yes, just use an config input?
+
+                # add tag source:
+                # if confidence in tags -> overture
+                # if similarity >= threshold -> both
+                # else -> osm
+
+                # sql_add_source = f"""
+                #     UPDATE temporal.comparison_poi
+                #     SET tags =
+                #         CASE
+                #             WHEN decision = 'add' THEN jsonb_insert(tags, '{{source}}', '"overture"'::jsonb, true)
+                #             WHEN similarity >= {self.data_config_preparation['fusion'][top_level_category][category]['threshold']} THEN jsonb_insert(tags, '{{source}}', '"both"'::jsonb, true)
+                #             ELSE jsonb_insert(tags, '{{source}}', '"osm"'::jsonb, true)
+                #         END
+                # """
+                # self.db_rd.perform(sql_add_source)
+
+
+                # insert data into the final table
+                sql_concat_resulting_tables = f"""
+                    INSERT INTO temporal.poi_{self.region}_fusion_result(
+                        category_1, category_2, category_3, category_4, category_5, name, street, housenumber, zipcode, opening_hours,
+                        wheelchair, tags, geom
+                        )
+                    SELECT category_1, category_2, category_3, category_4, category_5, name, street, housenumber, zipcode, opening_hours, wheelchair, jsonb_set(tags, '{{original_id}}', to_jsonb(id)) AS extended_tags, geom
+                    FROM temporal.comparison_poi;
+                """
+                self.db_rd.perform(sql_concat_resulting_tables)
 
 def prepare_poi_osm_overture_fusion(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)
