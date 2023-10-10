@@ -1,7 +1,9 @@
-from src.db.db import Database
-from src.core.config import settings
 import os
+
+from src.core.config import settings
+from src.db.db import Database
 from src.utils.utils import print_error, print_info
+
 
 def init_db(db):
     # Create extension
@@ -9,6 +11,8 @@ def init_db(db):
     db.perform("CREATE EXTENSION IF NOT EXISTS postgis_raster;")
     db.perform("CREATE EXTENSION IF NOT EXISTS hstore;")
     db.perform("CREATE EXTENSION IF NOT EXISTS h3;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS citus;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS btree_gist;")
 
     # Create schema
     db.perform("CREATE SCHEMA IF NOT EXISTS basic;")

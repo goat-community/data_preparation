@@ -1,8 +1,8 @@
-from src.db.db import Database
 from src.config.config import Config
-from src.utils.utils import print_info, create_table_dump
 from src.core.config import settings
-from src.utils.utils import timing
+from src.db.db import Database
+from src.utils.utils import create_table_dump, print_info, timing
+
 
 class GTFS:
     def __init__(self, db: Database, region: str):
@@ -98,7 +98,7 @@ class GTFS:
         # Create undistributed shape_dist_region table
         self.db.perform(
             f"""
-            DROP TABLE IF EXISTS gtfs.undistributed_shape_dist_region;
+            DROP TABLE IF EXISTS {self.schema}.undistributed_shape_dist_region;
             CREATE TABLE {self.schema}.undistributed_shape_dist_region AS
             SELECT *
             FROM {self.schema}.shape_dist_region;
@@ -202,16 +202,16 @@ class GTFS:
             FROM
             (
                 SELECT t.trip_id, t.service_id, t.shape_id, t.trip_headsign, r.*
-                FROM gtfs.trips t, gtfs.dates_max_trips r
+                FROM {self.schema}.trips t, {self.schema}.dates_max_trips r
                 WHERE t.route_id = r.route_id
-            ) t, gtfs.calendar c
+            ) t, {self.schema}.calendar c
             WHERE t.service_id = c.service_id
             AND t.start_date >= c.start_date
             AND t.end_date <= c.end_date;
-            ALTER TABLE gtfs.temp_trips_weekday ADD COLUMN id serial;
-            ALTER TABLE gtfs.temp_trips_weekday ADD PRIMARY KEY (id);
-            CREATE INDEX ON gtfs.temp_trips_weekday (trip_id);
-            CREATE INDEX ON gtfs.temp_trips_weekday (shape_id);"""
+            ALTER TABLE {self.schema}.temp_trips_weekday ADD COLUMN id serial;
+            ALTER TABLE {self.schema}.temp_trips_weekday ADD PRIMARY KEY (id);
+            CREATE INDEX ON {self.schema}.temp_trips_weekday (trip_id);
+            CREATE INDEX ON {self.schema}.temp_trips_weekday (shape_id);"""
             self.db.perform(sql_create_trips_weekday)
             
             
@@ -245,8 +245,8 @@ class GTFS:
 
             # Create distributed table for temp_trips_weekday
             sql_create_temp_trips_weekday_distributed = f"""
-                DROP TABLE IF EXISTS gtfs.temp_trips_weekday_distributed;
-                CREATE TABLE gtfs.temp_trips_weekday_distributed
+                DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday_distributed;
+                CREATE TABLE {self.schema}.temp_trips_weekday_distributed
                 (
                     trip_id TEXT,
                     route_id TEXT, 
@@ -256,32 +256,32 @@ class GTFS:
                     weekdays bool[],
                     h3_3 integer
                 );
-                SELECT create_distributed_table('gtfs.temp_trips_weekday_distributed', 'h3_3');
+                SELECT create_distributed_table('{self.schema}.temp_trips_weekday_distributed', 'h3_3');
             """
             self.db.perform(sql_create_temp_trips_weekday_distributed)
 
             # Insert data into the distributed table
             sql_insert_temp_trips_weekday_distributed = f"""
-                INSERT INTO gtfs.temp_trips_weekday_distributed
+                INSERT INTO {self.schema}.temp_trips_weekday_distributed
                 SELECT t.trip_id, t.route_id, t.route_type::text::smallint, t.trip_headsign, t.shape_id, t.weekdays, j.h3_3
-                FROM gtfs.temp_trips_weekday t
+                FROM {self.schema}.temp_trips_weekday t
                 CROSS JOIN LATERAL
                 (
                     SELECT DISTINCT s.h3_3
-                    FROM gtfs.undistributed_shape_dist_region s
+                    FROM {self.schema}.undistributed_shape_dist_region s
                     WHERE t.shape_id = s.shape_id
                 ) j;
-                CREATE INDEX ON gtfs.temp_trips_weekday_distributed (h3_3, trip_id);
+                CREATE INDEX ON {self.schema}.temp_trips_weekday_distributed (h3_3, trip_id);
             """
             self.db.perform(sql_insert_temp_trips_weekday_distributed)
 
             # Create temporary table to be cleaned
             sql_create_stop_times_to_clean = f"""
-                DROP TABLE IF EXISTS gtfs.stop_times_to_clean;
-                CREATE TABLE gtfs.stop_times_to_clean AS 
+                DROP TABLE IF EXISTS {self.schema}.stop_times_to_clean;
+                CREATE TABLE {self.schema}.stop_times_to_clean AS 
                 SELECT st.trip_id, st.arrival_time, stop_id, route_type::text::smallint, weekdays, w.route_id, w.trip_headsign, st.h3_3
-                FROM gtfs.stop_times st
-                LEFT JOIN gtfs.temp_trips_weekday_distributed w
+                FROM {self.schema}.stop_times st
+                LEFT JOIN {self.schema}.temp_trips_weekday_distributed w
                 ON st.trip_id = w.trip_id
                 WHERE st.h3_3 = w.h3_3;
             """
@@ -289,9 +289,9 @@ class GTFS:
                             
             # Join stop_times with temp_trips_weekday_distributed and insert into stop_times_optimized
             sql_insert_stop_times_optimized = f"""
-                INSERT INTO gtfs.stop_times_optimized(trip_id, stop_id, arrival_time, weekdays, route_type,  h3_3)
+                INSERT INTO {self.schema}.stop_times_optimized(trip_id, stop_id, arrival_time, weekdays, route_type,  h3_3)
                 SELECT (ARRAY_AGG(trip_id))[1], stop_id, arrival_time, weekdays, (ARRAY_AGG(route_type))[1],  h3_3
-                FROM gtfs.stop_times_to_clean
+                FROM {self.schema}.stop_times_to_clean
                 GROUP BY stop_id, arrival_time, weekdays, h3_3; 
             """
             self.db.perform(sql_insert_stop_times_optimized)
@@ -320,7 +320,7 @@ class GTFS:
     def run(self):
         """Run the gtfs preparation."""
 
-        #self.prepare_shape_dist_region()
+        self.prepare_shape_dist_region()
         self.prepare_stop_times()
         self.add_indices()
 
