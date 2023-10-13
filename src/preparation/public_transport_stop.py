@@ -2,7 +2,7 @@ import json
 from src.config.config import Config
 from src.db.db import Database
 from src.core.config import settings
-from src.db.tables.poi import create_poi_table
+from src.db.tables.poi import POITable
 
 class PublicTransportStopPreparation:
     """Class to prepare/ classify public transport stops of the GTFS dataset. It processes the stops in batches and adds the route types (e.g. 3 = bus) to classify them."""
@@ -16,16 +16,18 @@ class PublicTransportStopPreparation:
     def run(self):
         """Run the public transport stop preparation."""
 
-        # unique_study_area_ids = self.db.select("""SELECT DISTINCT id FROM basic.study_area""")
+        # get the geometires of the study area based on the query defined in the config
         region_geoms = self.db.select(self.data_config_preparation['region'])
 
         # Create table for public transport stops
-        self.db.perform(create_poi_table(data_set_type="poi", schema_name="basic", data_set="public_transport_stop"))
+        self.db.perform(POITable(data_set_type="poi", schema_name="basic", data_set_name="public_transport_stop").create_poi_table())
 
+        # loops through the geometries of the study area and classifies the public transport stops based on GTFS
+        # loops through the gtfs stops and classifies them based on the route type in the stop_times table
         for geom in region_geoms:
             classify_gtfs_stop_sql = f"""
                 INSERT INTO basic.poi_public_transport_stop(
-                    category_1,
+                    category,
                     name,
                     geom,
                     tags
@@ -65,16 +67,12 @@ class PublicTransportStopPreparation:
                 GROUP BY route_type, tags ->> 'parent_station', name
                 ;
             """
-            #TODO:2 in der subscription definiere, dass public transport entries von OSM und z.B. Bus von GTFS
+            #TODO: in der subscription definiere, dass public transport entries von OSM und z.B. Bus von GTFS
 
             self.db.perform(classify_gtfs_stop_sql)
 
 def prepare_public_transport_stop(region: str):
 
-    db_goat = Database(settings.RAW_DATABASE_URI)
-    public_transport_stop_preparation = PublicTransportStopPreparation(db=db_goat, region=region)
+    db_rd = Database(settings.RAW_DATABASE_URI)
+    public_transport_stop_preparation = PublicTransportStopPreparation(db=db_rd, region=region)
     public_transport_stop_preparation.run()
-
-
-# if __name__ == "__main__":
-#     prepare_public_transport_stop()
