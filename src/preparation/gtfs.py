@@ -141,9 +141,9 @@ class GTFS:
                 WITH date_series AS 
                 (
                     SELECT 
-                    TO_CHAR(DATE '2022-12-06' + (7 * s.a), 'YYYY-MM-DD')::date AS start_date,
-                    TO_CHAR(DATE '2022-12-06' + (7 * s.a) + INTERVAL '1 day', 'YYYY-MM-DD')::date AS end_date
-                    FROM generate_series(0, 35) as s(a)
+                    TO_CHAR(DATE '{self.config.preparation["start_date"]}' + (7 * s.a), 'YYYY-MM-DD')::date AS start_date,
+                    TO_CHAR(DATE '{self.config.preparation["start_date"]}' + (7 * s.a) + INTERVAL '1 day', 'YYYY-MM-DD')::date AS end_date
+                    FROM generate_series(0, {self.config.preparation["num_weeks"]}) as s(a)
                 ),
                 trip_cnt AS 
                 (
@@ -155,7 +155,11 @@ class GTFS:
                         FROM (SELECT route_id FROM {self.schema}.routes r WHERE r.loop_id > {i} AND r.loop_id <= {i+self.small_bulk}) r 
                         CROSS JOIN LATERAL 
                         (
-                            SELECT sum(c.monday::integer) cnt_trips, t.route_id
+                            SELECT
+                                sum(c.monday::integer) cnt_trips_mon,
+                                sum(c.saturday::integer) cnt_trips_sat,
+                                sum(c.sunday::integer) cnt_trips_sun,
+                                t.route_id
                             FROM {self.schema}.trips t, {self.schema}.calendar c
                             WHERE t.route_id = r.route_id 
                             AND t.service_id = c.service_id 
@@ -167,22 +171,54 @@ class GTFS:
                 ),
                 dates_max_trips AS
                 (
-                    SELECT r.route_id, j.start_date[1] AS start_date, j.end_date[1] AS end_date
+                    SELECT
+                        r.route_id,
+                        j_mon.start_date_mon[1] AS start_date_mon,
+                        j_mon.end_date_mon[1] AS end_date_mon,
+                        j_sat.start_date_sat[1] AS start_date_sat,
+                        j_sat.end_date_sat[1] AS end_date_sat,
+                        j_sun.start_date_sun[1] AS start_date_sun,
+                        j_sun.end_date_sun[1] AS end_date_sun
                     FROM (SELECT DISTINCT route_id FROM trip_cnt r) r
                     CROSS JOIN LATERAL 
                     (
-                        SELECT cnt_trips, max(cnt_trips), ARRAY_AGG(start_date) AS start_date, ARRAY_AGG(end_date) AS end_date
+                        SELECT cnt_trips_mon, max(cnt_trips_mon), ARRAY_AGG(start_date) AS start_date_mon, ARRAY_AGG(end_date) AS end_date_mon
                         FROM trip_cnt t 
                         WHERE r.route_id = t.route_id  
-                        GROUP BY cnt_trips
-                        ORDER BY max(cnt_trips)
+                        GROUP BY cnt_trips_mon
+                        ORDER BY max(cnt_trips_mon)
                         DESC
                         LIMIT 1 
-                    ) j
+                    ) j_mon
+                    CROSS JOIN LATERAL 
+                    (
+                        SELECT cnt_trips_sat, max(cnt_trips_sat), ARRAY_AGG(start_date) AS start_date_sat, ARRAY_AGG(end_date) AS end_date_sat
+                        FROM trip_cnt t 
+                        WHERE r.route_id = t.route_id  
+                        GROUP BY cnt_trips_sat
+                        ORDER BY max(cnt_trips_sat)
+                        DESC
+                        LIMIT 1 
+                    ) j_sat
+                    CROSS JOIN LATERAL 
+                    (
+                        SELECT cnt_trips_sun, max(cnt_trips_sun), ARRAY_AGG(start_date) AS start_date_sun, ARRAY_AGG(end_date) AS end_date_sun
+                        FROM trip_cnt t 
+                        WHERE r.route_id = t.route_id  
+                        GROUP BY cnt_trips_sun
+                        ORDER BY max(cnt_trips_sun)
+                        DESC
+                        LIMIT 1 
+                    ) j_sun
                 )
-                SELECT r.*, d.start_date, d.end_date 
+                SELECT
+                    r.*,
+                    d.start_date_mon, d.end_date_mon,
+                    d.start_date_sat, d.end_date_sat,
+                    d.start_date_sun, d.end_date_sun
                 FROM dates_max_trips d, {self.schema}.routes r
-                WHERE d.route_id = r.route_id;""" 
+                WHERE d.route_id = r.route_id;
+            """ 
                 
             self.db.perform(sql_get_date_with_max_trips)
             self.db.perform(f"CREATE INDEX ON {self.schema}.dates_max_trips (route_id);")
@@ -190,24 +226,50 @@ class GTFS:
             # Select relevant trips with relevant route information and save them into a new table
             sql_create_trips_weekday = f"""DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday;
             CREATE TABLE {self.schema}.temp_trips_weekday AS
-            SELECT t.*, ARRAY[
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.monday::text)::boolean,
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.tuesday::text)::boolean,
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.wednesday::text)::boolean,
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.thursday::text)::boolean,
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.friday::text)::boolean,
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.saturday::text)::boolean,
-            (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.sunday::text)::boolean
-            ] AS weekdays
-            FROM
-            (
+            WITH t AS (
                 SELECT t.trip_id, t.service_id, t.shape_id, t.trip_headsign, r.*
-                FROM {self.schema}.trips t, {self.schema}.dates_max_trips r
-                WHERE t.route_id = r.route_id
-            ) t, {self.schema}.calendar c
-            WHERE t.service_id = c.service_id
-            AND t.start_date >= c.start_date
-            AND t.end_date <= c.end_date;
+                FROM {self.schema}.trips t
+                INNER JOIN {self.schema}.dates_max_trips r ON t.route_id = r.route_id
+            )
+            SELECT trip_id, route_id, route_type, trip_headsign, shape_id,
+                ARRAY[CASE WHEN 'true' = ANY(array_agg(weekday)) THEN 'true'::boolean ELSE 'false'::boolean END,
+                        CASE WHEN 'true' = ANY(array_agg(sat)) THEN 'true'::boolean ELSE 'false'::boolean END,
+                        CASE WHEN 'true' = ANY(array_agg(sun)) THEN 'true'::boolean ELSE 'false'::boolean END] AS weekdays
+            FROM (
+                SELECT t.*,
+                    'true' as weekday, 
+                    'false' as sat,
+                    'false' as sun
+                FROM t
+                INNER JOIN {self.schema}.calendar c ON
+                    t.service_id = c.service_id
+                    AND t.start_date_mon >= c.start_date
+                    AND t.end_date_mon <= c.end_date
+                    AND c.monday = '1'
+                UNION
+                SELECT t.*,
+                    'false' as weekday, 
+                    'true' as sat,
+                    'false' as sun
+                FROM t
+                INNER JOIN {self.schema}.calendar c ON
+                    t.service_id = c.service_id
+                    AND t.start_date_sat >= c.start_date
+                    AND t.end_date_sat <= c.end_date
+                    AND c.saturday = '1'
+                UNION
+                SELECT t.*,
+                    'false' as weekday,
+                    'false' as sat,
+                    'true' as sun
+                FROM t
+                INNER JOIN {self.schema}.calendar c ON
+                    t.service_id = c.service_id
+                    AND t.start_date_sun >= c.start_date
+                    AND t.end_date_sun <= c.end_date
+                    AND c.sunday = '1'
+            ) trips_combined
+            GROUP BY trip_id, route_id, route_type, trip_headsign, shape_id;
             ALTER TABLE {self.schema}.temp_trips_weekday ADD COLUMN id serial;
             ALTER TABLE {self.schema}.temp_trips_weekday ADD PRIMARY KEY (id);
             CREATE INDEX ON {self.schema}.temp_trips_weekday (trip_id);
