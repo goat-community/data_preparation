@@ -1,3 +1,6 @@
+import csv
+import os
+
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
@@ -12,6 +15,57 @@ class GTFS:
         self.small_bulk = 100
         self.large_bulk = 10000
         self.schema = self.config.preparation["target_schema"]
+
+
+    @timing
+    def implement_data_corrections(self):
+        """Implement corrections as defined in CSV format correction files listed in config"""
+
+        # Return if no correction files are listed in config
+        if "network_corrections" not in self.config.preparation:
+            print_info("No corrections to be made.")
+            return
+
+        # Get list of tables in GTFS data schema
+        sql_get_tables = f"""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = '{self.schema}';
+        """
+        schema_tables = self.db.select(sql_get_tables)
+        schema_tables = [item for tuple in schema_tables for item in tuple]
+
+        # Implement corrections by table
+        corr_tables = self.config.preparation["network_corrections"]
+        for table_name in corr_tables.keys():
+            if table_name not in schema_tables:
+                print_info(f"Table {table_name} doesn't exist, skipping.")
+                continue
+
+            corr_filename = os.path.join(
+                settings.INPUT_DATA_DIR, "gtfs",
+                self.config.preparation["network_dir"],
+                corr_tables[table_name]
+            )
+            with open(corr_filename) as csv_file:
+                reader = csv.DictReader(csv_file)
+                header = reader.fieldnames
+                for line in reader:
+                    corrections = ""
+                    for column in header[1:]:
+                        # Correction not required if value is empty
+                        if not line[column]:
+                            continue
+                        corrections += f"{column} = '{line[column]}', "
+                    corrections = corrections.rstrip(", ")
+                    # Update relevant row in table assuming first column in header is the primary key
+                    sql_perform_correction = f"""
+                        UPDATE {self.schema}.{table_name}
+                        SET {corrections}
+                        WHERE {header[0]} = '{line[header[0]]}';
+                    """
+                    self.db.perform(sql_perform_correction)
+
 
     @timing
     def prepare_shape_dist_region(self):
@@ -382,6 +436,7 @@ class GTFS:
     def run(self):
         """Run the gtfs preparation."""
 
+        self.implement_data_corrections()
         self.prepare_shape_dist_region()
         self.prepare_stop_times()
         self.add_indices()
