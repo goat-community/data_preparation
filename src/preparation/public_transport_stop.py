@@ -13,12 +13,12 @@ class PublicTransportStopPreparation:
 
         # Get variables for the classification
         self.config_public_transport_stop = Config("public_transport_stop", region).config['classification'] 
-            
+
     def run(self):
         """Run the public transport stop preparation."""
-                   
+
         unique_study_area_ids = self.db.select("""SELECT DISTINCT id FROM basic.study_area""")
-        
+
         # Create table for public transport stops
         self.db.perform(create_poi_table(data_set_type="poi", schema_name="basic", data_set="public_transport_stop"))  
               
