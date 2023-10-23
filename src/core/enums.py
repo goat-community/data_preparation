@@ -30,6 +30,13 @@ class TableDumpFormat(str, Enum):
     sql = "sql"
     dump = "dump"
     
+class DumpType(str, Enum):
+    """Dump types."""
+    
+    data = "data"
+    schema = "schema"
+    all = "all"
+    
 class BuildingClassificationColumnTypes(str, Enum):
     """Columns that can be classified by building preparation"""
     
@@ -74,3 +81,4 @@ class Weekday(str, Enum):
     friday = "friday"
     saturday = "saturday"
     sunday = "sunday"
+
