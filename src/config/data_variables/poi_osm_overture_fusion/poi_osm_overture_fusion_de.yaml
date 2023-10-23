@@ -58,7 +58,7 @@ preparation:
           FROM public.poi_osm_de
           WHERE category IN (
             'aircraft', 'aqueduct', 'archaeological_site', 'battlefield', 'bomb_crater', 'castle', 'city_gate', 'citywalls', 'farm',
-            'fort', 'locomotive', 'memorial', 'monastery', 'monument', 'railway_car', 'ruins', 'ship', 'tank', 'tomb', 'tower', 'vehicle', 'wreck',
+            'fort', 'locomotive', 'memorial', 'monument', 'railway_car', 'ruins', 'ship', 'tank', 'tomb', 'tower', 'vehicle', 'wreck',
             'pier', 'lighthouse', 'obelisk', 'stupa', 'windmill', 'artwork'
           )
           AND name IS NOT NULL
@@ -69,7 +69,7 @@ preparation:
           SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
           FROM temporal.poi_overture_de
           WHERE category_1 IN (
-            'landmark_and_historical_building', 'monument', 'bridge', 'cultural_center', 'castle', 'fountain', 'botanical_garden', 'palace', 'aquarium', 'sculpture_statue',
+            'landmark_and_historical_building', 'monument', 'bridge', 'cultural_center', 'castle', 'fountain', 'botanical_garden', 'palace', 'sculpture_statue',
             'lighthouse', 'fort'
           );     
         "
@@ -244,7 +244,7 @@ preparation:
           WHERE category_1 IN (
             'amusement_park', 'zoo', 'escape_rooms', 'miniature_golf_course', 'pool_billiards', 'arcade', 'skate_park', 'circus', 'laser_tag', 'paintball', 'observatory',
             'boat_tours', 'surfing', 'paddleboarding_center', 'sky_diving', 'canoe_and_kayak_hire_service', 'bus_tours', 'hot_air_balloons_tour', 'petting_zoo', 'historical_tours',
-            'food_tours'
+            'food_tours', 'aquarium'
           );     
         "
         radius: 0.0020

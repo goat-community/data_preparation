@@ -2,11 +2,11 @@ version: "3.9"
 
 networks:
   data_preparation_proxy:
-    name: data_preparation_proxy
+    name: data_preparation_proxy_${SERVER_USER}
 volumes:
   goat_data_preparation_data:
   goat_data_preparation_backup:
-  3dcity_db:
+  #3dcity_db:
 
 
 services:
@@ -50,8 +50,8 @@ services:
     group_add:
       - '10000'
     volumes:
-      - goat_data_preparation_data:/storage/data:rw
-      - goat_data_preparation_backup:/storage/backup:rw
+      - goat_data_preparation_data_${SERVER_USER}:/storage/data:rw
+      - goat_data_preparation_backup_${SERVER_USER}:/storage/backup:rw
     command: chown -R 10000:10000 /storage
 
   db:
@@ -67,8 +67,8 @@ services:
       - DB_USERNAME_PREPARATION=${POSTGRES_USER}
       - DB_PASSWORD_PREPARATION=${POSTGRES_PASSWORD}
     volumes:
-      - goat_data_preparation_backup:/storage/backup:rw
-      - goat_data_preparation_data:/storage/data:rw
+      - goat_data_preparation_backup_${SERVER_USER}:/storage/backup:rw
+      - goat_data_preparation_data_${SERVER_USER}:/storage/data:rw
     ports:
       - "${POSTGRES_OUTER_PORT}:5432"
     healthcheck:
