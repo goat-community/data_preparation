@@ -304,7 +304,7 @@ def prepare_network(region: str):
 def export_network(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
-    create_table_dump(db.db_config, "basic", "node", data_only=True)
-    create_table_dump(db.db_config, "basic", "edge", data_only=True)
-    restore_table_dump(db_rd.db_config, "basic", "node", data_only=True)
-    restore_table_dump(db_rd.db_config, "basic", "edge", data_only=True)
+    create_table_dump(db.db_config, "basic", "node", dump_type="data")
+    create_table_dump(db.db_config, "basic", "edge", dump_type="data")
+    restore_table_dump(db_rd.db_config, "basic", "node", dump_type="data")
+    restore_table_dump(db_rd.db_config, "basic", "edge", dump_type="data")

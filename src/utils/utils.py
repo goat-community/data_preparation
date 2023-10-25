@@ -19,7 +19,7 @@ import polars as pl
 import csv
 from io import StringIO
 import time
-from src.core.enums import TableDumpFormat
+from src.core.enums import TableDumpFormat, DumpType
 from src.core.config import settings
 
 
@@ -39,7 +39,7 @@ def timing(f):
         else:
             time_microseconds = int((total_time) * 1000000)
             total_time_string = f"{time_microseconds} microseconds"
-        print(f"func: {f.__name__} took: {total_time_string}")
+        print_info(f"func: {f.__name__} took: {total_time_string}")
 
         return result
 
@@ -212,7 +212,7 @@ def check_table_exists(db, table_name: str, schema: str) -> bool:
 
 
 def create_table_dump(
-    db_config: dict, schema: str, table_name: str, data_only: bool = False
+    db_config: dict, schema: str, table_name: str, dump_type: DumpType = DumpType.all
 ):
     """Create a dump from a table
 
@@ -251,9 +251,15 @@ def create_table_dump(
             "--no-owner",
         ]
         # Append to the end of the command if it is a data only dump
-        if data_only == True:
+        if dump_type.value == DumpType.data.value:
             command.append("--data-only")
-
+        elif dump_type.value == DumpType.schema.value:
+            command.append("--schema-only")
+        elif dump_type.value == DumpType.all.value:
+            pass
+        else:
+            raise ValueError(f"Dump type {dump_type} not supported")
+        
         # Run the pg_dump command and capture the output
         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
         print_info(f"Successfully dumped {schema}.{table_name} to {dir_output}")
@@ -262,7 +268,7 @@ def create_table_dump(
 
 
 def restore_table_dump(
-    db_config: dict, schema: str, table_name: str, data_only: bool = False
+    db_config: dict, schema: str, table_name: str, dump_type: DumpType = DumpType.all.value
 ):
     """Restores the dump from a table
 
@@ -300,9 +306,15 @@ def restore_table_dump(
             dir_output,
         ]
         # Append to -2 position of the command if it is a data only dump
-        if data_only == True:
+        if dump_type.value == DumpType.data.value:
             command.insert(-2, "--data-only")
-
+        elif dump_type.value == DumpType.schema.value:
+            command.insert(-2,"--schema-only")
+        elif dump_type.value == DumpType.all.value:
+            pass
+        else:
+            raise ValueError(f"Dump type {dump_type} not supported")
+        
         # Run the command
         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
         print_info(f"Successfully restored {table_name}.dump from {dir_output}")
