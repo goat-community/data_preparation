@@ -38,7 +38,7 @@ class PoiPreparation:
 
     def extend_config(self):
         """Build an extended config with all values that are not in the preparation config but in the collection config."""
-
+        
         config_collection = self.config_pois.collection
         # Check if config not in preparation but in collection
         new_config_collection = {}
@@ -721,7 +721,7 @@ def prepare_poi(region: str):
         jsonb_column="tags",
     )
 
-    # # Update kart repo with fresh OSM data
+    # Update kart repo with fresh OSM data
     # subscription = Subscription(db=db, region=region)
     # subscription.subscribe_osm()
 
@@ -740,7 +740,7 @@ def export_poi(region: str):
     # subscription = Subscription(db=db, region=region)
     # subscription.export_to_poi_schema()
 
-    # # Dump table and restore in remote database
+    # Dump table and restore in remote database
     # create_table_dump(db.db_config, "basic", "poi", False)
     # db_rd.perform("DROP TABLE IF EXISTS basic.poi")
     # restore_table_dump(db_rd.db_config, "basic", "poi", False)
