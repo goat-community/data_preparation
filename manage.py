@@ -1,24 +1,29 @@
 import os
 import typer
-from src.core.config import settings
 from src.collection.building import collect_building
+from src.collection.gtfs import collect_gtfs
 from src.collection.poi import collect_poi
+from src.collection.poi_overture import collect_poi_overture
 from src.collection.landuse import collect_landuse
 from src.collection.network import collect_network
 from src.collection.network_pt import collect_network_pt
 from src.preparation.network import prepare_network
 from src.preparation.poi import prepare_poi
+from src.preparation.poi_overture import prepare_poi_overture
+from src.preparation.poi_osm_overture_fusion import prepare_poi_osm_overture_fusion
 from src.preparation.network import export_network
 from src.preparation.network_pt import prepare_network_pt
-from src.preparation.building import prepare_building
-from src.preparation.poi import export_poi
-from src.preparation.public_transport_stop import prepare_public_transport_stop
-from src.preparation.population import prepare_population
-from src.preparation.gtfs import prepare_gtfs
-from src.preparation.gtfs import export_gtfs
-from src.migration.gtfs import migrate_gtfs
-from src.utils.utils import print_hashtags, print_info
+from src.collection.poi import collect_poi
+from src.core.config import settings
 from src.db.db import Database
+from src.migration.gtfs import migrate_gtfs
+from src.preparation.building import prepare_building
+from src.preparation.gtfs import export_gtfs, prepare_gtfs
+from src.preparation.network import export_network, prepare_network
+from src.preparation.poi import export_poi, prepare_poi
+from src.preparation.population import prepare_population
+from src.preparation.public_transport_stop import prepare_public_transport_stop
+from src.utils.utils import print_hashtags, print_info
 
 app = typer.Typer()
 
@@ -30,12 +35,16 @@ action_dict = {
     "collection": {
         "building": collect_building,
         "poi": collect_poi,
+        "poi_overture": collect_poi_overture,
         "landuse": collect_landuse,
         "network": collect_network,
-        "network_pt": collect_network_pt
+        "network_pt": collect_network_pt,
+        "gtfs": collect_gtfs,
     },
     "preparation": {
         "poi": prepare_poi,
+        "poi_overture": prepare_poi_overture,
+        "poi_osm_overture_fusion": prepare_poi_osm_overture_fusion,
         "network": prepare_network,
         "network_pt": prepare_network_pt,
         "building": prepare_building,
@@ -113,7 +122,7 @@ def run(
                 else:
                     print_info(f"Performing {action} on {dataset}")
                 print_hashtags()
-                
+
                 if region is not None:
                     check_config_file_exists(data_set=dataset, region=region)
                     action_dict[action][dataset](region=region)

@@ -1,7 +1,15 @@
-from src.db.db import Database
-from src.core.config import settings
 import os
+from src.db.db import Database
 from src.utils.utils import print_error, print_info
+from src.core.config import settings
+import subprocess
+
+def create_db():
+    """Create DataPreparation database."""
+    # Connect to default database
+    db_name = settings.POSTGRES_DB
+    subprocess.run(["psql", "-U", "rds", "-d", "postgres", "-c", f"CREATE DATABASE {db_name};"])
+
 
 def init_db(db):
     # Create extension
@@ -9,6 +17,9 @@ def init_db(db):
     db.perform("CREATE EXTENSION IF NOT EXISTS postgis_raster;")
     db.perform("CREATE EXTENSION IF NOT EXISTS hstore;")
     db.perform("CREATE EXTENSION IF NOT EXISTS h3;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS citus;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS btree_gist;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
 
     # Create schema
     db.perform("CREATE SCHEMA IF NOT EXISTS basic;")
@@ -21,12 +32,13 @@ def init_db(db):
                 db.perform(f.read())
 
 if __name__ == "__main__":
-    db = Database(settings.LOCAL_DATABASE_URI)
-    try:
-        init_db(db)
-        print_info("Database initialized.")
-    except Exception as e:
-        print_error(e)
-        print_error("Database initialization failed.")
-    finally:
-        db.close()
+    create_db()
+    #db = Database(settings.LOCAL_DATABASE_URI)
+    # try:
+    #     init_db(db)
+    #     print_info("Database initialized.")
+    # except Exception as e:
+    #     print_error(e)
+    #     print_error("Database initialization failed.")
+    # finally:
+    #     db.close()

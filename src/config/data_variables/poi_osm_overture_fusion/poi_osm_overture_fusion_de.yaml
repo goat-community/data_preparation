@@ -1,0 +1,811 @@
+collection:
+preparation:
+  fusion:
+    restaurant:
+      restaurant:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom , osm_id
+          FROM public.poi_osm_de
+          WHERE category IN ('restaurant')
+          AND name IS NOT NULL;      
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'restaurant', 'german_restaurant', 'pizza_restaurant', 'italian_restaurant', 'greek_restaurant', 'gastropub', 'chinese_restaurant', 'burger_restaurant', 
+            'bar_and_grill_restaurant', 'sushi_restaurant', 'turkish_restaurant', 'asian_restaurant', 'indian_restaurant', 'beer_garden', 'thai_restaurant', 
+            'vietnamese_restaurant', 'seafood_restaurant', 'barbecue_restaurant', 'steakhouse', 'vegetarian_restaurant', 'diner', 'mexican_restaurant',
+            'japanese_restaurant', 'tapas_bar', 'breakfast_and_brunch_restaurant', 'mediterranean_restaurant', 'french_restaurant', 'european_restaurant',
+            'middle_eastern_restaurant', 'chicken_restaurant', 'american_restaurant', 'spanish_restaurant', 'korean_restaurant', 'salad_bar', 'lebanese_restaurant',
+            'pancake_house', 'buffet_restaurant', 'portuguese_restaurant', 'soup_restaurant', 'arabian_restaurant', 'southern_restaurant', 'african_restaurant',
+            'persian_iranian_restaurant', 'brazilian_restaurant', 'theme_restaurant', 'hawaiian_restaurant', 'texmex_restaurant', 'syrian_restaurant',
+            'austrian_restaurant', 'moroccan_restaurant', 'halal_restaurant', 'afghan_restaurant', 'russian_restaurant', 'ethiopian_restaurant', 'peruvian_restaurant',
+            'argentine_restaurant', 'health_food_restaurant', 'filipino_restaurant', 'mongolian_restaurant', 'latin_american_restaurant', 'polish_restaurant',
+            'hungarian_restaurant', 'gluten_free_restaurant', 'cuban_restaurant', 'himalayan_nepalese_restaurant', 'indonesian_restaurant', 'romanian_restaurant',
+            'caribbean_restaurant', 'eastern_european_restaurant', 'dim_sum_restaurant', 'pakistani_restaurant', 'georgian_restaurant', 'asian_fusion_restaurant',
+            'israeli_restaurant', 'czech_restaurant', 'kurdish_restaurant', 'bulgarian_restaurant', 'noodles_restaurant', 'live_and_raw_food_restaurant', 
+            'fondue_restaurant', 'taiwanese_restaurant', 'ukrainian_restaurant', 'kosher_restaurant', 'colombian_restaurant', 'scandinavian_restaurant', 
+            'malaysian_restaurant', 'irish_restaurant', 'cajun_creole_restaurant', 'jamaican_restaurant', 'swiss_restaurant', 'sri_lankan_restaurant', 
+            'belgian_restaurant', 'indo_chinese_restaurant', 'azerbaijani_restaurant', 'egyptian_restaurant', 'panamanian_restaurant', 'molecular_gastronomy_restaurant',
+            'venezuelan_restaurant', 'tatar_restaurant', 'chilean_restaurant', 'honduran_restaurant', 'uzbek_restaurant', 'british_restaurant', 'australian_restaurant',
+            'burmese_restaurant', 'south_african_restaurant', 'polynesian_restaurant', 'canadian_restaurant', 'bangladeshi_restaurant', 'slovakian_restaurant',
+            'basque_restaurant', 'senegalese_restaurant', 'nicaraguan_restaurant', 'guatemalan_restaurant', 'bolivian_restaurant', 'ecuadorian_restaurant',
+            'singaporean_restaurant', 'cambodian_restaurant', 'armenian_restaurant'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+    
+    sight_or_cultural_site:
+      sight_or_cultural_site:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN (
+            'aircraft', 'aqueduct', 'archaeological_site', 'battlefield', 'bomb_crater', 'castle', 'city_gate', 'citywalls', 'farm',
+            'fort', 'locomotive', 'memorial', 'monument', 'railway_car', 'ruins', 'ship', 'tank', 'tomb', 'tower', 'vehicle', 'wreck',
+            'pier', 'lighthouse', 'obelisk', 'stupa', 'windmill', 'artwork'
+          )
+          AND name IS NOT NULL
+          AND tags ->> 'wikidata' IS NOT NULL;      
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'landmark_and_historical_building', 'monument', 'bridge', 'cultural_center', 'castle', 'fountain', 'botanical_garden', 'palace', 'sculpture_statue',
+            'lighthouse', 'fort'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+
+      # castle:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('castle')
+      #     AND name IS NOT NULL
+      #     AND tags ->> 'wikidata' IS NOT NULL;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'castle'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # memorial:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('memorial', 'monument')
+      #     AND name IS NOT NULL
+      #     AND tags ->> 'wikidata' IS NOT NULL;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'monument'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # fort:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('fort')
+      #     AND name IS NOT NULL
+      #     AND tags ->> 'wikidata' IS NOT NULL;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'fort'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+    water_recreation_or_wellness_facility:
+      water_recreation_or_wellness_facility:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN ('swimming', 'water_park', 'kneipp_water_cure', 'public_bath', 'bathing_place')
+          AND name IS NOT NULL
+          ;      
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'swimming_pool', 'water_park', 'beauty_and_spa', 'massage', 'health_spa', 'onsen', 'day_spa', 'spas'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+
+      # water_park:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('swimming', 'water_park')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'swimming_pool', 'water_park'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+    recreational_or_adventure_facility:
+      recreational_or_adventure_facility:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN (
+            'amusement_arcade', 'disc_golf_course', 'dog_park', 'escape_game', 'miniature_golf', 'aquarium', 'zoo', 'theme_park'
+          )
+          AND name IS NOT NULL
+          ;      
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'amusement_park', 'zoo', 'escape_rooms', 'miniature_golf_course', 'pool_billiards', 'arcade', 'skate_park', 'circus', 'laser_tag', 'paintball', 'observatory',
+            'boat_tours', 'surfing', 'paddleboarding_center', 'sky_diving', 'canoe_and_kayak_hire_service', 'bus_tours', 'hot_air_balloons_tour', 'petting_zoo', 'historical_tours',
+            'food_tours', 'aquarium'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+      # disc_golf_course:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('disc_golf_course')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'disc_golf_course'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # dog_park:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('dog_park')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'dog_park'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # escape_game:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('escape_game')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'escape_rooms'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # miniature_golf:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('miniature_golf')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'miniature_golf_course'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # aquarium:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('aquarium')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'aquarium'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # zoo:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('zoo')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'zoo'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # theme_park:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('theme_park')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'amusement_park'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+    indoor_accommodation:
+      indoor_accommodation:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN (
+            'hotel', 'alpine_hut', 'apartment','chalet', 'hostel', 'motel', 'guest_house'
+          )
+          AND name IS NOT NULL
+          ;      
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'hotel', 'holiday_rental_home', 'hostel', 'bed_and_breakfast', 'resort', 'lodge', 'cottage', 'service_apartments', 'cabin', 'inn'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+      # hotel:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('hotel')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'hotel'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # hostel:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('hostel')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'hostel'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+    outdoor_accommodation:
+      outdoor_accommodation:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN ('camp_site', 'caravan_site')
+          AND name IS NOT NULL
+          ;      
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'campground', 'rv_park'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+      # camp_site:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('camp_site')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'campground'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # caravan_site:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('caravan_site')
+      #     AND name IS NOT NULL
+      #     ;      
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'rv_park'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+    museum:
+      museum:          
+        input_1: |
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN ('museum', 'planetarium')
+          AND name IS NOT NULL   
+        input_2: |
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'museum', 'history_museum', 'art_museum', 'modern_art_museum', 'science_museum', 'community_museum', 'civilization_museum', 
+            'contemporary_art_museum', 'children''s_museum', 'design_museum', 'sports_museum', 'asian_art_museum', 'decorative_arts_museum', 
+            'aviation_museum', 'computer_museum', 'costume_museum', 'textile_museum', 'planetarium'
+          );      
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+      # museum:          
+      #   input_1: |
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('museum')
+      #     AND name IS NOT NULL   
+      #   input_2: |
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'museum', 'history_museum', 'art_museum', 'modern_art_museum', 'science_museum', 'community_museum', 'civilization_museum', 
+      #       'contemporary_art_museum', 'children''s_museum', 'design_museum', 'sports_museum', 'asian_art_museum', 'decorative_arts_museum', 
+      #       'aviation_museum', 'computer_museum', 'costume_museum', 'textile_museum'
+      #     );      
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+      
+      # planetarium:          
+      #   input_1: |
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id)
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('planetarium')
+      #     AND name IS NOT NULL   
+      #   input_2: |
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'planetarium'
+      #     );      
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+    gallery:
+      gallery:          
+        input_1: |
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id)
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN ('gallery')
+          AND name IS NOT NULL   
+        input_2: |
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'art_gallery'
+          );      
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+
+    entertainment_or_event_location:
+      entertainment_or_event_location:
+        input_1: "
+          INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT DISTINCT ON (osm_id) 
+          category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+          tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+          phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+          FROM public.poi_osm_de
+          WHERE category IN ('theatre', 'events_venue', 'arts_centre')
+          AND name IS NOT NULL    
+        "
+        input_2: "
+          INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+          SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+          FROM temporal.poi_overture_de
+          WHERE category_1 IN (
+            'theatre', 'arts_and_entertainment', 'topic_concert_venue', 'music_venue', 'comedy_club', 'opera_and_ballet', 'theaters_and_performance_venues'
+          );     
+        "
+        radius: 0.0020
+        threshold: 0.2
+        matching_column_1: "name"
+        matching_column_2: "name"
+        decision_table_1: "keep"
+        decision_fusion: "keep"
+        decision_table_2: "add"
+      # theatre:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id) 
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('theatre')
+      #     AND name IS NOT NULL    
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'theatre'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+      # events_venue:
+      #   input_1: "
+      #     INSERT INTO temporal.poi_input_1_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT DISTINCT ON (osm_id) 
+      #     category, name, street, housenumber, zipcode, opening_hours, tags ->> 'wheelchair',
+      #     tags::jsonb || JSONB_STRIP_NULLS(JSONB_BUILD_OBJECT('osm_id', osm_id, 'osm_type', 'osm_type', 'phone',
+      #     phone, 'email', tags ->> 'email', 'capacity', tags ->> 'capacity', 'website', website)), geom, osm_id
+      #     FROM public.poi_osm_de
+      #     WHERE category IN ('events_venue', 'arts_centre')
+      #     AND name IS NOT NULL    
+      #   "
+      #   input_2: "
+      #     INSERT INTO temporal.poi_input_2_de_fusion(category_2, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id)
+      #     SELECT category_1, name, street, housenumber, zipcode, opening_hours, wheelchair, tags, geom, id
+      #     FROM temporal.poi_overture_de
+      #     WHERE category_1 IN (
+      #       'arts_and_entertainment', 'topic_concert_venue', 'music_venue', 'comedy_club', 'opera_and_ballet', 'theaters_and_performance_venues'
+      #     );     
+      #   "
+      #   radius: 0.0020
+      #   threshold: 0.2
+      #   matching_column_1: "name"
+      #   matching_column_2: "name"
+      #   decision_table_1: "keep"
+      #   decision_fusion: "keep"
+      #   decision_table_2: "add"
+
+
+
+subscription:

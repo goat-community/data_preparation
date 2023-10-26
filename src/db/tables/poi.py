@@ -4,7 +4,6 @@ class POITable:
         self.data_set_name = data_set_name
         self.schema_name = schema_name
         self.table_name = f"{self.data_set_type}_{self.data_set_name}"
-
         self.index_columns = "geom"
         self.index_method = "gist"
 

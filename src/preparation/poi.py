@@ -64,7 +64,7 @@ class PoiPreparation:
         column_names = """
         osm_id::bigint, name, brand, "addr:street" AS street, "addr:housenumber" AS housenumber,
         "addr:postcode" AS zipcode, phone, website, opening_hours, operator, origin, organic,
-        subway, amenity, shop, tourism, railway, leisure, sport, highway, public_transport, tags::jsonb AS tags
+        subway, amenity, shop, tourism, railway, leisure, sport, highway, public_transport, historic, tags::jsonb AS tags
         """
 
         # Read POIs from database
@@ -610,6 +610,26 @@ class PoiPreparation:
         )
         classified_tags["highway"].append("bus_stop")
 
+        # leisure = water_park need to be categorized before sport = swimming to make sure that water_park is not overwritten by swimming
+        df = df.with_columns(
+            pl.when(
+                (pl.col("leisure") == "water_park")
+            )
+            .then("water_park")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["leisure"].append("water_park")
+
+        # Filter swimming pools
+        df_swimming_pools = df.filter(
+            (pl.col("leisure") == "swimming_pool") & (pl.col("category") == "str")
+        )
+
+        # Get dataframe without subway entrances
+        df = df.join(df_swimming_pools, on="osm_id", how="anti")
+
+
         # Loop through config
         for key in self.config_pois_preparation:
             df_classified_config = pl.DataFrame()
@@ -672,7 +692,7 @@ def prepare_poi(region: str):
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
 
-    # Export to PostGIS
+    # Export to local PostGIS
     engine = db.return_sqlalchemy_engine()
     polars_df_to_postgis(
         engine=engine,
@@ -686,9 +706,25 @@ def prepare_poi(region: str):
         jsonb_column="tags",
     )
 
-    # # Update kart repo with fresh OSM data
+    # Export OSM data to Geonode
+    db_rd = Database(settings.RAW_DATABASE_URI)
+    engine_rd = db_rd.return_sqlalchemy_engine()
+    polars_df_to_postgis(
+        engine=engine_rd,
+        df=df.filter(pl.col("category") != "str"),
+        table_name=f"poi_osm_{region}",
+        schema="public",
+        if_exists="replace",
+        geom_column="geom",
+        srid=4326,
+        create_geom_index=True,
+        jsonb_column="tags",
+    )
+
+    # Update kart repo with fresh OSM data
     # subscription = Subscription(db=db, region=region)
     # subscription.subscribe_osm()
+
 
 
 def export_poi(region: str):
@@ -697,19 +733,19 @@ def export_poi(region: str):
     Args:
         region (str): Region to export
     """
-    db = Database(settings.LOCAL_DATABASE_URI)
-    db_rd = Database(settings.RAW_DATABASE_URI)
+    # db = Database(settings.LOCAL_DATABASE_URI)
+    # db_rd = Database(settings.RAW_DATABASE_URI)
 
-    # Export to POI schema
-    subscription = Subscription(db=db, region=region)
-    subscription.export_to_poi_schema()
+    # # Export to POI schema
+    # subscription = Subscription(db=db, region=region)
+    # subscription.export_to_poi_schema()
 
     # Dump table and restore in remote database
-    create_table_dump(db.db_config, "basic", "poi", False)
-    db_rd.perform("DROP TABLE IF EXISTS basic.poi")
-    restore_table_dump(db_rd.db_config, "basic", "poi", False)
-    db.conn.close()
-    db_rd.conn.close()
+    # create_table_dump(db.db_config, "basic", "poi", False)
+    # db_rd.perform("DROP TABLE IF EXISTS basic.poi")
+    # restore_table_dump(db_rd.db_config, "basic", "poi", False)
+    # db.conn.close()
+    # db_rd.conn.close()
 
 
 if __name__ == "__main__":
