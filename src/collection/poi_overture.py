@@ -8,7 +8,7 @@ from src.utils.utils import (
 from src.config.config import Config
 from src.db.db import Database
 from src.core.config import settings
-from src.db.tables.poi import create_poi_table
+from src.db.tables.poi import POITable
 
 class OverturePOICollection:
     """Collection of the places data set from the Overture Maps Foundation"""
@@ -178,14 +178,13 @@ class OverturePOICollection:
         """
         self.db_rd.perform(create_tags_column)
 
-        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"overture_{self.region}_raw"))
+        self.db_rd.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"overture_{self.region}_raw").create_poi_table())
 
         insert_into_poi_table = f"""
-            INSERT INTO temporal.poi_overture_{self.region}_raw(category_1, category_2, category_3, name, street, housenumber, zipcode, tags, geom)
+            INSERT INTO temporal.poi_overture_{self.region}_raw(category_1, other_categories, name, street, housenumber, zipcode, tags, geom)
             SELECT
                 categories,
-                category_2,
-                category_3,
+                ARRAY[category_2, category_3] AS other_categories,
                 names,
                 street,
                 housenumber,

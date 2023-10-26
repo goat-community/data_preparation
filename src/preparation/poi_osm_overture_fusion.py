@@ -1,7 +1,7 @@
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
-from src.db.tables.poi import create_poi_table
+from src.db.tables.poi import POITable
 
 
 class OSMOverturePOIFusion:
@@ -15,7 +15,7 @@ class OSMOverturePOIFusion:
 
     def run(self):
         # adds a serial key
-        self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"{self.region}_fusion_result"))
+        self.db_rd.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"{self.region}_fusion_result").create_poi_table())
         self.db_rd.perform(f"""
                            ALTER TABLE temporal.poi_{self.region}_fusion_result
                            DROP COLUMN IF EXISTS id,
@@ -25,10 +25,10 @@ class OSMOverturePOIFusion:
         for top_level_category in self.data_config_preparation['fusion'].keys():
             for category in self.data_config_preparation['fusion'][top_level_category].keys():
                 # create temp table of the input_1 data needed for the fusion
-                self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"input_1_{self.region}_fusion"))
+                self.db_rd.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"input_1_{self.region}_fusion").create_poi_table())
 
                 # create temp table of the input_2 data needed for the fusion
-                self.db_rd.perform(create_poi_table(data_set_type="poi", schema_name="temporal", data_set=f"input_2_{self.region}_fusion"))
+                self.db_rd.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"input_2_{self.region}_fusion").create_poi_table())
 
                 sql_insert_poi_input_1 = self.data_config_preparation['fusion'][top_level_category][category]['input_1']
                 self.db_rd.perform(sql_insert_poi_input_1)
@@ -49,7 +49,7 @@ class OSMOverturePOIFusion:
                 sql_top_level_category = f"""
                     UPDATE temporal.comparison_poi
                     SET
-                        category_1 = '{top_level_category}',
+                        category = '{top_level_category}',
                         category_2 = CASE WHEN category_2 = '{top_level_category}' THEN NULL ELSE category_2 END
                     ;
                 """
