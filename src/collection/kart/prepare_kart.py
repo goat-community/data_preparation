@@ -182,7 +182,7 @@ class PrepareKart:
             raise Exception(f"User {self.maintainer} does not exist")
 
         # Drop schema if it already exists
-        self.db.perform(f"DROP SCHEMA {self.schema_name} CASCADE")
+        self.db.perform(f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE")
         print_info(f"Schema {self.schema_name} deleted")
 
         # Create schema
