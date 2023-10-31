@@ -13,6 +13,7 @@ from src.utils.utils import (
     print_info,
 )
 from src.db.db import Database
+from src.db.tables.poi import POITable
 from src.preparation.subscription import Subscription
 
 
@@ -38,7 +39,7 @@ class PoiPreparation:
 
     def extend_config(self):
         """Build an extended config with all values that are not in the preparation config but in the collection config."""
-        
+
         config_collection = self.config_pois.collection
         # Check if config not in preparation but in collection
         new_config_collection = {}
@@ -63,7 +64,7 @@ class PoiPreparation:
         # Relevant column names
         column_names = """
         osm_id::bigint, name, brand, "addr:street" AS street, "addr:housenumber" AS housenumber,
-        "addr:postcode" AS zipcode, phone, website, opening_hours, operator, origin, organic,
+        "addr:postcode" AS zipcode, phone, email, website, capacity, opening_hours, wheelchair, operator, origin, organic,
         subway, amenity, shop, tourism, railway, leisure, sport, highway, public_transport, historic, tags::jsonb AS tags
         """
 
@@ -692,12 +693,12 @@ def prepare_poi(region: str):
     df = poi_preparation.read_poi()
     df = poi_preparation.classify_poi(df)
 
-    # Export to local PostGIS
+    # Export raw data to local PostGIS
     engine = db.return_sqlalchemy_engine()
     polars_df_to_postgis(
         engine=engine,
         df=df.filter(pl.col("category") != "str"),
-        table_name="poi_osm",
+        table_name=f"poi_osm_{region}_raw",
         schema="public",
         if_exists="replace",
         geom_column="geom",
@@ -706,26 +707,60 @@ def prepare_poi(region: str):
         jsonb_column="tags",
     )
 
+    # insert into our POI schema
+    create_table_sql = POITable(data_set_type='poi', schema_name = 'public', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
+    db.perform(create_table_sql)
+
+    insert_poi_osm_sql = f"""
+        INSERT INTO public.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+        SELECT
+            category,
+            name,
+            operator,
+            street,
+            housenumber,
+            zipcode,
+            phone,
+            CASE WHEN octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%' THEN email ELSE NULL END AS email,
+            CASE WHEN website ~* '^[a-z](?:[-a-z0-9\+\.])*:(?:\/\/(?:(?:%[0-9a-f][0-9a-f]|[-a-z0-9\._~!\$&''\(\)\*\+,;=:@])|[\/\?])*)?' :: TEXT THEN website ELSE NULL END AS website,
+            CASE WHEN capacity ~ '^[0-9\.]+$' THEN try_cast_to_int(capacity) ELSE NULL END AS capacity,
+            opening_hours,
+            CASE WHEN wheelchair IN ('yes', 'no', 'limited') THEN wheelchair ELSE NULL END AS wheelchair,
+            'OSM' AS source,
+            (jsonb_strip_nulls(
+                (jsonb_build_object(
+                    'origin', origin, 'organic', organic, 'subway', subway, 'amenity', amenity,
+                    'shop', shop, 'tourism', tourism, 'railway', railway, 'leisure', leisure, 'sport', sport, 'highway',
+                    highway, 'public_transport', public_transport, 'historic', historic, 'brand', brand
+                ) || tags) || jsonb_build_object('extended_source', jsonb_build_object('osm_id', osm_id, 'osm_type', osm_type))
+            )) AS tags,
+            geom
+        FROM public.poi_osm_{region}_raw
+    """
+    db.perform(insert_poi_osm_sql)
+    db.conn.close()
+
+    #TODO: do we export the data to Geonode? if yes, the one in our schema?
+
     # Export OSM data to Geonode
-    db_rd = Database(settings.RAW_DATABASE_URI)
-    engine_rd = db_rd.return_sqlalchemy_engine()
-    polars_df_to_postgis(
-        engine=engine_rd,
-        df=df.filter(pl.col("category") != "str"),
-        table_name=f"poi_osm_{region}",
-        schema="public",
-        if_exists="replace",
-        geom_column="geom",
-        srid=4326,
-        create_geom_index=True,
-        jsonb_column="tags",
-    )
+    # db_rd = Database(settings.RAW_DATABASE_URI)
+    # engine_rd = db_rd.return_sqlalchemy_engine()
+    # polars_df_to_postgis(
+    #     engine=engine_rd,
+    #     df=df.filter(pl.col("category") != "str"),
+    #     table_name=f"poi_osm_{region}",
+    #     schema="public",
+    #     if_exists="replace",
+    #     geom_column="geom",
+    #     srid=4326,
+    #     create_geom_index=True,
+    #     jsonb_column="tags",
+    # )
+    # db_rd.conn.close()
 
     # Update kart repo with fresh OSM data
     # subscription = Subscription(db=db, region=region)
     # subscription.subscribe_osm()
-
-
 
 def export_poi(region: str):
     """Export POI data to remote database

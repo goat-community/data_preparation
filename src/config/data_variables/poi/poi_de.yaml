@@ -20,9 +20,9 @@ collection:
     amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
                 "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
                 "charging_station", "bus_station", "playground", "monastery", "place_of_worship", "kneipp_water_cure", "planetarium",
-                "arts_centre", "events_venue"]
+                "arts_centre", "events_venue", "vending_machine"]
     shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
-                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream", "vine"]
     tourism : ["hotel", "museum", "hostel", "guest_house", "aquarium", "zoo", "theme_park", "alpine_hut", "apartment", "camp_site", "caravan_site",
                 "chalet", "motel", "gallery"]
     railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
@@ -34,9 +34,8 @@ collection:
     historic: ["aircraft", "aqueduct", "archaeological_site", "battlefield", "bomb_crater", "castle", "church", "city_gate", "citywalls", "farm",
                 "fort", "locomotive", "memorial", "monastery", "monument", "railway_car", "ruins", "ship", "tank", "tomb", "tower", "vehicle", "wreck"]
 
-
-  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
-                        "opening_hours", "operator", "origin", "organic", "subway"]
+  additional_columns: ["name", "operator", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "email", "website", 
+                       "capacity", "opening_hours", "wheelchair", "origin", "organic", "subway", "brand"]
   nodes : True
   ways : True
   relations : True
