@@ -20,7 +20,7 @@ class PublicTransportStopPreparation:
         region_geoms = self.db.select(self.data_config_preparation['region'])
 
         # Create table for public transport stops
-        self.db.perform(POITable(data_set_type="poi", schema_name="basic", data_set_name="public_transport_stop").create_poi_table())
+        self.db.perform(POITable(data_set_type="poi", schema_name="basic", data_set_name="public_transport_stop").create_poi_table(table_type='standard'))
 
         # loops through the geometries of the study area and classifies the public transport stops based on GTFS
         # loops through the gtfs stops and classifies them based on the route type in the stop_times table
@@ -29,8 +29,9 @@ class PublicTransportStopPreparation:
                 INSERT INTO basic.poi_public_transport_stop(
                     category,
                     name,
-                    geom,
-                    tags
+                    source,
+                    tags,
+                    geom
                 )
                 WITH parent_station_name AS (
                     SELECT s.stop_name AS name, s.stop_id
@@ -62,7 +63,7 @@ class PublicTransportStopPreparation:
                         ORDER BY r.route_type
                     ) j
                 )
-                SELECT route_type AS category, name, ST_MULTI(ST_UNION(geom)) AS geom, json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')) AS tags
+                SELECT route_type AS category, name, 'gtfs.de' AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id'))) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
                 FROM categorized_gtfs_stops
                 GROUP BY route_type, tags ->> 'parent_station', name
                 ;
