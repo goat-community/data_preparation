@@ -1,5 +1,5 @@
 collection:
-  region: 'SELECT the_geom AS geom FROM public."DEU_adm0"'
+  region: "SELECT ST_Subdivide(geom) AS geom FROM kart_poi_rds.nuts WHERE nuts_id = 'DE'" #TODO: ST_SUBDIVIDE similar to PuT stops
   source: s3://overturemaps-us-west-2/release/2023-10-19-alpha.0/theme=places/type=*/*
   #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
 

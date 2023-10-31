@@ -8,14 +8,13 @@ from src.utils.utils import (
 from src.config.config import Config
 from src.db.db import Database
 from src.core.config import settings
-from src.db.tables.poi import POITable
 
 class OverturePOICollection:
     """Collection of the places data set from the Overture Maps Foundation"""
-    def __init__(self, db_rd: Database, region: str = "de"):
+    def __init__(self, db: Database, region: str = "de"):
         self.region = region
-        self.db_rd = db_rd
-        self.db_config = db_rd.db_config
+        self.db = db
+        self.db_config = db.db_config
         self.dbname = self.db_config.path.replace("/", "")
         self.host = self.db_config.host
         self.user = self.db_config.user
@@ -55,13 +54,13 @@ class OverturePOICollection:
                 {self.data_config_collection['region']}
             )
             SELECT
-                ST_XMin(ST_Envelope(geom)) AS minx,
-                ST_XMax(ST_Envelope(geom)) AS maxx,
-                ST_YMin(ST_Envelope(geom)) AS miny,
-                ST_YMax(ST_Envelope(geom)) AS maxy
+                MIN(ST_XMin(ST_Envelope(geom))) AS min_minx,
+                MAX(ST_XMax(ST_Envelope(geom))) AS min_maxx,
+                MIN(ST_YMin(ST_Envelope(geom))) AS min_miny,
+                MAX(ST_YMax(ST_Envelope(geom))) AS min_maxy
             FROM region;
         """
-        bounding_box = self.db_rd.select(get_bounding_box)
+        bounding_box = self.db.select(get_bounding_box)
 
         #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
         download_overture_places =f"""
@@ -97,57 +96,75 @@ class OverturePOICollection:
 
         self.duckdb_cursor.execute(download_overture_places)
 
-        # # drop table if exists first
-        self.db_rd.perform(f"DROP TABLE IF EXISTS temporal.places_{self.region}_raw;")
+        # drop table if exists first
+        self.db.perform(f"DROP TABLE IF EXISTS temporal.places_{self.region}_raw;")
 
+        # import the data into the database
         subprocess.run(
             f"""ogr2ogr -f "PostgreSQL" PG:"host={self.host} user={self.user} dbname={self.dbname} password={self.password} port={self.port}" -nln temporal.places_{self.region}_raw {file_path_raw_data} """,
             shell=True,
             check=True,
         )
 
-        # clip data
-        clip_poi_overture = f"""
+        # get the geometires of the study area based on the query defined in the config
+        region_geoms = self.db.select(self.data_config_collection['region'])
+
+        # create table for the Overture places
+        drop_create_table_sql = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region};
-            CREATE TABLE temporal.places_{self.region} AS
-            WITH region AS (
-                {self.data_config_collection['region']}
-            )
-            SELECT p.*
-            FROM temporal.places_{self.region}_raw p, region r
-            WHERE ST_Intersects(p.wkb_geometry, r.geom)
-            AND p.wkb_geometry && r.geom;
+            CREATE TABLE temporal.places_{self.region} AS (
+                SELECT *
+                FROM temporal.places_{self.region}_raw
+                WHERE 1=0
+            );
         """
-        self.db_rd.perform(clip_poi_overture)
+        self.db.perform(drop_create_table_sql)
+
+        # clip data to study area
+        for geom in region_geoms:
+            clip_poi_overture = f"""
+                INSERT INTO temporal.places_{self.region}
+                WITH region AS (
+                    SELECT ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326) AS geom
+                )
+                SELECT p.*
+                FROM temporal.places_{self.region}_raw p, region r
+                WHERE ST_Intersects(p.wkb_geometry, r.geom)
+                AND p.wkb_geometry && r.geom;
+                ;
+            """
+            self.db.perform(clip_poi_overture)
 
         # adjust names column
         adjust_names_column = f"""
             UPDATE temporal.places_{self.region}
             SET names = TRIM(BOTH '"' FROM (names::jsonb->'common'->0->'value')::text);
         """
-        self.db_rd.perform(adjust_names_column)
+        self.db.perform(adjust_names_column)
 
         # adjust categories column -> category_1, category_2 etc.
-
         adjust_categories_column = f"""
-
             ALTER TABLE temporal.places_{self.region}
-            ADD COLUMN category_2 varchar,
-            ADD COLUMN category_3 varchar;
+            ADD COLUMN other_categories varchar[];
 
             UPDATE temporal.places_{self.region}
-            SET category_2 = (categories::jsonb->'alternate'->>0)::varchar,
-                category_3 = (categories::jsonb->'alternate'->>1)::varchar;
-
+            SET other_categories = (
+                CASE
+                    WHEN (categories::jsonb->'alternate'->>0) IS NOT NULL OR (categories::jsonb->'alternate'->>1) IS NOT NULL THEN
+                        ARRAY_REMOVE(ARRAY_REMOVE(ARRAY[(categories::jsonb->'alternate'->>0)::varchar, (categories::jsonb->'alternate'->>1)::varchar], NULL), '')
+                    ELSE
+                        ARRAY[]::varchar[]
+                END
+            );
 
             UPDATE temporal.places_{self.region}
             SET categories = TRIM(BOTH '"' FROM (categories::jsonb->>'main'));
         """
-        self.db_rd.perform(adjust_categories_column)
+        self.db.perform(adjust_categories_column)
 
         # addresses -> street, housenumber, zipcode
 
-        adjust_addresses_column =f"""
+        adjust_columns =f"""
             ALTER TABLE temporal.places_{self.region}
             ADD COLUMN street varchar,
             ADD COLUMN housenumber varchar,
@@ -157,55 +174,23 @@ class OverturePOICollection:
             SET
                 street = substring(addresses::jsonb->0->>'freeform', '^(.*?)([0-9])'),
                 housenumber = substring(addresses::jsonb->0->>'freeform', '([0-9].*)$'),
-                zipcode = (addresses::jsonb->0->>'postcode')::varchar;
-
+                zipcode = (addresses::jsonb->0->>'postcode')::varchar,
+                websites[1] = CASE WHEN cardinality(websites) > 0 THEN websites[1] ELSE NULL END,
+                socials[1] = CASE WHEN cardinality(socials) > 0 THEN socials[1] ELSE NULL END,
+                phones[1] = CASE WHEN cardinality(phones) > 0 THEN phones[1] ELSE NULL END;
         """
-        self.db_rd.perform(adjust_addresses_column)
-
-        # tags jsonb NULL, -> confidence, websites, socials, emails, phones
-        # TODO: add emails (currently only NULLs in orginial data set)
-        create_tags_column = f"""
-        ALTER TABLE temporal.places_{self.region}
-        ADD COLUMN tags jsonb;
-
-        UPDATE temporal.places_{self.region}
-        SET tags = jsonb_build_object(
-            'confidence', confidence,
-            'website', CASE WHEN cardinality(websites) > 0 THEN websites[1] ELSE NULL END,
-            'social_media', CASE WHEN cardinality(socials) > 0 THEN socials[1] ELSE NULL END,
-            'phone', CASE WHEN cardinality(phones) > 0 THEN phones[1] ELSE NULL END
-        );
-        """
-        self.db_rd.perform(create_tags_column)
-
-        self.db_rd.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"overture_{self.region}_raw").create_poi_table())
-
-        insert_into_poi_table = f"""
-            INSERT INTO temporal.poi_overture_{self.region}_raw(category_1, other_categories, name, street, housenumber, zipcode, tags, geom)
-            SELECT
-                categories,
-                ARRAY[category_2, category_3] AS other_categories,
-                names,
-                street,
-                housenumber,
-                zipcode,
-                tags,
-                wkb_geometry
-            FROM temporal.places_{self.region};
-        """
-
-        self.db_rd.perform(insert_into_poi_table)
+        self.db.perform(adjust_columns)
 
         print_hashtags()
         print(f"Calculation took {time.time() - start_time} seconds ---")
         print_hashtags()
 
 def collect_poi_overture(region: str):
-    db_rd = Database(settings.RAW_DATABASE_URI)
-    overture_poi_collection = OverturePOICollection(db_rd=db_rd, region=region)
+    db = Database(settings.LOCAL_DATABASE_URI)
+    overture_poi_collection = OverturePOICollection(db=db, region=region)
     overture_poi_collection.initialize_duckdb()
     overture_poi_collection.run()
-    db_rd.conn.close()
+    db.conn.close()
 
 
 
