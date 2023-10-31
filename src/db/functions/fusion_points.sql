@@ -17,14 +17,14 @@ BEGIN
     DROP TABLE IF EXISTS temporal.comparison_poi; 
     EXECUTE '
         CREATE TABLE temporal.comparison_poi AS 
-        SELECT n.*, (ARRAY_AGG(id_table_2))[1] AS id_table_2, (ARRAY_AGG(similarity))[1] AS similarity
+        SELECT n.*, (ARRAY_AGG(matching_key_input_2))[1] AS matching_key_input_2, (ARRAY_AGG(similarity))[1] AS similarity
         FROM ' || table_1 || ' n
         LEFT JOIN LATERAL 
         (   
-            SELECT y.id AS id_table_2, similarity(lower(y.name), lower(n.'|| comparison_column_table_1 ||')) AS similarity
+            SELECT y.matching_key_input_2, similarity(lower(y.name), lower(n.'|| comparison_column_table_1 ||')) AS similarity
             FROM 
             (
-                SELECT p.id AS id, lower('|| comparison_column_table_2 ||') AS name 
+                SELECT p.matching_key_input_2, lower('|| comparison_column_table_2 ||') AS name 
                 FROM ' || table_2 || ' p 
                 WHERE ST_DWithin(n.geom, p.geom, ' || fusion_radius || ')
             ) y 
@@ -33,7 +33,7 @@ BEGIN
             DESC
             LIMIT 1
         ) j ON TRUE 
-        GROUP BY n.id
+        GROUP BY n.id 
 	';
 
     CREATE INDEX ON temporal.comparison_poi (id); 
@@ -46,12 +46,12 @@ BEGIN
         EXECUTE '
             UPDATE temporal.comparison_poi 
             SET decision = ''keep''
-            WHERE id_table_2 IS NULL;
+            WHERE matching_key_input_2 IS NULL;
         ';
     ELSIF decision_table_1 = 'drop' THEN
         EXECUTE '
             DELETE FROM temporal.comparison_poi 
-            WHERE id_table_2 IS NULL;
+            WHERE matching_key_input_2 IS NULL;
         ';
     END IF;
 
@@ -80,7 +80,7 @@ BEGIN
 	            geom = CASE WHEN ST_X(t2.geom) IS NULL OR ST_Y(t2.geom) IS NULL THEN c.geom ELSE t2.geom END,
 	            decision = ''combined''
 	        FROM ' || table_2 || ' AS t2
-	        WHERE c.id_table_2 = t2.id
+	        WHERE c.matching_key_input_2 = t2.matching_key_input_2 
 			AND similarity >= ' || fusion_threshold || ';
         ';
     ELSIF decision_fusion = 'replace' THEN
@@ -102,7 +102,7 @@ BEGIN
 	            geom = t2.geom,
 	            decision = ''replaced''
 	        FROM ' || table_2 || ' AS t2
-	        WHERE c.id_table_2 = t2.id
+	        WHERE c.matching_key_input_2 = t2.matching_key_input_2 
 			AND similarity >= ' || fusion_threshold || ';
         ';
     END IF;
@@ -110,9 +110,9 @@ BEGIN
     IF decision_table_2 = 'add' THEN
         EXECUTE '
             INSERT INTO temporal.comparison_poi
-            SELECT *, id as id_table_2, NULL as similarity ,''add''::varchar AS decision
+            SELECT *, matching_key_input_2, NULL as similarity ,''add''::varchar AS decision
             FROM ' || table_2 || '
-            WHERE id NOT IN (SELECT DISTINCT id_table_2 FROM temporal.comparison_poi WHERE id_table_2 IS NOT NULL);
+            WHERE matching_key_input_2 NOT IN (SELECT DISTINCT matching_key_input_2 FROM temporal.comparison_poi WHERE matching_key_input_2 IS NOT NULL);
         ';
     ELSIF decision_table_2 = 'drop' THEN
         -- Do nothing or add any necessary logic
@@ -121,3 +121,6 @@ BEGIN
 
 END;
 $function$ LANGUAGE plpgsql;
+
+
+/*TODO: add example*/
