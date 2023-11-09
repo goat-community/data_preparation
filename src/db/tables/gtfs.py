@@ -97,6 +97,13 @@ class GtfsTables:
                 end_date date NOT NULL
             );"""
 
+        sql_create_table_calendar_dates = f"""
+            CREATE TABLE {self.schema}.calendar_dates (
+                service_id text NOT NULL,
+                date date NOT NULL,
+                exception_type int2 NOT NULL
+            );"""
+
         sql_create_table_shapes = f"""
             CREATE TABLE {self.schema}.shapes (
                 shape_id text NULL,
@@ -116,5 +123,6 @@ class GtfsTables:
             "trips": sql_create_table_trips,
             "stop_times": sql_create_table_stop_times,
             "calendar": sql_create_table_calendar,
+            "calendar_dates": sql_create_table_calendar_dates,
             "shapes": sql_create_table_shapes
         }

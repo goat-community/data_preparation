@@ -246,6 +246,10 @@ class GTFSCollection:
             sql_command = f"""
                 ALTER TABLE {self.schema}.calendar ADD PRIMARY KEY (service_id);
             """
+        elif table == "calendar_dates":
+            sql_command = f"""
+                ALTER TABLE {self.schema}.calendar_dates ADD PRIMARY KEY (service_id, date);
+            """
         else:
             return
 
