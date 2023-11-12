@@ -1,0 +1,9 @@
+collection:
+  # Must be a SQL query which returns the region's bounding geometry (omit terminating semicolon)
+  geom_query: "SELECT geom
+                FROM public.nuts
+                WHERE levl_code = 0 AND cntr_code = 'DE'"
+  
+  output_schema: "public"
+  output_table_segments: "segments_de"
+  output_table_connectors: "connectors_de"

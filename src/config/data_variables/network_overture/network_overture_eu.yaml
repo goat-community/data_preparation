@@ -1,0 +1,8 @@
+collection:
+  # Must be a SQL query which returns the region's bounding geometry (omit terminating semicolon)
+  geom_query: "SELECT ST_Union(geom) AS geom
+                FROM public.geofence_active_mobility"
+
+  output_schema: "public"
+  output_table_segments: "segments_eu"
+  output_table_connectors: "connectors_eu"

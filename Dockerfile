@@ -71,8 +71,12 @@ RUN rm 3DCityDB-Importer-Exporter-5.3.0.zip
 RUN mv 3DCityDB-Importer-Exporter-5.3.0 /opt/3dcitydb
 RUN chmod +x /opt/3dcitydb/bin/impexp
 
+# Install Sedona & PySpark dependencies
+RUN pip install keplergl
+RUN pip install pydeck
+RUN pip install apache-sedona[spark]
+
 WORKDIR /app/
 
 ENTRYPOINT ["tail"]
 CMD ["-f","/dev/null"]
-
