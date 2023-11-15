@@ -3,7 +3,7 @@ from sedona.spark import SedonaContext
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
-from src.utils.utils import print_error, print_info, timing
+from src.utils.utils import get_region_bbox_coords, print_error, print_info, timing
 
 
 class OvertureNetworkCollection:
@@ -96,30 +96,6 @@ class OvertureNetworkCollection:
         print_info(f"Created table: {self.output_schema}.{self.output_table_connectors}.")
 
 
-    def get_region_bbox_coords(self):
-        """Get the bounding coordinates of the region."""
-
-        sql_get_region_bbox_coords = f"""
-            SELECT
-                ST_XMin(ST_Envelope(geom)) AS xmin,
-                ST_YMin(ST_Envelope(geom)) AS ymin,
-                ST_XMax(ST_Envelope(geom)) AS xmax,
-                ST_YMax(ST_Envelope(geom)) AS ymax
-            FROM
-                ({self.config.collection["geom_query"]}) sub;
-        """
-        bbox_coords = self.db_remote.select(sql_get_region_bbox_coords)[0]
-
-        print_info(f"Calculated region bounding coordinates: {bbox_coords}.")
-
-        return {
-            "xmin": bbox_coords[0],
-            "ymin": bbox_coords[1],
-            "xmax": bbox_coords[2],
-            "ymax": bbox_coords[3]
-        }
-
-
     def filter_region_segments(self, bbox_coords: dict):
         """Initialize the segments dataframe and apply relevant filters."""
 
@@ -174,7 +150,7 @@ class OvertureNetworkCollection:
 
 
     @timing
-    def alter_tables(self,):
+    def alter_tables(self):
         """Alter tables to update column data types and create indexes."""
 
         print_info(f"Altering table: {self.output_schema}.{self.output_table_segments}.")
@@ -202,7 +178,10 @@ class OvertureNetworkCollection:
         self.initialize_data_source(sedona)
         self.initialize_tables()
 
-        bbox_coords = self.get_region_bbox_coords()
+        bbox_coords = get_region_bbox_coords(
+            geom_query=self.config.collection["geom_query"],
+            db=self.db_remote
+        )
         region_segments = self.filter_region_segments(bbox_coords)
         region_connectors = self.filter_region_connectors(bbox_coords)
 
@@ -244,4 +223,4 @@ def collect_overture_network(region: str):
 
 # Run as main
 if __name__ == "__main__":
-    collect_overture_network("eu")
+    collect_overture_network("de")

@@ -6,3 +6,7 @@ collection:
   output_schema: "public"
   output_table_segments: "segments_eu"
   output_table_connectors: "connectors_eu"
+
+preparation:
+  output_schema: "public"
+  output_table_dem: "dem_eu"
