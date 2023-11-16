@@ -740,7 +740,7 @@ def prepare_poi(region: str):
     db.perform(insert_poi_osm_sql)
     db.conn.close()
 
-    #TODO: do we export the data to Geonode? if yes, the one in our schema?
+    #TODO: do we export the data to Geonode? if yes, the one in our poi schema?
 
     # Export OSM data to Geonode
     # db_rd = Database(settings.RAW_DATABASE_URI)
@@ -758,6 +758,7 @@ def prepare_poi(region: str):
     # )
     # db_rd.conn.close()
 
+    #TODO: refactor subscription to use the our new POI schema
     # Update kart repo with fresh OSM data
     # subscription = Subscription(db=db, region=region)
     # subscription.subscribe_osm()
