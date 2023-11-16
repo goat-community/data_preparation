@@ -19,18 +19,23 @@ collection:
   osm_tags:
     amenity : ["fuel", "taxi", "atm", "bank", "dentist", "doctors", "pharmacy", "post_box", "marketplace", "bar", "biergarten", "cafe", 
                 "pub", "fast_food", "ice_cream", "restaurant", "theatre", "cinema", "library", "nightclub", "recycling", "car_sharing", "bicycle_rental", 
-                "charging_station", "bus_station", "playground"]
+                "charging_station", "bus_station", "playground", "monastery", "place_of_worship", "kneipp_water_cure", "planetarium",
+                "arts_centre", "events_venue", "vending_machine"]
     shop    : ["clothes", "convenience", "general", "fashion", "fuel", "bakery", "butcher", "florist", "grocery", "greengrocer", "kiosk", "mall", "shoes", "sports", 
-                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream"]
-    tourism : ["hotel", "museum", "hostel", "guest_house"]
+                "supermarket", "hairdresser", "health_food", "chemist", "ice_cream", "vine"]
+    tourism : ["hotel", "museum", "hostel", "guest_house", "aquarium", "zoo", "theme_park", "alpine_hut", "apartment", "camp_site", "caravan_site",
+                "chalet", "motel", "gallery"]
     railway : ["station", "platform", "stop", "tram_stop", "subway_entrance"]
-    leisure : ["playground", "fitness_station", "water_park", "sports_centre", 'sports_hall', "fitness_centre"]
-    sport   : ["yoga", "fitness"]
+    leisure : ["playground", "fitness_station", "sports_centre", 'sports_hall', "fitness_centre", "water_park", "swimming_area",
+                "amusement_arcade", "disc_golf_course", "dog_park", "escape_game", "miniature_golf"]
+    sport   : ["yoga", "fitness", "swimming"]
     highway : ["bus_stop"]
     public_transport : ["stop_position", "station"]
+    historic: ["aircraft", "aqueduct", "archaeological_site", "battlefield", "bomb_crater", "castle", "church", "city_gate", "citywalls", "farm",
+                "fort", "locomotive", "memorial", "monastery", "monument", "railway_car", "ruins", "ship", "tank", "tomb", "tower", "vehicle", "wreck"]
 
-  additional_columns: ["name", "brand", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "website", 
-                        "opening_hours", "operator", "origin", "organic", "subway"]
+  additional_columns: ["name", "operator", "addr:street","addr:housenumber", "addr:postcode", "addr:city", "addr:country", "phone", "email", "website", 
+                       "capacity", "opening_hours", "wheelchair", "origin", "organic", "subway", "brand"]
   nodes : True
   ways : True
   relations : True
@@ -137,14 +142,14 @@ preparation:
     classify_by_tag:
       chemist:
         shop: ["chemist"]
-
+  
   convenience: 
     inherit: "supermarket"
   grocery: 
     inherit: "supermarket"
   deli: 
     inherit: "supermarket"
-  
+
 subscription:
   repo_url: "https://github.com/goat-community/poi"
     
