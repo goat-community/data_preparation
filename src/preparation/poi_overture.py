@@ -14,29 +14,14 @@ class OverturePOIPreparation:
 
     def run(self):
 
-        # tags jsonb NULL, -> confidence, websites, socials, emails, phones --- gers_id/ id
+        # operator, capacity, opening_hours currently not in Overture data
         # TODO: add emails (currently only NULLs in orginial data set)
-        create_tags_column = f"""
-        ALTER TABLE temporal.places_{self.region}
-        ADD COLUMN tags jsonb;
-
-        UPDATE temporal.places_{self.region}
-        SET tags = jsonb_build_object(
-            'confidence', confidence,
-            'website', websites,
-            'social_media', socials,
-            'phone', phones,
-            'gers_id', id
-        );
-        """
-        self.db.perform(create_tags_column)
-
-        #TODO: new POI schema as e.g. source is missing
+        # TODO: GERS ID once introduced in Overture data set
 
         self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"overture_{self.region}_raw").create_poi_table(table_type='standard'))
 
         insert_into_poi_table = f"""
-            INSERT INTO temporal.poi_overture_{self.region}_raw(category, other_categories, name, street, housenumber, zipcode, tags, geom)
+            INSERT INTO temporal.poi_overture_{self.region}_raw(category, other_categories, name, street, housenumber, zipcode, phone, website, source, tags, geom)
             SELECT
                 categories,
                 other_categories,
@@ -44,9 +29,27 @@ class OverturePOIPreparation:
                 street,
                 housenumber,
                 zipcode,
-                tags,
+                CASE
+                    WHEN cardinality(phones) > 0 THEN phones[1]::varchar
+                    ELSE NULL
+                END AS phone,
+                CASE
+                    WHEN cardinality(websites) > 0 THEN websites[1]::varchar
+                    ELSE NULL
+                END AS website,
+                'Overture' AS source,
+                (JSONB_STRIP_NULLS(
+                    JSONB_BUILD_OBJECT(
+                        'confidence', confidence,
+                        'social_media', CASE
+                            WHEN cardinality(socials) > 0 THEN socials[1]::varchar
+                            ELSE NULL
+                        END,
+                        'brand', brand) || 
+                    JSONB_BUILD_OBJECT('extended_source', JSONB_BUILD_OBJECT('ogc_fid', id))
+                )) AS TAGS,            
                 wkb_geometry
-            FROM public.places_{self.region};
+            FROM temporal.places_{self.region};
         """
 
         self.db.perform(insert_into_poi_table)
@@ -57,7 +60,7 @@ class OverturePOIPreparation:
             DROP TABLE IF EXISTS public.poi_overture_{self.region};
             CREATE TABLE public.poi_overture_{self.region} AS (
                 SELECT *
-                FROM public.poi_overture_{self.region}_raw
+                FROM temporal.poi_overture_{self.region}_raw
                 WHERE category IS NOT NULL
                 AND (tags ->> 'confidence')::numeric > 0.6
                 AND category IN ({categories})
