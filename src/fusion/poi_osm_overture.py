@@ -10,7 +10,7 @@ class OSMOverturePOIFusion:
         self.region = region
         self.db = db
 
-        self.data_config = Config('poi_osm_overture_fusion', region)
+        self.data_config = Config('poi_osm_overture', region)
         self.data_config_preparation = self.data_config.preparation
 
     def run(self):
@@ -20,14 +20,6 @@ class OSMOverturePOIFusion:
         # Create standard POI table for fusion result
         result_table_name = f"{self.region}_fusion_result"
         self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=result_table_name).create_poi_table(table_type=poi_table_type))
-
-        # Add matching_key column to the fusion result table
-        sql_add_matching_key = f"""
-            ALTER TABLE temporal.poi_{result_table_name}
-            ADD COLUMN matching_key_input_1 int8 NULL,
-            ADD COLUMN matching_key_input_2 int8 NULL;
-        """
-        self.db.perform(sql_add_matching_key)
 
         for top_level_category, categories in self.data_config_preparation['fusion']['categories'].items():
             for category, config in categories.items():
@@ -47,11 +39,12 @@ class OSMOverturePOIFusion:
                     # Add matching_key column to the input_1 and input_2 tables
                     sql_add_matching_key = f"""
                         ALTER TABLE temporal.poi_{table_name}
-                        ADD COLUMN matching_key_{input} int8;
+                        ADD COLUMN matching_key_{input} jsonb NULL;
 
                         UPDATE temporal.poi_{table_name}
-                        SET matching_key_{input} = (tags->>'matching_key')::int8
-                        WHERE tags->>'matching_key' IS NOT NULL
+                        SET matching_key_{input} = JSONB_BUILD_OBJECT('source', source, 'extended_source', tags->>'extended_source')                       
+                        WHERE tags->>'extended_source' IS NOT NULL
+                        AND source IS NOT NULL;
                         ;
                     """
                     self.db.perform(sql_add_matching_key)
@@ -69,6 +62,7 @@ class OSMOverturePOIFusion:
                 # if category != toplevel category -> put category into other_categories and replace category with top_level_category
 
                 # Update top-level category
+                # TODO: adjust for all categories (probably only for standard needed)
                 sql_top_level_category = f"""
                     UPDATE temporal.comparison_poi
                     SET
@@ -78,32 +72,13 @@ class OSMOverturePOIFusion:
                 """
                 self.db.perform(sql_top_level_category)
 
-                #TODO: do we want to track the source? if yes, just use an config input?
-
-                # add tag source:
-                # if confidence in tags -> overture
-                # if similarity >= threshold -> both
-                # else -> osm
-
-                # sql_add_source = f"""
-                #     UPDATE temporal.comparison_poi
-                #     SET tags =
-                #         CASE
-                #             WHEN decision = 'add' THEN jsonb_insert(tags, '{{source}}', '"overture"'::jsonb, true)
-                #             WHEN similarity >= {self.data_config_preparation['fusion'][top_level_category][category]['threshold']} THEN jsonb_insert(tags, '{{source}}', '"both"'::jsonb, true)
-                #             ELSE jsonb_insert(tags, '{{source}}', '"osm"'::jsonb, true)
-                #         END
-                # """
-                # self.db.perform(sql_add_source)
-
-
                 # insert data into the final table
                 sql_concat_resulting_tables = f"""
                     INSERT INTO temporal.poi_{self.region}_fusion_result(
-                        category, other_categories ,name, street, housenumber, zipcode, opening_hours,
-                        wheelchair, tags, geom
+                        category, other_categories ,name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
+                        wheelchair, source, tags, geom
                         )
-                    SELECT category, other_categories, name, street, housenumber, zipcode, opening_hours, wheelchair, jsonb_set(tags, '{{original_id}}', to_jsonb(id)) AS extended_tags, geom
+                    SELECT category, other_categories, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom
                     FROM temporal.comparison_poi;
                 """
                 self.db.perform(sql_concat_resulting_tables)
