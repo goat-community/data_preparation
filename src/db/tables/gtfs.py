@@ -36,8 +36,8 @@ class GtfsTables:
             );
         """
 
-        sql_create_table_routes = """
-            CREATE TABLE gtfs.routes (
+        sql_create_table_routes = f"""
+            CREATE TABLE {self.schema}.routes (
                 route_id text NOT NULL,
                 agency_id text NULL,
                 route_short_name text NULL,
