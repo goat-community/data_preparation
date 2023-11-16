@@ -26,9 +26,20 @@ class PrepareKart:
         self.db = db
         self.path_ssh_key = "/app/id_rsa"
 
-        self.table_names = [ "poi_food_drink", "poi_health", "poi_public_transport", "poi_other",
-                            "poi_mobility_service", "poi_public_service", "poi_service",
-                            "poi_shopping", "poi_sport", "poi_tourism_leisure"]
+        self.table_names = [
+            "poi_food_drink",
+            "poi_health",
+            "poi_public_transport",
+            "poi_other",
+            "poi_mobility_service",
+            "poi_public_service",
+            "poi_service",
+            "poi_shopping",
+            "poi_sport",
+            "poi_tourism_leisure",
+            "poi_childcare",
+            "poi_school",
+        ]
 
         # Prepare repository URL
         self.repo_url = repo_url
@@ -36,13 +47,15 @@ class PrepareKart:
         self.maintainer = maintainer
         self.table_name = table_name
         # self.schema_name = f"kart_{table_name}_{maintainer}"
-        self.schema_name=f"kart_pois"
+        self.schema_name = f"kart_pois"
 
         # Get repo name and user name from URL
         self.repo_owner, self.repo_name = parsed_url.path.strip("/").split("/")
         self.git_domain = parsed_url.netloc
         # self.repo_ssh_url = f"git@{self.git_domain}:{self.repo_owner}/{self.repo_name}"
-        self.repo_ssh_url = f"https://{self.git_domain}/{self.repo_owner}/{self.repo_name}"
+        self.repo_ssh_url = (
+            f"https://{self.git_domain}/{self.repo_owner}/{self.repo_name}"
+        )
         self.path_repo = os.path.join(
             settings.DATA_DIR, self.repo_name + "_" + self.maintainer
         )
@@ -247,65 +260,33 @@ class PrepareKart:
         self.db.perform(sql_constraints_poi_category)
         self.db.perform(sql_constraints_data_source)
 
-
-
         for table_name in self.table_names:
-            sql_constraints_poi = f"""
-            ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN category SET NOT NULL;
-            ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN source SET NOT NULL;
-            ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN geom SET NOT NULL;
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS name_not_empty_string_check, ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS street_not_empty_string_check, ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS housenumber_not_empty_string_check, ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS zipcode_not_empty_string_check, ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS phone_not_empty_string_check, ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS email_check, ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS opening_hours_not_empty_string_check, ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
-            ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS other_categories_array_check, ADD CONSTRAINT other_categories_array_check CHECK (other_categories IS NULL OR other_categories::text[] IS NOT NULL);
-            ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+            sql_common_poi = f"""
+                ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN source SET NOT NULL;
+                ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN geom SET NOT NULL;
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS name_not_empty_string_check, ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS street_not_empty_string_check, ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS housenumber_not_empty_string_check, ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS zipcode_not_empty_string_check, ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS phone_not_empty_string_check, ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS email_check, ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS opening_hours_not_empty_string_check, ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
+                ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
+                ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
-            self.db.perform(sql_constraints_poi)
+            self.db.perform(sql_common_poi)
 
-            sql_constraints_poi_childcare = f"""
-            ALTER TABLE {self.schema_name}.poi_childcare  ALTER COLUMN source SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_childcare  ALTER COLUMN geom SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS name_not_empty_string_check, ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS street_not_empty_string_check, ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS housenumber_not_empty_string_check, ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS zipcode_not_empty_string_check, ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS phone_not_empty_string_check, ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS email_check, ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS opening_hours_not_empty_string_check, ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
-            ALTER TABLE {self.schema_name}.poi_childcare  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
-            ALTER TABLE {self.schema_name}.poi_childcare  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.poi_childcare  OWNER TO {self.maintainer};
-            """
-            self.db.perform(sql_constraints_poi_childcare)
-
-            sql_constraints_poi_school = f"""
-            ALTER TABLE {self.schema_name}.poi_school  ALTER COLUMN source SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_school  ALTER COLUMN geom SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS name_not_empty_string_check, ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS street_not_empty_string_check, ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS housenumber_not_empty_string_check, ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS zipcode_not_empty_string_check, ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS phone_not_empty_string_check, ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS email_check, ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS opening_hours_not_empty_string_check, ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
-            ALTER TABLE {self.schema_name}.poi_school  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
-            ALTER TABLE {self.schema_name}.poi_school  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.poi_school  OWNER TO {self.maintainer};
-            """
-            self.db.perform(sql_constraints_poi_school)
+            # Add additional constraints all tables besides poi_childcare and poi_school
+            if table_name not in ("poi_childcare", "poi_school"):
+                sql_addition_constraints = f"""
+                ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN category SET NOT NULL;
+                ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS other_categories_array_check, ADD CONSTRAINT other_categories_array_check CHECK (other_categories IS NULL OR other_categories::text[] IS NOT NULL);
+                """
+                self.db.perform(sql_addition_constraints)
 
         # SQL check of timestamp is in ZULU UTC format
 
@@ -330,6 +311,7 @@ class PrepareKart:
         self.kart_remote_workingcopy()
         self.prepare_schema_kart()
 
+
 def parse_args(args=None):
     # define the flags and their default values
     parser = argparse.ArgumentParser()
@@ -340,34 +322,34 @@ def parse_args(args=None):
     # parse the command line arguments
     return parser.parse_args(args)
 
+
 def main():
     args = parse_args()
     repo_url = args.repo_url
     maintainer = args.maintainer
     table_name = args.table_name
- 
+
     print_hashtags()
     print_info("Start Prepare Kart")
     print_hashtags()
- 
+
     # Check if table is supported
     supported_tables = ["poi"]
     if table_name not in supported_tables:
         raise Exception("Table name not supported")
- 
+
     # Init db and class
     db = Database(settings.LOCAL_DATABASE_URI)
     prepare_kart = PrepareKart(
         db, repo_url=repo_url, maintainer=maintainer, table_name=table_name
     )
- 
+
     prepare_kart.prepare_kart()
- 
+
     print_hashtags()
     print_info("End Prepare Kart")
     print_hashtags()
- 
- 
+
+
 if __name__ == "__main__":
     main()
-
