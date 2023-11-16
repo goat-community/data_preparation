@@ -19,6 +19,7 @@ def init_db(db):
     db.perform("CREATE EXTENSION IF NOT EXISTS h3;")
     db.perform("CREATE EXTENSION IF NOT EXISTS citus;")
     db.perform("CREATE EXTENSION IF NOT EXISTS btree_gist;")
+    db.perform("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
 
     # Create schema
     db.perform("CREATE SCHEMA IF NOT EXISTS basic;")
