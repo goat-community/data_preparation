@@ -262,7 +262,7 @@ def create_table_dump(
 
 
 def restore_table_dump(
-    db_config: dict, schema: str, table_name: str, dump_type: DumpType = DumpType.all.value
+    db_config: dict, schema: str, table_name: str, dump_type: DumpType = DumpType.all
 ):
     """Restores the dump from a table
 

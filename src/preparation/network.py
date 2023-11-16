@@ -17,6 +17,7 @@ from src.collection.osm_collection_base import OSMBaseCollection
 from src.preparation.network_islands import NetworkIslands
 from src.utils.utils import create_table_schema, create_pgpass, restore_table_dump
 from src.core.config import settings
+from src.core.enums import DumpType
 from functools import partial
 
 class NetworkPreparation:
@@ -304,7 +305,7 @@ def prepare_network(region: str):
 def export_network(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
-    create_table_dump(db.db_config, "basic", "node", dump_type="data")
-    create_table_dump(db.db_config, "basic", "edge", dump_type="data")
-    restore_table_dump(db_rd.db_config, "basic", "node", dump_type="data")
-    restore_table_dump(db_rd.db_config, "basic", "edge", dump_type="data")
+    create_table_dump(db.db_config, "basic", "node", dump_type=DumpType.data)
+    create_table_dump(db.db_config, "basic", "edge", dump_type=DumpType.data)
+    restore_table_dump(db_rd.db_config, "basic", "node", dump_type=DumpType.data)
+    restore_table_dump(db_rd.db_config, "basic", "edge", dump_type=DumpType.data)

@@ -2,6 +2,7 @@
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": false,
     "python.formatting.provider": "black",
+    "workbench.editor.showTabs": "multiple",
     "isort.args": ["--profile", "black"],
     "[python]": {
         "editor.codeActionsOnSave": {
