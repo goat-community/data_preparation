@@ -1,5 +1,10 @@
+import json
 import os
 import subprocess
+import time
+from queue import Queue
+
+from network_overture_parallelism import ProcessSegments, UpdateImpedance
 
 from src.config.config import Config
 from src.core.config import settings
@@ -22,33 +27,30 @@ class OvertureNetworkPreparation:
         self.region = region
         self.config = Config("network_overture", region)
 
-        self.data_schema = self.config.collection["output_schema"]
-        self.data_table_segments = self.config.collection["output_table_segments"]
-        self.data_table_connectors = self.config.collection["output_table_connectors"]
-
-        self.output_schema = self.config.preparation["output_schema"]
-        self.output_table_dem = self.config.preparation["output_table_dem"]
+        self.h3_index_queue = Queue()
+        self.running_threads = []
 
         self.DEM_S3_URL = "https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com"
+        self.NUM_THREADS = 16
 
 
     def initialize_dem_table(self):
         """Initialize digital elevation model (DEM) raster table."""
 
-        sql_create_dem_table = f"""
-            DROP TABLE IF EXISTS {self.output_schema}.{self.output_table_dem};
-            CREATE TABLE {self.output_schema}.{self.output_table_dem} (
+        sql_create_dem_table = """
+            DROP TABLE IF EXISTS public.dem;
+            CREATE TABLE public.dem (
                 rid serial4 NOT NULL,
                 rast public.raster NULL,
                 filename text NULL,
-                CONSTRAINT {self.output_table_dem}_pkey PRIMARY KEY (rid),
+                CONSTRAINT dem_pkey PRIMARY KEY (rid),
                 CONSTRAINT enforce_nodata_values_rast CHECK ((_raster_constraint_nodata_values(rast) = '{{NULL}}'::numeric[])),
                 CONSTRAINT enforce_num_bands_rast CHECK ((st_numbands(rast) = 1)),
                 CONSTRAINT enforce_out_db_rast CHECK ((_raster_constraint_out_db(rast) = '{{f}}'::boolean[])),
                 CONSTRAINT enforce_pixel_types_rast CHECK ((_raster_constraint_pixel_types(rast) = '{{32BF}}'::text[])),
                 CONSTRAINT enforce_srid_rast CHECK ((st_srid(rast) = 4326))
             );
-            CREATE INDEX {self.output_table_dem}_st_convexhull_idx ON {self.output_schema}.{self.output_table_dem} USING gist (st_convexhull(rast));
+            CREATE INDEX dem_st_convexhull_idx ON public.dem USING gist (st_convexhull(rast));
         """
         self.db_local.perform(sql_create_dem_table)
 
@@ -83,6 +85,8 @@ class OvertureNetworkPreparation:
 
     def import_dem_tiles(self):
         """Import digital elevation model (DEM) used for calculating slopes."""
+
+        print_info("Importing DEM tiles.")
 
         # Create directory for storing DEM related files
         dem_dir = os.path.join(settings.INPUT_DATA_DIR, "network_overture", "dem")
@@ -122,7 +126,7 @@ class OvertureNetworkPreparation:
             )
             try:
                 subprocess.run(
-                    f"raster2pgsql -s 4326 -M -a {os.path.join(dem_dir, tile_name)}.tif -F -t auto {self.output_schema}.{self.output_table_dem} | PGPASSWORD='{settings.POSTGRES_PASSWORD}' psql -h {settings.POSTGRES_HOST} -U {settings.POSTGRES_USER} -d {settings.POSTGRES_DB}",
+                    f"raster2pgsql -s 4326 -M -a {os.path.join(dem_dir, tile_name)}.tif -F -t auto public.dem | PGPASSWORD='{settings.POSTGRES_PASSWORD}' psql -h {settings.POSTGRES_HOST} -U {settings.POSTGRES_USER} -d {settings.POSTGRES_DB}",
                     stdout = subprocess.DEVNULL,
                     shell=True,
                     check=True,
@@ -136,11 +140,250 @@ class OvertureNetworkPreparation:
         print_info(f"Total DEM tiles: {full_tile_count}, filtered DEM tiles: {len(filtered_tile_list)}.")
 
 
+    def initialize_connectors_table(self):
+        """Create table for storing final processed connectors data."""
+
+        sql_create_connectors_table = """
+            DROP TABLE IF EXISTS basic.connectors_processed CASCADE;
+            CREATE TABLE basic.connectors_processed (
+                id text NOT NULL,
+                osm_id int8 NULL,
+                geom public.geometry(point, 4326) NOT NULL,
+                h3_3 int2 NOT NULL,
+                h3_5 integer NOT NULL,
+                CONSTRAINT connectors_processed_pkey PRIMARY KEY (id)
+            );
+            CREATE INDEX idx_connectors_processed_id_h3_3 ON basic.connectors_processed (id, h3_3);
+            CREATE INDEX idx_connectors_processed_geom ON basic.connectors_processed USING gist (geom);
+        """
+        self.db_local.perform(sql_create_connectors_table)
+
+
+    def initialize_segments_table(self):
+        """Create table for storing final processed segments data."""
+
+        sql_create_segments_table = """
+            DROP TABLE IF EXISTS basic.segments_processed;
+            CREATE TABLE basic.segments_processed (
+                id text NOT NULL,
+                length_m float8 NOT NULL,
+                length_3857 float8 NOT NULL,
+                osm_id int8 NULL,
+                bicycle text NULL,
+                foot text NULL,
+                class_ text NOT NULL,
+                impedance_slope float8 NULL,
+                impedance_slope_reverse float8 NULL,
+                impedance_surface float8 NULL,
+                coordinates_3857 json NOT NULL,
+                maxspeed_forward int4 NULL,
+                maxspeed_backward int4 NULL,
+                "source" text NOT NULL,
+                target text NOT NULL,
+                tags jsonb NULL,
+                geom public.geometry(linestring, 4326) NOT NULL,
+                h3_3 int2 NOT NULL,
+                h3_5 int[] NULL,
+                CONSTRAINT segments_processed_pkey PRIMARY KEY (id),
+                CONSTRAINT segments_processed_source_fkey FOREIGN KEY ("source") REFERENCES basic.connectors_processed(id),
+                CONSTRAINT segments_processed_target_fkey FOREIGN KEY (target) REFERENCES basic.connectors_processed(id)
+            );
+            CREATE INDEX idx_segments_processed_id_h3_3 ON basic.segments_processed (id, h3_3);
+            CREATE INDEX idx_segments_processed_geom ON basic.segments_processed USING gist (geom);
+            CREATE INDEX ix_basic_segments_processed_source ON basic.segments_processed USING btree (source);
+            CREATE INDEX ix_basic_segments_processed_target ON basic.segments_processed USING btree (target);
+        """
+        self.db_local.perform(sql_create_segments_table)
+
+
+    def initialize_h3_grid_function(self):
+        """Create a function to compute the corresponding H3 index grid for our region's geometry."""
+
+        sql_create_h3_grid_function = """
+            /*This function returns the h3 indexes that are intersecting the borderpoints of a specified geometry*/
+            DROP FUNCTION IF EXISTS public.fill_polygon_h3;
+            CREATE OR REPLACE FUNCTION public.fill_polygon_h3(geom geometry, h3_resolution integer)
+            RETURNS TABLE (h3_index h3index, h3_boundary geometry(linestring, 4326), h3_geom geometry(polygon, 4326))
+            LANGUAGE plpgsql
+            AS $function$
+            BEGIN
+                RETURN query
+                WITH border_points AS
+                (
+                    SELECT ((ST_DUMPPOINTS(geom)).geom)::point AS geom
+                ),
+                polygons AS
+                (
+                    SELECT ((ST_DUMP(geom)).geom)::polygon AS geom
+                ),
+                h3_ids AS
+                (
+                    SELECT h3_lat_lng_to_cell(b.geom, h3_resolution) h3_index
+                    FROM border_points b
+                    UNION ALL
+                    SELECT h3_polygon_to_cells(p.geom, ARRAY[]::polygon[], h3_resolution) h3_index
+                    FROM polygons p
+                )
+                SELECT sub.h3_index, ST_ExteriorRing(ST_SetSRID(geometry(h3_cell_to_boundary(sub.h3_index)), 4326)) as h3_boundary,
+                        ST_SetSRID(geometry(h3_cell_to_boundary(sub.h3_index)), 4326) as h3_geom
+                FROM h3_ids sub
+                GROUP BY sub.h3_index;
+            END;
+            $function$
+        """
+        self.db_local.perform(sql_create_h3_grid_function)
+
+
+    def compute_region_h3_grid(self):
+        """Use the h3 grid function to create a h3 grid for our region."""
+
+        sql_get_region_geometry = f"""
+            SELECT ST_AsText(geom) AS geom
+            FROM ({self.config.collection["geom_query"]}) sub
+        """
+        region_geom = self.db_remote.select(sql_get_region_geometry)[0][0]
+
+        sql_create_region_h3_3_grid = f"""
+            DROP TABLE IF EXISTS basic.h3_3_grid;
+            CREATE TABLE basic.h3_3_grid AS
+                SELECT * FROM
+                public.fill_polygon_h3(ST_GeomFromText('{region_geom}', 4326), 3);
+            ALTER TABLE basic.h3_3_grid ADD CONSTRAINT h3_3_grid_pkey PRIMARY KEY (h3_index);
+            CREATE INDEX ON basic.h3_3_grid USING GIST (h3_boundary);
+            CREATE INDEX ON basic.h3_3_grid USING GIST (h3_geom);
+        """
+        self.db_local.perform(sql_create_region_h3_3_grid)
+
+        sql_create_region_h3_5_grid = f"""
+            DROP TABLE IF EXISTS basic.h3_5_grid;
+            CREATE TABLE basic.h3_5_grid AS
+                SELECT * FROM
+                public.fill_polygon_h3(ST_GeomFromText('{region_geom}', 4326), 5);
+            ALTER TABLE basic.h3_5_grid ADD CONSTRAINT h3_5_grid_pkey PRIMARY KEY (h3_index);
+            CREATE INDEX ON basic.h3_5_grid USING GIST (h3_boundary);
+            CREATE INDEX ON basic.h3_5_grid USING GIST (h3_geom);
+        """
+        self.db_local.perform(sql_create_region_h3_5_grid)
+
+        sql_compute_h3_short_index = """
+            ALTER TABLE basic.h3_3_grid ADD COLUMN h3_short int2;
+            UPDATE basic.h3_3_grid
+            SET h3_short = to_short_h3_3(h3_index::bigint);
+
+            ALTER TABLE basic.h3_5_grid ADD COLUMN h3_short int4;
+            UPDATE basic.h3_5_grid
+            SET h3_short = to_short_h3_5(h3_index::bigint);
+        """
+        self.db_local.perform(sql_compute_h3_short_index)
+
+        print_info(f"Computed H3 grid for region: {self.region}.")
+
+
+    def initiate_segment_processing(self):
+        """Utilize multithreading to process segments in parallel."""
+
+        with open("src/db/functions/classify_segment.sql", "r") as f:
+            self.db_local.perform(f.read())
+        with open("src/db/functions/to_short_h3_5.sql", "r") as f:
+            self.db_local.perform(f.read())
+
+        sql_get_h3_indexes = """
+            SELECT h3_index
+            FROM basic.h3_3_grid
+            ORDER BY h3_index;
+        """
+        h3_indexes = self.db_local.select(sql_get_h3_indexes)
+        for h3_index in h3_indexes:
+            self.h3_index_queue.put(h3_index[0])
+
+        cycling_surfaces = json.dumps(self.config.preparation["cycling_surfaces"])
+
+        print_info(f"Starting {self.NUM_THREADS} threads for processing segments.")
+
+        self.start_time = time.time()
+
+        self.running_threads.clear()
+        for thread_id in range(1, self.NUM_THREADS + 1):
+            thread = ProcessSegments(
+                thread_id=thread_id,
+                db_local=self.db_local,
+                get_next_h3_index=self.get_next_h3_index,
+                cycling_surfaces=cycling_surfaces
+            )
+            thread.start()
+            self.running_threads.append(thread)
+
+
+    def initiate_impedance_calculation(self):
+        """Utilize multithreading to process segments in parallel."""
+
+        with open("src/db/functions/get_idw_values.sql", "r") as f:
+            self.db_local.perform(f.read())
+        with open("src/db/functions/compute_impedances.sql", "r") as f:
+            self.db_local.perform(f.read())
+        with open("src/db/functions/get_slope_profile.sql", "r") as f:
+            self.db_local.perform(f.read())
+
+        sql_get_h3_indexes = """
+            SELECT h3_short
+            FROM basic.h3_5_grid
+            ORDER BY h3_short;
+        """
+        h3_indexes = self.db_local.select(sql_get_h3_indexes)
+        for h3_index in h3_indexes:
+            self.h3_index_queue.put(h3_index[0])
+
+        print_info(f"Starting {self.NUM_THREADS} threads for calculating segment impedances.")
+
+        self.start_time = time.time()
+
+        self.running_threads.clear()
+        for thread_id in range(1, self.NUM_THREADS + 1):
+            thread = UpdateImpedance(
+                thread_id=thread_id,
+                db_local=self.db_local,
+                get_next_h3_index=self.get_next_h3_index
+            )
+            thread.start()
+            self.running_threads.append(thread)
+
+
+    def get_next_h3_index(self):
+        """Queue management function to assign H3 indexes to a threads."""
+
+        if self.h3_index_queue.empty():
+            return None
+
+        return self.h3_index_queue.get()
+
+
+    def await_completion(self):
+        """Wait for all running threads to complete before exiting."""
+
+        for thread in self.running_threads:
+            thread.join()
+
+        print_info(f"Finished processing segments in {round((time.time() - self.start_time) / 60)} minutes.")
+
+
     def run(self):
         """Run Overture network preparation."""
 
-        self.initialize_dem_table()
-        self.import_dem_tiles()
+        """self.initialize_dem_table()
+        self.import_dem_tiles()"""
+
+        """self.initialize_connectors_table()
+        self.initialize_segments_table()"""
+
+        self.initialize_h3_grid_function()
+        self.compute_region_h3_grid()
+
+        """self.initiate_segment_processing()
+        self.await_completion()"""
+
+        self.initiate_impedance_calculation()
+        self.await_completion()
+
 
 
 def prepare_overture_network(region: str):

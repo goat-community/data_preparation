@@ -3,11 +3,10 @@ collection:
   geom_query: "SELECT geom
                 FROM public.nuts
                 WHERE levl_code = 0 AND cntr_code = 'DE'"
-  
-  output_schema: "public"
-  output_table_segments: "segments_de"
-  output_table_connectors: "connectors_de"
 
 preparation:
-  output_schema: "public"
-  output_table_dem: "dem_de"
+    cycling_surfaces:
+      pavingStones: '0.2'
+      unpaved: '0.2'
+      gravel: '0.3'
+      dirt: '0.4'

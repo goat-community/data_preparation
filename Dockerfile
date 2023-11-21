@@ -76,6 +76,9 @@ RUN pip install keplergl
 RUN pip install pydeck
 RUN pip install apache-sedona[spark]
 
+# Install tqdm for monitoring progress
+RUN pip install tqdm
+
 WORKDIR /app/
 
 ENTRYPOINT ["tail"]

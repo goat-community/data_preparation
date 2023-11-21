@@ -14,10 +14,6 @@ class OvertureNetworkCollection:
         self.region = region
         self.config = Config("network_overture", region)
 
-        self.output_schema = self.config.collection["output_schema"]
-        self.output_table_segments = self.config.collection["output_table_segments"]
-        self.output_table_connectors = self.config.collection["output_table_connectors"]
-
         self.OVERTURE_RELEASE = "2023-10-19-alpha.0"
 
 
@@ -72,9 +68,9 @@ class OvertureNetworkCollection:
     def initialize_tables(self):
         """Create tables in PostgreSQL database for segments and connectors."""
 
-        sql_create_table_segments = f"""
-            DROP TABLE IF EXISTS {self.output_schema}.{self.output_table_segments};
-            CREATE TABLE {self.output_schema}.{self.output_table_segments} (
+        sql_create_table_segments = """
+            DROP TABLE IF EXISTS temporal.segments;
+            CREATE TABLE temporal.segments (
                 id TEXT PRIMARY KEY,
                 subtype TEXT,
                 connectors TEXT[],
@@ -83,17 +79,17 @@ class OvertureNetworkCollection:
             );
         """
         self.db_local.perform(sql_create_table_segments)
-        print_info(f"Created table: {self.output_schema}.{self.output_table_segments}.")
+        print_info("Created table: temporal.segments.")
 
-        sql_create_table_connectors = f"""
-            DROP TABLE IF EXISTS {self.output_schema}.{self.output_table_connectors};
-            CREATE TABLE {self.output_schema}.{self.output_table_connectors} (
+        sql_create_table_connectors = """
+            DROP TABLE IF EXISTS temporal.connectors;
+            CREATE TABLE temporal.connectors (
                 id TEXT PRIMARY KEY,
                 geometry TEXT
             );
         """
         self.db_local.perform(sql_create_table_connectors)
-        print_info(f"Created table: {self.output_schema}.{self.output_table_connectors}.")
+        print_info("Created table: temporal.connectors.")
 
 
     def filter_region_segments(self, bbox_coords: dict):
@@ -153,19 +149,19 @@ class OvertureNetworkCollection:
     def alter_tables(self):
         """Alter tables to update column data types and create indexes."""
 
-        print_info(f"Altering table: {self.output_schema}.{self.output_table_segments}.")
-        sql_alter_table_segments = f"""
-            ALTER TABLE {self.output_schema}.{self.output_table_segments}
+        print_info("Altering table: temporal.segments.")
+        sql_alter_table_segments = """
+            ALTER TABLE temporal.segments
             ALTER COLUMN geometry SET DATA TYPE GEOMETRY(LINESTRING, 4326);
-            CREATE INDEX ON {self.output_schema}.{self.output_table_segments} USING GIST (geometry);
+            CREATE INDEX ON temporal.segments USING GIST (geometry);
         """
         self.db_local.perform(sql_alter_table_segments)
 
-        print_info(f"Altering table: {self.output_schema}.{self.output_table_connectors}.")
-        sql_alter_table_connectors = f"""
-            ALTER TABLE {self.output_schema}.{self.output_table_connectors}
+        print_info("Altering table: temporal.connectors.")
+        sql_alter_table_connectors = """
+            ALTER TABLE temporal.connectors
             ALTER COLUMN geometry SET DATA TYPE GEOMETRY(POINT, 4326);
-            CREATE INDEX ON {self.output_schema}.{self.output_table_connectors} USING GIST (geometry);
+            CREATE INDEX ON temporal.connectors USING GIST (geometry);
         """
         self.db_local.perform(sql_alter_table_connectors)
 
@@ -187,13 +183,13 @@ class OvertureNetworkCollection:
 
         self.fetch_data(
             data_frame=region_segments,
-            output_schema=self.output_schema,
-            output_table=self.output_table_segments
+            output_schema="temporal",
+            output_table="segments"
         )
         self.fetch_data(
             data_frame=region_connectors,
-            output_schema=self.output_schema,
-            output_table=self.output_table_connectors
+            output_schema="temporal",
+            output_table="connectors"
         )
 
         self.alter_tables()
