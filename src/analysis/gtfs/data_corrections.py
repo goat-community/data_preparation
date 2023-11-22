@@ -86,9 +86,10 @@ class DataCorrections:
                     group by agency_id, route_short_name
                 ),
                 extra_metro_routes as (
-                    select route_types->>'402' as route_id
-                    from route_types
-                    where route_types->>'402' is not null
+                    select route_id
+                    from gtfs.routes
+                    where agency_id = '654'
+                    and route_type = '402'
                 ),
                 extra_tram_routes as (
                     select route_types->>'900' as route_id
@@ -119,7 +120,7 @@ class DataCorrections:
         """Run the correction process."""
 
         # self.implement_data_corrections()
-        # self.fix_nuremberg_routes()
+        self.fix_nuremberg_routes()
 
 
 def perform_corrections(region: str):
