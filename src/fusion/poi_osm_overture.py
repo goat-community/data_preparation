@@ -42,7 +42,7 @@ class OSMOverturePOIFusion:
                         ADD COLUMN matching_key_{input} jsonb NULL;
 
                         UPDATE temporal.poi_{table_name}
-                        SET matching_key_{input} = JSONB_BUILD_OBJECT('source', source, 'extended_source', tags->>'extended_source')                       
+                        SET matching_key_{input} = JSONB_BUILD_OBJECT('source', source, 'extended_source', tags->>'extended_source')
                         WHERE tags->>'extended_source' IS NOT NULL
                         AND source IS NOT NULL;
                         ;
