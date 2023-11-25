@@ -3,10 +3,9 @@ collection:
   geom_query: "SELECT ST_Union(geom) AS geom
                 FROM public.geofence_active_mobility"
 
-  output_schema: "public"
-  output_table_segments: "segments_eu"
-  output_table_connectors: "connectors_eu"
-
 preparation:
-  output_schema: "public"
-  output_table_dem: "dem_eu"
+    cycling_surfaces:
+      pavingStones: '0.2'
+      unpaved: '0.2'
+      gravel: '0.3'
+      dirt: '0.4'

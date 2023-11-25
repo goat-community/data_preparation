@@ -5,6 +5,7 @@ from src.collection.gtfs import collect_gtfs
 from src.collection.landuse import collect_landuse
 from src.collection.network import collect_network
 from src.collection.network_pt import collect_network_pt
+from src.collection.network_overture import collect_overture_network
 from src.preparation.network import prepare_network
 from src.preparation.poi import prepare_poi
 from src.preparation.network import export_network
@@ -16,10 +17,12 @@ from src.migration.gtfs import migrate_gtfs
 from src.preparation.building import prepare_building
 from src.preparation.gtfs import export_gtfs, prepare_gtfs
 from src.preparation.network import export_network, prepare_network
+from src.preparation.network_overture import prepare_overture_network
 from src.preparation.poi import export_poi, prepare_poi
 from src.preparation.population import prepare_population
 from src.preparation.public_transport_stop import prepare_public_transport_stop
 from src.utils.utils import print_hashtags, print_info
+
 
 app = typer.Typer()
 
@@ -35,6 +38,7 @@ action_dict = {
         "network": collect_network,
         "network_pt": collect_network_pt,
         "gtfs": collect_gtfs,
+        "network_overture": collect_overture_network,
     },
     "preparation": {
         "poi": prepare_poi,
@@ -44,6 +48,7 @@ action_dict = {
         "public_transport_stop": prepare_public_transport_stop,
         "population": prepare_population,
         "gtfs": prepare_gtfs,
+        "network_overture": prepare_overture_network,
     },
     "export": {"poi": export_poi, "network": export_network, "gtfs": export_gtfs},
     "migration": {"gtfs": migrate_gtfs},

@@ -4,7 +4,7 @@ import subprocess
 import time
 from queue import Queue
 
-from network_overture_parallelism import ProcessSegments, UpdateImpedance
+from src.preparation.network_overture_parallelism import ProcessSegments
 
 from src.config.config import Config
 from src.core.config import settings
@@ -31,7 +31,7 @@ class OvertureNetworkPreparation:
         self.running_threads = []
 
         self.DEM_S3_URL = "https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com"
-        self.NUM_THREADS = 16
+        self.NUM_THREADS = (os.cpu_count() - 2)
 
 
     def initialize_dem_table(self):
@@ -58,22 +58,24 @@ class OvertureNetworkPreparation:
     def get_filtered_dem_tiles(self, region_bbox_coords: dict, full_tile_list: list):
         """Filter digital elevation model (DEM) tiles to our region of interest."""
 
-        # Filter DEM tiles
         filtered_tile_list= []
         for tile_filename in full_tile_list:
             tile_x = 0.0
             tile_y = 0.0
 
+            # Extract tile latitude from filename
             if "_N" in tile_filename:
                 tile_y = float(tile_filename.split("_N")[1].split("_00")[0])
             elif "_S" in tile_filename:
                 tile_y = float(tile_filename.split("_S")[1].split("_00")[0]) * -1.0
 
+            # Extract tile longitude from filename
             if "_E" in tile_filename:
                 tile_x = float(tile_filename.split("_E")[1].split("_00")[0])
             elif "_W" in tile_filename:
                 tile_x = float(tile_filename.split("_W")[1].split("_00")[0]) * -1.0
 
+            # Filter tile by comparing coordinates to our region's bounding box
             if tile_x >= int(region_bbox_coords["xmin"]) and \
                 tile_x <= region_bbox_coords["xmax"] and \
                 tile_y >= int(region_bbox_coords["ymin"]) and \
@@ -196,44 +198,6 @@ class OvertureNetworkPreparation:
         self.db_local.perform(sql_create_segments_table)
 
 
-    def initialize_h3_grid_function(self):
-        """Create a function to compute the corresponding H3 index grid for our region's geometry."""
-
-        sql_create_h3_grid_function = """
-            /*This function returns the h3 indexes that are intersecting the borderpoints of a specified geometry*/
-            DROP FUNCTION IF EXISTS public.fill_polygon_h3;
-            CREATE OR REPLACE FUNCTION public.fill_polygon_h3(geom geometry, h3_resolution integer)
-            RETURNS TABLE (h3_index h3index, h3_boundary geometry(linestring, 4326), h3_geom geometry(polygon, 4326))
-            LANGUAGE plpgsql
-            AS $function$
-            BEGIN
-                RETURN query
-                WITH border_points AS
-                (
-                    SELECT ((ST_DUMPPOINTS(geom)).geom)::point AS geom
-                ),
-                polygons AS
-                (
-                    SELECT ((ST_DUMP(geom)).geom)::polygon AS geom
-                ),
-                h3_ids AS
-                (
-                    SELECT h3_lat_lng_to_cell(b.geom, h3_resolution) h3_index
-                    FROM border_points b
-                    UNION ALL
-                    SELECT h3_polygon_to_cells(p.geom, ARRAY[]::polygon[], h3_resolution) h3_index
-                    FROM polygons p
-                )
-                SELECT sub.h3_index, ST_ExteriorRing(ST_SetSRID(geometry(h3_cell_to_boundary(sub.h3_index)), 4326)) as h3_boundary,
-                        ST_SetSRID(geometry(h3_cell_to_boundary(sub.h3_index)), 4326) as h3_geom
-                FROM h3_ids sub
-                GROUP BY sub.h3_index;
-            END;
-            $function$
-        """
-        self.db_local.perform(sql_create_h3_grid_function)
-
-
     def compute_region_h3_grid(self):
         """Use the h3 grid function to create a h3 grid for our region."""
 
@@ -282,11 +246,7 @@ class OvertureNetworkPreparation:
     def initiate_segment_processing(self):
         """Utilize multithreading to process segments in parallel."""
 
-        with open("src/db/functions/classify_segment.sql", "r") as f:
-            self.db_local.perform(f.read())
-        with open("src/db/functions/to_short_h3_5.sql", "r") as f:
-            self.db_local.perform(f.read())
-
+        # Get all H3 cells for this region
         sql_get_h3_indexes = """
             SELECT h3_index
             FROM basic.h3_3_grid
@@ -296,12 +256,13 @@ class OvertureNetworkPreparation:
         for h3_index in h3_indexes:
             self.h3_index_queue.put(h3_index[0])
 
+        # Load user-configured impedance coefficients for various surface types
         cycling_surfaces = json.dumps(self.config.preparation["cycling_surfaces"])
 
         print_info(f"Starting {self.NUM_THREADS} threads for processing segments.")
-
         self.start_time = time.time()
 
+        # Start threads
         self.running_threads.clear()
         for thread_id in range(1, self.NUM_THREADS + 1):
             thread = ProcessSegments(
@@ -314,42 +275,8 @@ class OvertureNetworkPreparation:
             self.running_threads.append(thread)
 
 
-    def initiate_impedance_calculation(self):
-        """Utilize multithreading to process segments in parallel."""
-
-        with open("src/db/functions/get_idw_values.sql", "r") as f:
-            self.db_local.perform(f.read())
-        with open("src/db/functions/compute_impedances.sql", "r") as f:
-            self.db_local.perform(f.read())
-        with open("src/db/functions/get_slope_profile.sql", "r") as f:
-            self.db_local.perform(f.read())
-
-        sql_get_h3_indexes = """
-            SELECT h3_short
-            FROM basic.h3_5_grid
-            ORDER BY h3_short;
-        """
-        h3_indexes = self.db_local.select(sql_get_h3_indexes)
-        for h3_index in h3_indexes:
-            self.h3_index_queue.put(h3_index[0])
-
-        print_info(f"Starting {self.NUM_THREADS} threads for calculating segment impedances.")
-
-        self.start_time = time.time()
-
-        self.running_threads.clear()
-        for thread_id in range(1, self.NUM_THREADS + 1):
-            thread = UpdateImpedance(
-                thread_id=thread_id,
-                db_local=self.db_local,
-                get_next_h3_index=self.get_next_h3_index
-            )
-            thread.start()
-            self.running_threads.append(thread)
-
-
     def get_next_h3_index(self):
-        """Queue management function to assign H3 indexes to a threads."""
+        """Queue management function to assign H3 indexes to threads."""
 
         if self.h3_index_queue.empty():
             return None
@@ -369,21 +296,16 @@ class OvertureNetworkPreparation:
     def run(self):
         """Run Overture network preparation."""
 
-        """self.initialize_dem_table()
-        self.import_dem_tiles()"""
+        self.initialize_dem_table()
+        self.import_dem_tiles()
 
-        """self.initialize_connectors_table()
-        self.initialize_segments_table()"""
+        self.initialize_connectors_table()
+        self.initialize_segments_table()
 
-        self.initialize_h3_grid_function()
         self.compute_region_h3_grid()
 
-        """self.initiate_segment_processing()
-        self.await_completion()"""
-
-        self.initiate_impedance_calculation()
+        self.initiate_segment_processing()
         self.await_completion()
-
 
 
 def prepare_overture_network(region: str):

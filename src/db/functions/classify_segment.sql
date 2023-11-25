@@ -183,7 +183,7 @@ BEGIN
 		-- Set remaining properties for every output segment, these are derived from primary properties
 		output_segment.length_m = ST_Length(output_segment.geom::geography);
 		output_segment.length_3857 = ST_Length(ST_Transform(output_segment.geom, 3857));
-		output_segment.coordinates_3857 = ST_AsGeoJson(ST_Transform(output_segment.geom, 3857))::jsonb;
+		output_segment.coordinates_3857 = (ST_AsGeoJson(ST_Transform(output_segment.geom, 3857))::jsonb)['coordinates'];
 		output_segment.osm_id = NULL;
 		output_segment.class_ = input_segment.class;
 		output_segment.h3_3 = to_short_h3_3(h3_lat_lng_to_cell(ST_Centroid(output_segment.geom)::point, 3)::bigint);
@@ -196,13 +196,13 @@ BEGIN
 		output_segment.maxspeed_forward = ((input_segment.restrictions -> 'speedLimits') -> 'maxSpeed')[0];
 		output_segment.tags = input_segment.flags;
 
-		-- Check if digital elevation model (DEM) table exists and compute slope profile
-		-- IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'dem') THEN
-		-- 	SELECT c.* 
-		-- 	INTO output_segment.impedance_slope, output_segment.impedance_slope_reverse
-		-- 	FROM get_slope_profile(output_segment.geom, output_segment.length_m, ST_LENGTH(output_segment.geom)) s, 
-		-- 	LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c;
-		-- END IF;
+		-- Check if digital elevation model (DEM) table exists and compute impedance values
+		IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'dem') THEN
+			SELECT c.* 
+			INTO output_segment.impedance_slope, output_segment.impedance_slope_reverse
+			FROM get_slope_profile(output_segment.geom, output_segment.length_m, ST_LENGTH(output_segment.geom)) s, 
+			LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c;
+		END IF;
 
 		-- Insert processed output segment data into table
         INSERT INTO basic.segments_processed (
