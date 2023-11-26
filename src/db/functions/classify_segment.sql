@@ -7,7 +7,8 @@ CREATE TYPE output_segment AS (
 	impedance_surface float8,
     coordinates_3857 json, maxspeed_forward int4,
 	maxspeed_backward int4, "source" text,
-	target text, tags jsonb,
+	source_index integer, target text,
+	target_index integer, tags jsonb,
     geom public.geometry(linestring, 4326),
     h3_3 int2, h3_5 int[]
 );
@@ -87,8 +88,7 @@ BEGIN
 	FOREACH new_sub_segment IN ARRAY sub_segments LOOP
 		-- Check if segment extends further than H3 index boundary and splitting is necessary
 		IF ST_Intersects(new_sub_segment.geom, h3_boundary) = FALSE THEN
-			-- Splitting is not necessary
-			output_segments = array_append(output_segments, new_sub_segment);
+			-- Splitting this segment is not necessary, just process its source/target connectors
 
 			-- If source connector doesn't already exist in output table, insert it
 			INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
@@ -98,6 +98,10 @@ BEGIN
 			WHERE id = new_sub_segment.source
 			ON CONFLICT DO NOTHING;
 
+			-- Get serial index of new or existing source connector
+			SELECT index FROM basic.connectors_processed WHERE id = new_sub_segment.source
+			INTO new_sub_segment.source_index;
+
 			-- If target connector doesn't already exist in output table, insert it
 			INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
 			SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
@@ -105,6 +109,12 @@ BEGIN
 			FROM temporal.connectors
 			WHERE id = new_sub_segment.target
 			ON CONFLICT DO NOTHING;
+
+			-- Get serial index of new or existing target connector
+			SELECT index FROM basic.connectors_processed WHERE id = new_sub_segment.target
+			INTO new_sub_segment.target_index;
+
+			output_segments = array_append(output_segments, new_sub_segment);
 		ELSE
 			-- Loop through split segment geometry to create final segments & connectors
 			FOR split_geometry IN SELECT * FROM (
@@ -142,16 +152,9 @@ BEGIN
 					WHERE id = output_segment.source
 					ON CONFLICT DO NOTHING;
 
-					-- Create new target connector for split segment
-					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-					VALUES (
-						output_segment.target, NULL, split_geometry.target,
-						to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
-						to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
-					);
-				ELSIF split_geometry.row_index > 1 AND split_geometry.row_index < split_geometry.row_count THEN
-					output_segment.source = 'connector.' || new_sub_segment.id || '_clip_' || (split_geometry.row_index - 1);
-					output_segment.target = 'connector.' || output_segment.id;
+					-- Get serial index of new or existing source connector
+					SELECT index FROM basic.connectors_processed WHERE id = output_segment.source
+					INTO output_segment.source_index;
 
 					-- Create new target connector for split segment
 					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
@@ -160,9 +163,36 @@ BEGIN
 						to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
 						to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
 					);
+
+					-- Get serial index of new target connector
+					SELECT index FROM basic.connectors_processed WHERE id = output_segment.target
+					INTO output_segment.target_index;
+				ELSIF split_geometry.row_index > 1 AND split_geometry.row_index < split_geometry.row_count THEN
+					output_segment.source = 'connector.' || new_sub_segment.id || '_clip_' || (split_geometry.row_index - 1);
+					output_segment.target = 'connector.' || output_segment.id;
+
+					-- Get serial index of source connector created by previous split segment
+					SELECT index FROM basic.connectors_processed WHERE id = output_segment.source
+					INTO output_segment.source_index;
+
+					-- Create new target connector for split segment
+					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
+					VALUES (
+						output_segment.target, NULL, split_geometry.target,
+						to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
+						to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
+					);
+
+					-- Get serial index of new target connector
+					SELECT index FROM basic.connectors_processed WHERE id = output_segment.target
+					INTO output_segment.target_index;
 				ELSE
 					output_segment.source = 'connector.' || new_sub_segment.id || '_clip_' || (split_geometry.row_index - 1);
 					output_segment.target = new_sub_segment.target;
+
+					-- Get serial index of source connector created by previous split segment
+					SELECT index FROM basic.connectors_processed WHERE id = output_segment.source
+					INTO output_segment.source_index;
 					
 					-- If target connector doesn't already exist in output table, insert it
 					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
@@ -171,6 +201,10 @@ BEGIN
 					FROM temporal.connectors
 					WHERE id = output_segment.target
 					ON CONFLICT DO NOTHING;
+
+					-- Get serial index of new or existing target connector
+					SELECT index FROM basic.connectors_processed WHERE id = output_segment.target
+					INTO output_segment.target_index;
 				END IF;
 
 				output_segments = array_append(output_segments, output_segment);
@@ -206,7 +240,7 @@ BEGIN
 
 		-- Insert processed output segment data into table
         INSERT INTO basic.segments_processed (
-                id, length_m, length_3857,
+                length_m, length_3857,
 				osm_id, bicycle, foot,
                 class_, impedance_slope, impedance_slope_reverse,
 				impedance_surface, coordinates_3857, maxspeed_forward,
@@ -214,11 +248,11 @@ BEGIN
 				tags, geom, h3_3, h3_5
         )
         VALUES (
-			output_segment.id, output_segment.length_m, output_segment.length_3857,
+			output_segment.length_m, output_segment.length_3857,
 			output_segment.osm_id, output_segment.bicycle, output_segment.foot,
 			output_segment.class_, output_segment.impedance_slope, output_segment.impedance_slope_reverse,
 			output_segment.impedance_surface, output_segment.coordinates_3857, output_segment.maxspeed_forward,
-			output_segment.maxspeed_backward, output_segment.source, output_segment.target,
+			output_segment.maxspeed_backward, output_segment.source_index, output_segment.target_index,
 			output_segment.tags, output_segment.geom, output_segment.h3_3, output_segment.h3_5
         );
     END LOOP;

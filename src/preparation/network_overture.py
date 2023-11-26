@@ -4,11 +4,10 @@ import subprocess
 import time
 from queue import Queue
 
-from src.preparation.network_overture_parallelism import ProcessSegments
-
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
+from src.preparation.network_overture_parallelism import ProcessSegments
 from src.utils.utils import (
     delete_dir,
     download_link,
@@ -148,14 +147,16 @@ class OvertureNetworkPreparation:
         sql_create_connectors_table = """
             DROP TABLE IF EXISTS basic.connectors_processed CASCADE;
             CREATE TABLE basic.connectors_processed (
-                id text NOT NULL,
+                index serial NOT NULL,
+                id text NOT NULL UNIQUE,
                 osm_id int8 NULL,
                 geom public.geometry(point, 4326) NOT NULL,
                 h3_3 int2 NOT NULL,
                 h3_5 integer NOT NULL,
-                CONSTRAINT connectors_processed_pkey PRIMARY KEY (id)
+                CONSTRAINT connectors_processed_pkey PRIMARY KEY (index)
             );
-            CREATE INDEX idx_connectors_processed_id_h3_3 ON basic.connectors_processed (id, h3_3);
+            CREATE INDEX idx_connectors_processed_id on basic.connectors_processed (id);
+            CREATE INDEX idx_connectors_processed_id_h3_3 ON basic.connectors_processed (index, h3_3);
             CREATE INDEX idx_connectors_processed_geom ON basic.connectors_processed USING gist (geom);
         """
         self.db_local.perform(sql_create_connectors_table)
@@ -167,7 +168,7 @@ class OvertureNetworkPreparation:
         sql_create_segments_table = """
             DROP TABLE IF EXISTS basic.segments_processed;
             CREATE TABLE basic.segments_processed (
-                id text NOT NULL,
+                id serial NOT NULL,
                 length_m float8 NOT NULL,
                 length_3857 float8 NOT NULL,
                 osm_id int8 NULL,
@@ -180,15 +181,15 @@ class OvertureNetworkPreparation:
                 coordinates_3857 json NOT NULL,
                 maxspeed_forward int4 NULL,
                 maxspeed_backward int4 NULL,
-                "source" text NOT NULL,
-                target text NOT NULL,
+                "source" integer NOT NULL,
+                target integer NOT NULL,
                 tags jsonb NULL,
                 geom public.geometry(linestring, 4326) NOT NULL,
                 h3_3 int2 NOT NULL,
                 h3_5 int[] NULL,
                 CONSTRAINT segments_processed_pkey PRIMARY KEY (id),
-                CONSTRAINT segments_processed_source_fkey FOREIGN KEY ("source") REFERENCES basic.connectors_processed(id),
-                CONSTRAINT segments_processed_target_fkey FOREIGN KEY (target) REFERENCES basic.connectors_processed(id)
+                CONSTRAINT segments_processed_source_fkey FOREIGN KEY ("source") REFERENCES basic.connectors_processed(index),
+                CONSTRAINT segments_processed_target_fkey FOREIGN KEY (target) REFERENCES basic.connectors_processed(index)
             );
             CREATE INDEX idx_segments_processed_id_h3_3 ON basic.segments_processed (id, h3_3);
             CREATE INDEX idx_segments_processed_geom ON basic.segments_processed USING gist (geom);
@@ -293,6 +294,16 @@ class OvertureNetworkPreparation:
         print_info(f"Finished processing segments in {round((time.time() - self.start_time) / 60)} minutes.")
 
 
+    def clean_up(self):
+        """Remove unused temp columns from connectors_processed table."""
+
+        sql_clean_up = """
+            ALTER TABLE basic.connectors_processed DROP COLUMN id;
+            ALTER TABLE basic.connectors_processed RENAME COLUMN index TO id;
+        """
+        self.db_local.perform(sql_clean_up)
+
+
     def run(self):
         """Run Overture network preparation."""
 
@@ -306,6 +317,8 @@ class OvertureNetworkPreparation:
 
         self.initiate_segment_processing()
         self.await_completion()
+
+        self.clean_up()
 
 
 def prepare_overture_network(region: str):
