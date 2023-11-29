@@ -231,12 +231,12 @@ BEGIN
 		output_segment.tags = input_segment.flags;
 
 		-- Check if digital elevation model (DEM) table exists and compute impedance values
-		IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'dem') THEN
-			SELECT c.* 
-			INTO output_segment.impedance_slope, output_segment.impedance_slope_reverse
-			FROM get_slope_profile(output_segment.geom, output_segment.length_m, ST_LENGTH(output_segment.geom)) s, 
-			LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c;
-		END IF;
+		-- IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'dem') THEN
+		-- 	SELECT c.* 
+		-- 	INTO output_segment.impedance_slope, output_segment.impedance_slope_reverse
+		-- 	FROM get_slope_profile(output_segment.geom, output_segment.length_m, ST_LENGTH(output_segment.geom)) s, 
+		-- 	LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c;
+		-- END IF;
 
 		-- Insert processed output segment data into table
         INSERT INTO basic.segments_processed (

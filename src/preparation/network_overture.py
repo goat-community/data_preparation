@@ -2,12 +2,18 @@ import json
 import os
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
+
+import psycopg2
 
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
-from src.preparation.network_overture_parallelism import ProcessSegments
+from src.preparation.network_overture_parallelism import (
+    ComputeImpedance,
+    ProcessSegments,
+)
 from src.utils.utils import (
     delete_dir,
     download_link,
@@ -25,9 +31,6 @@ class OvertureNetworkPreparation:
         self.db_remote = db_remote
         self.region = region
         self.config = Config("network_overture", region)
-
-        self.h3_index_queue = Queue()
-        self.running_threads = []
 
         self.DEM_S3_URL = "https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com"
         self.NUM_THREADS = (os.cpu_count() - 2)
@@ -247,51 +250,90 @@ class OvertureNetworkPreparation:
     def initiate_segment_processing(self):
         """Utilize multithreading to process segments in parallel."""
 
-        # Get all H3 cells for this region
+        # Load user-configured impedance coefficients for various surface types
+        cycling_surfaces = json.dumps(self.config.preparation["cycling_surfaces"])
+
+        # Create separate DB connections for each thread
+        db_connections = []
+        for _ in range(self.NUM_THREADS):
+            connection_string = f"dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} \
+                                 password={settings.POSTGRES_PASSWORD} host={settings.POSTGRES_HOST} \
+                                 port={settings.POSTGRES_PORT}"
+            conn = psycopg2.connect(connection_string)
+            db_connections.append(conn)
+
+        print_info(f"Starting {self.NUM_THREADS} threads for processing segments.")
+        start_time = time.time()
+
+        # Start threads
+        try:
+            with ThreadPoolExecutor(max_workers=self.NUM_THREADS) as executor:
+                # Process segments & connectors
+                h3_3_queue = self.get_h3_3_index_queue()
+                futures = [
+                    executor.submit(
+                        ProcessSegments(
+                            thread_id=thread_id,
+                            db_connection=db_connections[thread_id],
+                            get_next_h3_index=lambda: h3_3_queue.get() if not h3_3_queue.empty() else None,
+                            cycling_surfaces=cycling_surfaces,
+                        ).run
+                    )
+                    for thread_id in range(self.NUM_THREADS)
+                ]
+                [future.result() for future in as_completed(futures)]
+
+                # Compute segment impedance values
+                h3_5_queue = self.get_h3_5_index_queue()
+                futures = [
+                    executor.submit(
+                        ComputeImpedance(
+                            thread_id=thread_id,
+                            db_connection=db_connections[thread_id],
+                            get_next_h3_index=lambda: h3_5_queue.get() if not h3_5_queue.empty() else None,
+                        ).run
+                    )
+                    for thread_id in range(self.NUM_THREADS)
+                ]
+                [future.result() for future in as_completed(futures)]
+        except Exception as e:
+            print_error(e)
+            raise e
+        finally:
+            # Clean up DB connections
+            [conn.close() for conn in db_connections]
+
+        print_info(f"Finished processing segments in {round((time.time() - start_time) / 60)} minutes.")
+
+
+    def get_h3_3_index_queue(self):
+        """Get queue of H3 indexes to be processed by threads."""
+
         sql_get_h3_indexes = """
             SELECT h3_index
             FROM basic.h3_3_grid
             ORDER BY h3_index;
         """
         h3_indexes = self.db_local.select(sql_get_h3_indexes)
+        h3_index_queue = Queue()
         for h3_index in h3_indexes:
-            self.h3_index_queue.put(h3_index[0])
-
-        # Load user-configured impedance coefficients for various surface types
-        cycling_surfaces = json.dumps(self.config.preparation["cycling_surfaces"])
-
-        print_info(f"Starting {self.NUM_THREADS} threads for processing segments.")
-        self.start_time = time.time()
-
-        # Start threads
-        self.running_threads.clear()
-        for thread_id in range(1, self.NUM_THREADS + 1):
-            thread = ProcessSegments(
-                thread_id=thread_id,
-                db_local=self.db_local,
-                get_next_h3_index=self.get_next_h3_index,
-                cycling_surfaces=cycling_surfaces
-            )
-            thread.start()
-            self.running_threads.append(thread)
+            h3_index_queue.put(h3_index[0])
+        return h3_index_queue
 
 
-    def get_next_h3_index(self):
-        """Queue management function to assign H3 indexes to threads."""
+    def get_h3_5_index_queue(self):
+        """Get queue of H3 indexes to be processed by threads."""
 
-        if self.h3_index_queue.empty():
-            return None
-
-        return self.h3_index_queue.get()
-
-
-    def await_completion(self):
-        """Wait for all running threads to complete before exiting."""
-
-        for thread in self.running_threads:
-            thread.join()
-
-        print_info(f"Finished processing segments in {round((time.time() - self.start_time) / 60)} minutes.")
+        sql_get_h3_indexes = """
+            SELECT h3_short
+            FROM basic.h3_5_grid
+            ORDER BY h3_index;
+        """
+        h3_indexes = self.db_local.select(sql_get_h3_indexes)
+        h3_index_queue = Queue()
+        for h3_index in h3_indexes:
+            h3_index_queue.put(h3_index[0])
+        return h3_index_queue
 
 
     def clean_up(self):
@@ -316,7 +358,6 @@ class OvertureNetworkPreparation:
         self.compute_region_h3_grid()
 
         self.initiate_segment_processing()
-        self.await_completion()
 
         self.clean_up()
 

@@ -1,11 +1,8 @@
 import time
 from threading import Thread
 
-import psycopg2
 from tqdm import tqdm
 
-from src.core.config import settings
-from src.db.db import Database
 from src.utils.utils import print_error
 
 
@@ -14,27 +11,21 @@ class ProcessSegments(Thread):
     def __init__(
             self,
             thread_id: int,
-            db_local: Database,
+            db_connection,
             get_next_h3_index,
             cycling_surfaces
         ):
         super().__init__(group=None, target=self)
 
         self.thread_id = thread_id
-        self.db_local = db_local
+        self.db_connection = db_connection
+        self.db_cursor = db_connection.cursor()
         self.get_next_h3_index = get_next_h3_index
         self.cycling_surfaces = cycling_surfaces
 
 
     def run(self):
         """Process segment data for this H3 index region"""
-
-        # Create new DB connection for this thread
-        connection_string = f"dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} \
-                            password={settings.POSTGRES_PASSWORD} host={settings.POSTGRES_HOST} \
-                            port={settings.POSTGRES_PORT}"
-        conn = psycopg2.connect(connection_string)
-        cur = conn.cursor()
 
         h3_index = self.get_next_h3_index()
         while h3_index is not None:
@@ -46,8 +37,8 @@ class ProcessSegments(Thread):
                 ST_Intersects(ST_Centroid(s.geometry), g.h3_geom)
                 AND g.h3_index = '{h3_index}';
             """
-            segment_ids = cur.execute(sql_get_segment_ids)
-            segment_ids = cur.fetchall()
+            segment_ids = self.db_cursor.execute(sql_get_segment_ids)
+            segment_ids = self.db_cursor.fetchall()
 
             # Process each segment
             for index in tqdm(
@@ -64,16 +55,60 @@ class ProcessSegments(Thread):
                     );
                 """
                 try:
-                    cur.execute(sql_classify_segment)
-                    
+                    self.db_cursor.execute(sql_classify_segment)
+
                     # Commit changes to DB once every 1000 segments
                     # This significantly improves performance
                     if index % 1000 == 0:
-                        conn.commit()
+                        self.db_connection.commit()
                 except Exception as e:
                     print_error(f"Thread {self.thread_id} failed to process segment {h3_index}, error: {e}.")
                     break
 
             h3_index = self.get_next_h3_index()
 
-        conn.close()
+
+class ComputeImpedance(Thread):
+
+    def __init__(
+            self,
+            thread_id: int,
+            db_connection,
+            get_next_h3_index,
+        ):
+        super().__init__(group=None, target=self)
+
+        self.thread_id = thread_id
+        self.db_connection = db_connection
+        self.db_cursor = db_connection.cursor()
+        self.get_next_h3_index = get_next_h3_index
+
+
+    def run(self):
+        """Update slope impedance data for this H3 index region"""
+
+        h3_index = self.get_next_h3_index()
+        while h3_index is not None:
+            sql_update_impedance = f"""
+                WITH segment AS (
+                    SELECT id, length_m, geom
+                    FROM basic.segments_processed
+                    WHERE h3_5[1] = {h3_index}
+                )
+                UPDATE basic.segments_processed AS sp
+                SET impedance_slope = c.imp, impedance_slope_reverse = c.rs_imp
+                FROM segment,
+                LATERAL get_slope_profile(segment.geom, segment.length_m, ST_LENGTH(segment.geom)) s,
+                LATERAL compute_impedances(s.elevs, s.linklength, s.lengthinterval) c
+                WHERE sp.id = segment.id;
+            """
+            try:
+                start_time = time.time()
+                self.db_cursor.execute(sql_update_impedance)
+                self.db_connection.commit()
+                print(f"Thread {self.thread_id} updated impedance for H3 index {h3_index}. Time: {round(time.time() - start_time)} seconds.")
+            except Exception as e:
+                print_error(f"Thread {self.thread_id} failed to update impedances for H3 index {h3_index}, error: {e}.")
+                break
+
+            h3_index = self.get_next_h3_index()
