@@ -265,15 +265,16 @@ class PrepareKart:
                 ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN source SET NOT NULL;
                 ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN geom SET NOT NULL;
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS name_not_empty_string_check, ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
-                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS check_name_no_whitespace, ADD CONSTRAINT check_name_no_whitespace CHECK (name = LTRIM(RTRIM(name)) AND name <> '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS check_street_no_whitespace, ADD CONSTRAINT check_street_no_whitespace CHECK (street = LTRIM(RTRIM(street)) AND street <> '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS street_not_empty_string_check, ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS housenumber_not_empty_string_check, ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS zipcode_not_empty_string_check, ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS phone_not_empty_string_check, ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS email_check, ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS opening_hours_not_empty_string_check, ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS website_not_empty_string_check, ADD CONSTRAINT website_not_empty_string_check CHECK (website != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
-                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
                 ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
                 ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
@@ -282,11 +283,35 @@ class PrepareKart:
             # Add additional constraints all tables besides poi_childcare and poi_school
             if table_name not in ("poi_childcare", "poi_school"):
                 sql_addition_constraints = f"""
-                ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN category SET NOT NULL;
-                ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
-                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS other_categories_array_check, ADD CONSTRAINT other_categories_array_check CHECK (other_categories IS NULL OR other_categories::text[] IS NOT NULL);
+                    ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN category SET NOT NULL;
+                    ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS other_categories_array_check, ADD CONSTRAINT other_categories_array_check CHECK (other_categories IS NULL OR other_categories::text[] IS NOT NULL);
+                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
                 """
                 self.db.perform(sql_addition_constraints)
+
+            # Add additional constraint for operator and tags column to all tables besides poi_childcare
+            if table_name not in ("poi_childcare"):
+                sql_addition_constraints_operator_tags = f"""
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
+                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+            """
+                self.db.perform(sql_addition_constraints_operator_tags)
+
+            # Add additional constraints for poi_childcare
+            if table_name in ("poi_childcare"):
+                sql_addition_constraints_childcare = f"""
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS min_age_check, ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS max_age_check, ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS min_max_check, ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+                """
+                print(f"Executing SQL: {sql_addition_constraints_childcare}")
+
+                self.db.perform(sql_addition_constraints_childcare)
 
         # SQL check of timestamp is in ZULU UTC format
 
