@@ -8,7 +8,7 @@
             "program": "${workspaceFolder}/src/collection/kart/prepare_kart.py",
             "console": "integratedTerminal",
             "args": [
-                "--repo_url", "https://github.com/goat-community/poi",
+                "--repo_url", "https://github.com/goat-community/pois",
                 "--maintainer", "rds",
                 "--table_name", "poi"
             ],
