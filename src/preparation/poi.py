@@ -4,17 +4,17 @@ import polars as pl
 
 from src.config.config import Config
 from src.core.config import settings
-from src.utils.utils import (
-    vector_check_string_similarity_bulk,
-    timing,
-    polars_df_to_postgis,
-    create_table_dump,
-    restore_table_dump,
-    print_info,
-)
 from src.db.db import Database
 from src.db.tables.poi import POITable
 from src.preparation.subscription import Subscription
+from src.utils.utils import (
+    create_table_dump,
+    polars_df_to_postgis,
+    print_info,
+    restore_table_dump,
+    timing,
+    vector_check_string_similarity_bulk,
+)
 
 
 class PoiPreparation:
@@ -622,42 +622,104 @@ class PoiPreparation:
         )
         classified_tags["leisure"].append("water_park")
 
-        # Filter swimming pools
+        # exclude swimming pools as we do not want the swimming pools itself, but the whole facility
         df_swimming_pools = df.filter(
             (pl.col("leisure") == "swimming_pool") & (pl.col("category") == "str")
         )
 
-        # Get dataframe without subway entrances
+        # Get dataframe without swimming pools
         df = df.join(df_swimming_pools, on="osm_id", how="anti")
 
+        df = df.with_columns(
+            pl.when(
+                (pl.col("sport") == "swimming")
+            )
+            .then("swimming")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["sport"].append("swimming")
+
+        # classify farm shops
+        df = df.with_columns(
+            pl.when(
+                (pl.col("shop") == "farm") | (pl.col("shop") == "honey")
+                )
+            .then("farm_shop")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["shop"].extend(["farm", "honey"])
+
+        # classifies ebike charging stations and charging stations
+        df = df.with_columns(
+            pl.when(
+                (pl.col("amenity") == "charging_station")
+            )
+            .then(
+                pl.when(
+                    pl.col("tags").apply(lambda tags_str: 'bicycle":"yes"' in tags_str)
+                )
+                .then("ebike_charging_station")
+                .otherwise("charging_station")
+            )
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].append("charging_station")
+
+        # classifies food vending machines
+        df = df.with_columns(
+            pl.when(
+                (pl.col("amenity") == "vending_machine")
+                & (pl.col("tags").apply(lambda tags: any(tag in tags for tag in ['food', 'bread', 'milk', 'eggs', 'meat', 'potato', 'honey', 'cheese'])))
+            )
+            .then("food_vending_machine")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].append("vending_machine")
+
+        # classifies religious sites
+        df = df.with_columns(
+            pl.when(
+                ((pl.col("amenity") == "monastery") | (pl.col("amenity") == "place_of_worship"))
+                & (pl.col("tags").apply(lambda tags_str: 'wikidata' in tags_str))
+            )
+            .then("religious_site")
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].extend(["monastery", "place_of_worship"])
 
         # Loop through config
         for key in self.config_pois_preparation:
-            df_classified_config = pl.DataFrame()
-            # Get OSM tag
-            for tag, values in self.config_pois.collection["osm_tags"].items():
-                if key in values:
-                    osm_tag = tag
-                    break
+            if key not in [item for sublist in classified_tags.values() for item in sublist]:
+                df_classified_config = pl.DataFrame()
+                # Get OSM tag
+                for tag, values in self.config_pois.collection["osm_tags"].items():
+                    if key in values:
+                        osm_tag = tag
+                        break
 
-            # Check if config should be inherited
-            if list(self.config_pois_preparation[key].keys())[0] == "inherit":
-                category = self.config_pois_preparation[key]["inherit"]
-            else:
-                category = key
+                # Check if config should be inherited
+                if list(self.config_pois_preparation[key].keys())[0] == "inherit":
+                    category = self.config_pois_preparation[key]["inherit"]
+                else:
+                    category = key
 
-            # If filter returns nothing continue
-            if df.filter(pl.col(osm_tag) == key).height == 0:
-                continue
-            else:
-                df_classified_config = self.classify_by_config(
-                    df=df.filter(pl.col(osm_tag) == key), category=category
-                )
+                # If filter returns nothing continue
+                if df.filter(pl.col(osm_tag) == key).height == 0:
+                    continue
+                else:
+                    df_classified_config = self.classify_by_config(
+                        df=df.filter(pl.col(osm_tag) == key), category=category
+                    )
 
-            # Remove rows classified by config
-            df = df.filter(~(pl.col(osm_tag) == key) | (pl.col(osm_tag).is_null()))
-            df = pl.concat([df_classified_config, df], how="diagonal")
-            classified_tags[osm_tag].append(key)
+                # Remove rows classified by config
+                df = df.filter(~(pl.col(osm_tag) == key) | (pl.col(osm_tag).is_null()))
+                df = pl.concat([df_classified_config, df], how="diagonal")
+                classified_tags[osm_tag].append(key)
 
         # Remove all categories from config that were already classified
         cleaned_config_poi = self.config_pois.collection["osm_tags"]

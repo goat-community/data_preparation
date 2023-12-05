@@ -45,16 +45,14 @@ class OverturePOIPreparation:
                             WHEN cardinality(socials) > 0 THEN socials[1]::varchar
                             ELSE NULL
                         END,
-                        'brand', brand) || 
+                        'brand', brand) ||
                     JSONB_BUILD_OBJECT('extended_source', JSONB_BUILD_OBJECT('ogc_fid', id))
-                )) AS TAGS,            
+                )) AS TAGS,
                 wkb_geometry
             FROM temporal.places_{self.region};
         """
 
         self.db.perform(insert_into_poi_table)
-
-        categories = ', '.join(["'{}'".format(cat.replace("'", "''")) for cats in self.data_config.preparation['category'].values() for cat in cats])
 
         clean_data = f"""
             DROP TABLE IF EXISTS public.poi_overture_{self.region};
@@ -63,7 +61,6 @@ class OverturePOIPreparation:
                 FROM temporal.poi_overture_{self.region}_raw
                 WHERE category IS NOT NULL
                 AND (tags ->> 'confidence')::numeric > 0.6
-                AND category IN ({categories})
             );
         """
         self.db.perform(clean_data)
