@@ -1,13 +1,11 @@
-import duckdb
 import os
 import subprocess
 import time
-from src.utils.utils import (
-    print_hashtags
-)
+import duckdb
 from src.config.config import Config
-from src.db.db import Database
 from src.core.config import settings
+from src.db.db import Database
+from src.utils.utils import print_hashtags
 
 class OverturePOICollection:
     """Collection of the places data set from the Overture Maps Foundation"""
@@ -121,6 +119,7 @@ class OverturePOICollection:
         self.db.perform(drop_create_table_sql)
 
         # clip data to study area
+        # TODO: do i create duplicates?
         for geom in region_geoms:
             clip_poi_overture = f"""
                 INSERT INTO temporal.places_{self.region}
@@ -142,7 +141,7 @@ class OverturePOICollection:
         """
         self.db.perform(adjust_names_column)
 
-        # adjust categories column -> category_1, category_2 etc.
+        # adjust categories column
         adjust_categories_column = f"""
             ALTER TABLE temporal.places_{self.region}
             ADD COLUMN other_categories varchar[];
@@ -172,12 +171,10 @@ class OverturePOICollection:
 
             UPDATE temporal.places_{self.region}
             SET
-                street = substring(addresses::jsonb->0->>'freeform', '^(.*?)([0-9])'),
-                housenumber = substring(addresses::jsonb->0->>'freeform', '([0-9].*)$'),
-                zipcode = (addresses::jsonb->0->>'postcode')::varchar,
-                websites[1] = CASE WHEN cardinality(websites) > 0 THEN websites[1] ELSE NULL END,
-                socials[1] = CASE WHEN cardinality(socials) > 0 THEN socials[1] ELSE NULL END,
-                phones[1] = CASE WHEN cardinality(phones) > 0 THEN phones[1] ELSE NULL END;
+                street = (SELECT substring(addresses::jsonb->0->>'freeform', '^(.*?)([0-9])')),
+                housenumber = (SELECT substring(addresses::jsonb->0->>'freeform', '([0-9].*)$')),
+                zipcode = (SELECT (addresses::jsonb->0->>'postcode')::varchar),
+                brand = (SELECT brand::jsonb->'names'->'common'->0->>'value');
         """
         self.db.perform(adjust_columns)
 
