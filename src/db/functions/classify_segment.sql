@@ -1,4 +1,4 @@
-DROP TYPE IF EXISTS output_segment;
+DROP TYPE IF EXISTS output_segment CASCADE;
 CREATE TYPE output_segment AS (
 	id text, length_m float8, length_3857 float8,
 	osm_id int8, bicycle text, foot text,
@@ -10,15 +10,14 @@ CREATE TYPE output_segment AS (
 	source_index integer, target text,
 	target_index integer, tags jsonb,
     geom public.geometry(linestring, 4326),
-    h3_3 int2, h3_5 int[]
+    h3_3 int2, h3_5 int4
 );
 
 
 DROP FUNCTION IF EXISTS public.classify_segment;
 CREATE OR REPLACE FUNCTION public.classify_segment(
 	segment_id TEXT,
-	cycling_surfaces JSONB,
-	h3_boundary TEXT
+	cycling_surfaces JSONB
 )
 RETURNS VOID
 AS $$
@@ -33,8 +32,6 @@ DECLARE
 	
 	source_conn_geom public.geometry(point, 4326);
 	target_conn_geom public.geometry(point, 4326);
-
-	h3_boundary geometry = ST_SetSRID(ST_GeomFromText(h3_boundary), 4326);
 BEGIN
 	-- Select relevant input segment
 	SELECT id, subtype, connectors, geometry,
@@ -84,133 +81,9 @@ BEGIN
 		sub_segments = array_append(sub_segments, new_sub_segment);
 	END IF;
 	
-	-- Loop through sub-segments and clip to H3 index region
-	FOREACH new_sub_segment IN ARRAY sub_segments LOOP
-		-- Check if segment extends further than H3 index boundary and splitting is necessary
-		IF ST_Intersects(new_sub_segment.geom, h3_boundary) = FALSE THEN
-			-- Splitting this segment is not necessary, just process its source/target connectors
-
-			-- If source connector doesn't already exist in output table, insert it
-			INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-			SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-				to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
-			FROM temporal.connectors
-			WHERE id = new_sub_segment.source
-			ON CONFLICT DO NOTHING;
-
-			-- Get serial index of new or existing source connector
-			SELECT index FROM basic.connectors_processed WHERE id = new_sub_segment.source
-			INTO new_sub_segment.source_index;
-
-			-- If target connector doesn't already exist in output table, insert it
-			INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-			SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-				to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
-			FROM temporal.connectors
-			WHERE id = new_sub_segment.target
-			ON CONFLICT DO NOTHING;
-
-			-- Get serial index of new or existing target connector
-			SELECT index FROM basic.connectors_processed WHERE id = new_sub_segment.target
-			INTO new_sub_segment.target_index;
-
-			output_segments = array_append(output_segments, new_sub_segment);
-		ELSE
-			-- Loop through split segment geometry to create final segments & connectors
-			FOR split_geometry IN SELECT * FROM (
-				WITH split_segment AS (
-					SELECT (ST_Dump(ST_Split(new_sub_segment.geom, h3_boundary))).geom
-				)
-				SELECT
-					ROW_NUMBER() OVER () AS row_index,
-					sc.count AS row_count,
-					ST_StartPoint(ss.geom) AS source,
-					ST_EndPoint(ss.geom) AS target,
-					ss.geom
-				FROM split_segment ss,
-				LATERAL (SELECT count(*) FROM split_segment) sc
-			) sub LOOP
-				-- TODO Handle linear split surface for split segments
-				-- TODO Handle linear split speed limits for split segments
-				-- TODO Handle linear split flags for split segments
-				
-				output_segment.id = new_sub_segment.id || '_clip_' || split_geometry.row_index;
-				output_segment.geom = split_geometry.geom;
-				output_segment.impedance_surface = new_sub_segment.impedance_surface;
-				output_segment.maxspeed_forward = new_sub_segment.maxspeed_forward;
-				output_segment.tags = new_sub_segment.tags;
-
-				IF split_geometry.row_index = 1 THEN
-					output_segment.source = new_sub_segment.source;
-					output_segment.target = 'connector.' || output_segment.id;
-
-					-- If source connector doesn't already exist in output table, insert it
-					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-					SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-						to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
-					FROM temporal.connectors
-					WHERE id = output_segment.source
-					ON CONFLICT DO NOTHING;
-
-					-- Get serial index of new or existing source connector
-					SELECT index FROM basic.connectors_processed WHERE id = output_segment.source
-					INTO output_segment.source_index;
-
-					-- Create new target connector for split segment
-					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-					VALUES (
-						output_segment.target, NULL, split_geometry.target,
-						to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
-						to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
-					);
-
-					-- Get serial index of new target connector
-					SELECT index FROM basic.connectors_processed WHERE id = output_segment.target
-					INTO output_segment.target_index;
-				ELSIF split_geometry.row_index > 1 AND split_geometry.row_index < split_geometry.row_count THEN
-					output_segment.source = 'connector.' || new_sub_segment.id || '_clip_' || (split_geometry.row_index - 1);
-					output_segment.target = 'connector.' || output_segment.id;
-
-					-- Get serial index of source connector created by previous split segment
-					SELECT index FROM basic.connectors_processed WHERE id = output_segment.source
-					INTO output_segment.source_index;
-
-					-- Create new target connector for split segment
-					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-					VALUES (
-						output_segment.target, NULL, split_geometry.target,
-						to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
-						to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
-					);
-
-					-- Get serial index of new target connector
-					SELECT index FROM basic.connectors_processed WHERE id = output_segment.target
-					INTO output_segment.target_index;
-				ELSE
-					output_segment.source = 'connector.' || new_sub_segment.id || '_clip_' || (split_geometry.row_index - 1);
-					output_segment.target = new_sub_segment.target;
-
-					-- Get serial index of source connector created by previous split segment
-					SELECT index FROM basic.connectors_processed WHERE id = output_segment.source
-					INTO output_segment.source_index;
-					
-					-- If target connector doesn't already exist in output table, insert it
-					INSERT INTO basic.connectors_processed (id, osm_id, geom, h3_3, h3_5)
-					SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-						to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
-					FROM temporal.connectors
-					WHERE id = output_segment.target
-					ON CONFLICT DO NOTHING;
-
-					-- Get serial index of new or existing target connector
-					SELECT index FROM basic.connectors_processed WHERE id = output_segment.target
-					INTO output_segment.target_index;
-				END IF;
-
-				output_segments = array_append(output_segments, output_segment);
-			END LOOP;
-		END IF;
-    END LOOP;
+	-- Clip sub-segments to fit into h3_3 and h3_5 cells
+	SELECT clip_segments(sub_segments, 5) INTO output_segments;
+	SELECT clip_segments(output_segments, 3) INTO output_segments;
 
 	-- Loop through final output segments
 	FOREACH output_segment IN ARRAY output_segments LOOP
@@ -221,7 +94,7 @@ BEGIN
 		output_segment.osm_id = NULL;
 		output_segment.class_ = input_segment.class;
 		output_segment.h3_3 = to_short_h3_3(h3_lat_lng_to_cell(ST_Centroid(output_segment.geom)::point, 3)::bigint);
-		output_segment.h3_5 = ARRAY(SELECT g.h3_short FROM basic.h3_5_grid g WHERE ST_Intersects(output_segment.geom, g.h3_geom));
+		output_segment.h3_5 = to_short_h3_5(h3_lat_lng_to_cell(ST_Centroid(output_segment.geom)::point, 5)::bigint);
 
 		-- Temporarily set the following properties here, but evetually handle linear split values above
 		IF jsonb_typeof(input_segment.surface) != 'array' THEN
@@ -239,7 +112,7 @@ BEGIN
 		-- END IF;
 
 		-- Insert processed output segment data into table
-        INSERT INTO basic.segments_processed (
+        INSERT INTO basic.segment (
                 length_m, length_3857,
 				osm_id, bicycle, foot,
                 class_, impedance_slope, impedance_slope_reverse,

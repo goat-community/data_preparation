@@ -29,13 +29,15 @@ class ProcessSegments(Thread):
 
         h3_index = self.get_next_h3_index()
         while h3_index is not None:
-            # Get all segment IDs for this H3 index
+            # Get all segment IDs for this H3_3 index
+            # Ensure segments are within valid H3_5 cells as well
             sql_get_segment_ids = f"""
-                SELECT s.id, ST_AsText(g.h3_boundary) FROM
-                temporal.segments s, basic.h3_3_grid g
+                SELECT s.id
+                FROM temporal.segments s, basic.h3_3_grid g1, basic.h3_5_grid g2
                 WHERE
-                ST_Intersects(ST_Centroid(s.geometry), g.h3_geom)
-                AND g.h3_index = '{h3_index}';
+                    ST_Intersects(ST_Centroid(s.geometry), g1.h3_geom)
+                    AND ST_Intersects(ST_Centroid(s.geometry), g2.h3_geom)
+                    AND g1.h3_index = '{h3_index}';
             """
             segment_ids = self.db_cursor.execute(sql_get_segment_ids)
             segment_ids = self.db_cursor.fetchall()
@@ -50,8 +52,7 @@ class ProcessSegments(Thread):
                 sql_classify_segment = f"""
                     SELECT classify_segment(
                         '{id[0]}',
-                        '{self.cycling_surfaces}'::jsonb,
-                        '{id[1]}'
+                        '{self.cycling_surfaces}'::jsonb
                     );
                 """
                 try:
@@ -87,15 +88,15 @@ class ComputeImpedance(Thread):
     def run(self):
         """Update slope impedance data for this H3 index region"""
 
-        h3_index = self.get_next_h3_index()
-        while h3_index is not None:
+        h3_short = self.get_next_h3_index()
+        while h3_short is not None:
             sql_update_impedance = f"""
                 WITH segment AS (
                     SELECT id, length_m, geom
-                    FROM basic.segments_processed
-                    WHERE h3_5[1] = {h3_index}
+                    FROM basic.segment
+                    WHERE h3_5 = {h3_short}
                 )
-                UPDATE basic.segments_processed AS sp
+                UPDATE basic.segment AS sp
                 SET impedance_slope = c.imp, impedance_slope_reverse = c.rs_imp
                 FROM segment,
                 LATERAL get_slope_profile(segment.geom, segment.length_m, ST_LENGTH(segment.geom)) s,
@@ -106,9 +107,9 @@ class ComputeImpedance(Thread):
                 start_time = time.time()
                 self.db_cursor.execute(sql_update_impedance)
                 self.db_connection.commit()
-                print(f"Thread {self.thread_id} updated impedance for H3 index {h3_index}. Time: {round(time.time() - start_time)} seconds.")
+                print(f"Thread {self.thread_id} updated impedance for H3 index {h3_short}. Time: {round(time.time() - start_time)} seconds.")
             except Exception as e:
-                print_error(f"Thread {self.thread_id} failed to update impedances for H3 index {h3_index}, error: {e}.")
+                print_error(f"Thread {self.thread_id} failed to update impedances for H3 index {h3_short}, error: {e}.")
                 break
 
-            h3_index = self.get_next_h3_index()
+            h3_short = self.get_next_h3_index()

@@ -33,7 +33,7 @@ class OvertureNetworkPreparation:
         self.config = Config("network_overture", region)
 
         self.DEM_S3_URL = "https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com"
-        self.NUM_THREADS = (os.cpu_count() - 2)
+        self.NUM_THREADS = 16
 
 
     def initialize_dem_table(self):
@@ -148,19 +148,18 @@ class OvertureNetworkPreparation:
         """Create table for storing final processed connectors data."""
 
         sql_create_connectors_table = """
-            DROP TABLE IF EXISTS basic.connectors_processed CASCADE;
-            CREATE TABLE basic.connectors_processed (
+            DROP TABLE IF EXISTS basic.connector CASCADE;
+            CREATE TABLE basic.connector (
                 index serial NOT NULL,
                 id text NOT NULL UNIQUE,
                 osm_id int8 NULL,
                 geom public.geometry(point, 4326) NOT NULL,
                 h3_3 int2 NOT NULL,
                 h3_5 integer NOT NULL,
-                CONSTRAINT connectors_processed_pkey PRIMARY KEY (index)
+                CONSTRAINT connector_pkey PRIMARY KEY (index, h3_3)
             );
-            CREATE INDEX idx_connectors_processed_id on basic.connectors_processed (id);
-            CREATE INDEX idx_connectors_processed_id_h3_3 ON basic.connectors_processed (index, h3_3);
-            CREATE INDEX idx_connectors_processed_geom ON basic.connectors_processed USING gist (geom);
+            CREATE INDEX idx_connector_id on basic.connector (id);
+            CREATE INDEX idx_connector_geom ON basic.connector USING gist (geom);
         """
         self.db_local.perform(sql_create_connectors_table)
 
@@ -169,8 +168,8 @@ class OvertureNetworkPreparation:
         """Create table for storing final processed segments data."""
 
         sql_create_segments_table = """
-            DROP TABLE IF EXISTS basic.segments_processed;
-            CREATE TABLE basic.segments_processed (
+            DROP TABLE IF EXISTS basic.segment;
+            CREATE TABLE basic.segment (
                 id serial NOT NULL,
                 length_m float8 NOT NULL,
                 length_3857 float8 NOT NULL,
@@ -189,15 +188,14 @@ class OvertureNetworkPreparation:
                 tags jsonb NULL,
                 geom public.geometry(linestring, 4326) NOT NULL,
                 h3_3 int2 NOT NULL,
-                h3_5 int[] NULL,
-                CONSTRAINT segments_processed_pkey PRIMARY KEY (id),
-                CONSTRAINT segments_processed_source_fkey FOREIGN KEY ("source") REFERENCES basic.connectors_processed(index),
-                CONSTRAINT segments_processed_target_fkey FOREIGN KEY (target) REFERENCES basic.connectors_processed(index)
+                h3_5 int4 NOT NULL,
+                CONSTRAINT segment_pkey PRIMARY KEY (id, h3_3),
+                CONSTRAINT segment_source_fkey FOREIGN KEY ("source") REFERENCES basic.connector(index),
+                CONSTRAINT segment_target_fkey FOREIGN KEY (target) REFERENCES basic.connector(index)
             );
-            CREATE INDEX idx_segments_processed_id_h3_3 ON basic.segments_processed (id, h3_3);
-            CREATE INDEX idx_segments_processed_geom ON basic.segments_processed USING gist (geom);
-            CREATE INDEX ix_basic_segments_processed_source ON basic.segments_processed USING btree (source);
-            CREATE INDEX ix_basic_segments_processed_target ON basic.segments_processed USING btree (target);
+            CREATE INDEX idx_segment_geom ON basic.segment USING gist (geom);
+            CREATE INDEX ix_basic_segment_source ON basic.segment USING btree (source);
+            CREATE INDEX ix_basic_segment_target ON basic.segment USING btree (target);
         """
         self.db_local.perform(sql_create_segments_table)
 
@@ -249,6 +247,12 @@ class OvertureNetworkPreparation:
 
     def initiate_segment_processing(self):
         """Utilize multithreading to process segments in parallel."""
+
+        # TODO Remove this
+        with open("src/db/functions/classify_segment.sql", "r") as f:
+            self.db_local.perform(f.read())
+        with open("src/db/functions/clip_segments.sql", "r") as f:
+            self.db_local.perform(f.read())
 
         # Load user-configured impedance coefficients for various surface types
         cycling_surfaces = json.dumps(self.config.preparation["cycling_surfaces"])
@@ -337,11 +341,11 @@ class OvertureNetworkPreparation:
 
 
     def clean_up(self):
-        """Remove unused temp columns from connectors_processed table."""
+        """Remove unused temp columns from the connector table."""
 
         sql_clean_up = """
-            ALTER TABLE basic.connectors_processed DROP COLUMN id;
-            ALTER TABLE basic.connectors_processed RENAME COLUMN index TO id;
+            ALTER TABLE basic.connector DROP COLUMN id;
+            ALTER TABLE basic.connector RENAME COLUMN index TO id;
         """
         self.db_local.perform(sql_clean_up)
 
