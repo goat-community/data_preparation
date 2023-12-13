@@ -1,0 +1,63 @@
+collection:
+  region: "SELECT ST_Subdivide(geom) AS geom FROM kart_poi_rds.nuts WHERE nuts_id = 'DE'" #TODO: ST_SUBDIVIDE similar to PuT stops
+  source: s3://overturemaps-us-west-2/release/2023-10-19-alpha.0/theme=places/type=*/*
+  #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
+
+preparation:
+  category:
+    religion: [
+      'church_cathedral', 'catholic_church', 'evangelical_church', 'mosque', 'convents_and_monasteries', 'baptist_church', 'buddhist_temple', 'hindu_temple', 'sikh_temple'
+    ]
+    sight_or_cultural_site: [
+      'landmark_and_historical_building', 'monument', 'bridge', 'cultural_center', 'castle', 'fountain', 'botanical_garden', 'palace', 'aquarium', 'sculpture_statue',
+      'lighthouse', 'fort'
+    ]
+    water_recreation_or_wellness_facility: [
+      'beauty_and_spa', 'water_park', 'massage', 'health_spa', 'onsen', 'day_spa'  
+    ]
+    recreational_or_adventure_facility: [
+      'amusement_park', 'zoo', 'escape_rooms', 'miniature_golf_course', 'pool_billiards', 'arcade', 'skate_park', 'circus', 'laser_tag', 'paintball', 'observatory',
+      'boat_tours', 'surfing', 'paddleboarding_center', 'sky_diving', 'canoe_and_kayak_hire_service', 'bus_tours', 'hot_air_balloons_tour', 'petting_zoo', 'historical_tours',
+      'food_tours', 
+    ]
+    accommodation: [
+      'hotel', 'holiday_rental_home', 'campground', 'hostel', 'bed_and_breakfast', 'rv_park', 'resort', 'lodge', 'cottage', 'service_apartments',
+      'cabin', 'inn', 'mobile_home_park'
+    ]
+    museum: [
+      'art_gallery', 'arts_and_entertainment', 'museum', 'history_museum', 'art_museum', 'modern_art_museum', 'science_museum', 'community_museum',
+      'planetarium', 'civilization_museum', 'contemporary_art_museum', "children's_museum", 'design_museum', 'sports_museum', 'asian_art_museum',
+      'decorative_arts_museum', 'aviation_museum', 'computer_museum', 'costume_museum', 'textile_museum'
+    ]
+    gallery: [
+      'art_gallery', 'arts_and_entertainment'
+    ]
+    theatre: [
+      'topic_concert_venue', 'music_venue', 'theatre', 'comedy_club', 'opera_and_ballet', 'theaters_and_performance_venues'
+    ]
+    restaurant: [
+      'restaurant', 'german_restaurant', 'pizza_restaurant', 'italian_restaurant', 'greek_restaurant', 'gastropub', 'chinese_restaurant', 'burger_restaurant', 
+      'bar_and_grill_restaurant', 'sushi_restaurant', 'turkish_restaurant', 'asian_restaurant', 'indian_restaurant', 'beer_garden', 'thai_restaurant', 
+      'vietnamese_restaurant', 'seafood_restaurant', 'barbecue_restaurant', 'steakhouse', 'vegetarian_restaurant', 'diner', 'mexican_restaurant',
+      'japanese_restaurant', 'tapas_bar', 'breakfast_and_brunch_restaurant', 'mediterranean_restaurant', 'french_restaurant', 'european_restaurant',
+      'middle_eastern_restaurant', 'chicken_restaurant', 'american_restaurant', 'spanish_restaurant', 'korean_restaurant', 'salad_bar', 'lebanese_restaurant',
+      'pancake_house', 'buffet_restaurant', 'portuguese_restaurant', 'soup_restaurant', 'arabian_restaurant', 'southern_restaurant', 'african_restaurant',
+      'persian_iranian_restaurant', 'brazilian_restaurant', 'theme_restaurant', 'hawaiian_restaurant', 'texmex_restaurant', 'syrian_restaurant',
+      'austrian_restaurant', 'moroccan_restaurant', 'halal_restaurant', 'afghan_restaurant', 'russian_restaurant', 'ethiopian_restaurant', 'peruvian_restaurant',
+      'argentine_restaurant', 'health_food_restaurant', 'filipino_restaurant', 'mongolian_restaurant', 'latin_american_restaurant', 'polish_restaurant',
+      'hungarian_restaurant', 'gluten_free_restaurant', 'cuban_restaurant', 'himalayan_nepalese_restaurant', 'indonesian_restaurant', 'romanian_restaurant',
+      'caribbean_restaurant', 'eastern_european_restaurant', 'dim_sum_restaurant', 'pakistani_restaurant', 'georgian_restaurant', 'asian_fusion_restaurant',
+      'israeli_restaurant', 'czech_restaurant', 'kurdish_restaurant', 'bulgarian_restaurant', 'noodles_restaurant', 'live_and_raw_food_restaurant', 
+      'fondue_restaurant', 'taiwanese_restaurant', 'ukrainian_restaurant', 'kosher_restaurant', 'colombian_restaurant', 'scandinavian_restaurant', 
+      'malaysian_restaurant', 'irish_restaurant', 'cajun_creole_restaurant', 'jamaican_restaurant', 'swiss_restaurant', 'sri_lankan_restaurant', 
+      'belgian_restaurant', 'indo_chinese_restaurant', 'azerbaijani_restaurant', 'egyptian_restaurant', 'panamanian_restaurant', 'molecular_gastronomy_restaurant',
+      'venezuelan_restaurant', 'tatar_restaurant', 'chilean_restaurant', 'honduran_restaurant', 'uzbek_restaurant', 'british_restaurant', 'australian_restaurant',
+      'burmese_restaurant', 'south_african_restaurant', 'polynesian_restaurant', 'canadian_restaurant', 'bangladeshi_restaurant', 'slovakian_restaurant',
+      'basque_restaurant', 'senegalese_restaurant', 'nicaraguan_restaurant', 'guatemalan_restaurant', 'bolivian_restaurant', 'ecuadorian_restaurant',
+      'singaporean_restaurant', 'cambodian_restaurant', 'armenian_restaurant'
+    ]
+
+
+subscription:
+
+
