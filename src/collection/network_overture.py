@@ -13,8 +13,7 @@ class OvertureNetworkCollection:
         self.db_remote = db_remote
         self.region = region
         self.config = Config("network_overture", region)
-
-        self.OVERTURE_RELEASE = "2023-10-19-alpha.0"
+        self.overture_release = self.config.collection["overture_release"]
 
 
     def initialize_sedona_context(self):
@@ -56,10 +55,10 @@ class OvertureNetworkCollection:
 
         # Load Overture parquet data into Spark DataFrames
         self.segments_df = sedona.read.format("parquet").load(
-            path=f"s3a://overturemaps-us-west-2/release/{self.OVERTURE_RELEASE}/theme=transportation/type=segment"
+            path=f"s3a://overturemaps-us-west-2/release/{self.overture_release}/theme=transportation/type=segment"
         ) # Segments/edges
         self.connectors_df = sedona.read.format("parquet").load(
-            path=f"s3a://overturemaps-us-west-2/release/{self.OVERTURE_RELEASE}/theme=transportation/type=connector"
+            path=f"s3a://overturemaps-us-west-2/release/{self.overture_release}/theme=transportation/type=connector"
         ) # Connectors/nodes
 
         print_info("Initialized data source.")

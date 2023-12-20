@@ -729,7 +729,7 @@ def osm_generate_polygon(db_rd, geom_query: str, dest_file_path: str):
         file.write("\nEND\nEND")
 
 
-def get_region_bbox_coords(geom_query: str, db: Database):
+def get_region_bbox_coords(db: Database, geom_query: str):
     """Get the bounding coordinates of a specified geometry."""
 
     sql_get_region_bbox_coords = f"""
