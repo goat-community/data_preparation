@@ -30,10 +30,10 @@ class ProcessSegments(Thread):
         h3_index = self.get_next_h3_index()
         while h3_index is not None:
             # Get all segment IDs for this H3_3 index
-            # Ensure segments are within valid H3_5 cells as well
+            # Ensure segments are within valid H3_6 cells as well
             sql_get_segment_ids = f"""
                 SELECT s.id
-                FROM temporal.segments s, basic.h3_3_grid g1, basic.h3_5_grid g2
+                FROM temporal.segments s, basic.h3_3_grid g1, basic.h3_6_grid g2
                 WHERE
                     ST_Intersects(ST_Centroid(s.geometry), g1.h3_geom)
                     AND ST_Intersects(ST_Centroid(s.geometry), g2.h3_geom)
@@ -94,7 +94,7 @@ class ComputeImpedance(Thread):
                 WITH segment AS (
                     SELECT id, length_m, geom
                     FROM basic.segment
-                    WHERE h3_5 = {h3_short}
+                    WHERE h3_6 = {h3_short}
                 )
                 UPDATE basic.segment AS sp
                 SET impedance_slope = c.imp, impedance_slope_reverse = c.rs_imp

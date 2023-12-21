@@ -22,10 +22,10 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 		INTO intersecting_cells
 		FROM basic.h3_3_grid g
 		WHERE ST_Intersects(new_sub_segment.geom, g.h3_boundary);
-	ELSIF h3_resolution = 5 THEN
+	ELSIF h3_resolution = 6 THEN
 		SELECT count(g.h3_short) AS count, ST_Union(g.h3_boundary) AS geom
 		INTO intersecting_cells
-		FROM basic.h3_5_grid g
+		FROM basic.h3_6_grid g
 		WHERE ST_Intersects(new_sub_segment.geom, g.h3_boundary);
 	END IF;
 
@@ -34,9 +34,9 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 		-- Splitting this segment is not necessary, just process its source/target connectors
 
 		-- If source connector doesn't already exist in output table, insert it
-		INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_5)
+		INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_6)
 		SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-			to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
+			to_short_h3_6(h3_lat_lng_to_cell(geometry::point, 6)::bigint)
 		FROM temporal.connectors
 		WHERE id = new_sub_segment.source
 		ON CONFLICT DO NOTHING;
@@ -46,9 +46,9 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 		INTO new_sub_segment.source_index;
 
 		-- If target connector doesn't already exist in output table, insert it
-		INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_5)
+		INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_6)
 		SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-			to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
+			to_short_h3_6(h3_lat_lng_to_cell(geometry::point, 6)::bigint)
 		FROM temporal.connectors
 		WHERE id = new_sub_segment.target
 		ON CONFLICT DO NOTHING;
@@ -88,9 +88,9 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 				output_segment.target = 'connector.' || output_segment.id;
 
 				-- If source connector doesn't already exist in output table, insert it
-				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_5)
+				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_6)
 				SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-					to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
+					to_short_h3_6(h3_lat_lng_to_cell(geometry::point, 6)::bigint)
 				FROM temporal.connectors
 				WHERE id = output_segment.source
 				ON CONFLICT DO NOTHING;
@@ -100,11 +100,11 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 				INTO output_segment.source_index;
 
 				-- Create new target connector for split segment
-				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_5)
+				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_6)
 				VALUES (
 					output_segment.target, NULL, split_geometry.target,
 					to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
-					to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
+					to_short_h3_6(h3_lat_lng_to_cell(split_geometry.target::point, 6)::bigint)
 				);
 
 				-- Get serial index of new target connector
@@ -119,11 +119,11 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 				INTO output_segment.source_index;
 
 				-- Create new target connector for split segment
-				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_5)
+				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_6)
 				VALUES (
 					output_segment.target, NULL, split_geometry.target,
 					to_short_h3_3(h3_lat_lng_to_cell(split_geometry.target::point, 3)::bigint),
-					to_short_h3_5(h3_lat_lng_to_cell(split_geometry.target::point, 5)::bigint)
+					to_short_h3_6(h3_lat_lng_to_cell(split_geometry.target::point, 6)::bigint)
 				);
 
 				-- Get serial index of new target connector
@@ -138,9 +138,9 @@ FOREACH new_sub_segment IN ARRAY input_segments LOOP
 				INTO output_segment.source_index;
 				
 				-- If target connector doesn't already exist in output table, insert it
-				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_5)
+				INSERT INTO basic.connector (id, osm_id, geom, h3_3, h3_6)
 				SELECT id, NULL, geometry, to_short_h3_3(h3_lat_lng_to_cell(geometry::point, 3)::bigint),
-					to_short_h3_5(h3_lat_lng_to_cell(geometry::point, 5)::bigint)
+					to_short_h3_6(h3_lat_lng_to_cell(geometry::point, 6)::bigint)
 				FROM temporal.connectors
 				WHERE id = output_segment.target
 				ON CONFLICT DO NOTHING;

@@ -150,12 +150,12 @@ class OvertureNetworkPreparation:
         sql_create_connectors_table = """
             DROP TABLE IF EXISTS basic.connector CASCADE;
             CREATE TABLE basic.connector (
-                index serial NOT NULL,
+                index serial NOT NULL UNIQUE,
                 id text NOT NULL UNIQUE,
                 osm_id int8 NULL,
                 geom public.geometry(point, 4326) NOT NULL,
                 h3_3 int2 NOT NULL,
-                h3_5 integer NOT NULL,
+                h3_6 integer NOT NULL,
                 CONSTRAINT connector_pkey PRIMARY KEY (index, h3_3)
             );
             CREATE INDEX idx_connector_id on basic.connector (id);
@@ -188,7 +188,7 @@ class OvertureNetworkPreparation:
                 tags jsonb NULL,
                 geom public.geometry(linestring, 4326) NOT NULL,
                 h3_3 int2 NOT NULL,
-                h3_5 int4 NOT NULL,
+                h3_6 int4 NOT NULL,
                 CONSTRAINT segment_pkey PRIMARY KEY (id, h3_3),
                 CONSTRAINT segment_source_fkey FOREIGN KEY ("source") REFERENCES basic.connector(index),
                 CONSTRAINT segment_target_fkey FOREIGN KEY (target) REFERENCES basic.connector(index)
@@ -220,25 +220,25 @@ class OvertureNetworkPreparation:
         """
         self.db_local.perform(sql_create_region_h3_3_grid)
 
-        sql_create_region_h3_5_grid = f"""
-            DROP TABLE IF EXISTS basic.h3_5_grid;
-            CREATE TABLE basic.h3_5_grid AS
+        sql_create_region_h3_6_grid = f"""
+            DROP TABLE IF EXISTS basic.h3_6_grid;
+            CREATE TABLE basic.h3_6_grid AS
                 SELECT * FROM
-                public.fill_polygon_h3(ST_GeomFromText('{region_geom}', 4326), 5);
-            ALTER TABLE basic.h3_5_grid ADD CONSTRAINT h3_5_grid_pkey PRIMARY KEY (h3_index);
-            CREATE INDEX ON basic.h3_5_grid USING GIST (h3_boundary);
-            CREATE INDEX ON basic.h3_5_grid USING GIST (h3_geom);
+                public.fill_polygon_h3(ST_GeomFromText('{region_geom}', 4326), 6);
+            ALTER TABLE basic.h3_6_grid ADD CONSTRAINT h3_6_grid_pkey PRIMARY KEY (h3_index);
+            CREATE INDEX ON basic.h3_6_grid USING GIST (h3_boundary);
+            CREATE INDEX ON basic.h3_6_grid USING GIST (h3_geom);
         """
-        self.db_local.perform(sql_create_region_h3_5_grid)
+        self.db_local.perform(sql_create_region_h3_6_grid)
 
         sql_compute_h3_short_index = """
             ALTER TABLE basic.h3_3_grid ADD COLUMN h3_short int2;
             UPDATE basic.h3_3_grid
             SET h3_short = to_short_h3_3(h3_index::bigint);
 
-            ALTER TABLE basic.h3_5_grid ADD COLUMN h3_short int4;
-            UPDATE basic.h3_5_grid
-            SET h3_short = to_short_h3_5(h3_index::bigint);
+            ALTER TABLE basic.h3_6_grid ADD COLUMN h3_short int4;
+            UPDATE basic.h3_6_grid
+            SET h3_short = to_short_h3_6(h3_index::bigint);
         """
         self.db_local.perform(sql_compute_h3_short_index)
 
@@ -288,13 +288,13 @@ class OvertureNetworkPreparation:
                 [future.result() for future in as_completed(futures)]
 
                 # Compute segment impedance values
-                h3_5_queue = self.get_h3_5_index_queue()
+                h3_6_queue = self.get_h3_6_index_queue()
                 futures = [
                     executor.submit(
                         ComputeImpedance(
                             thread_id=thread_id,
                             db_connection=db_connections[thread_id],
-                            get_next_h3_index=lambda: h3_5_queue.get() if not h3_5_queue.empty() else None,
+                            get_next_h3_index=lambda: h3_6_queue.get() if not h3_6_queue.empty() else None,
                         ).run
                     )
                     for thread_id in range(self.NUM_THREADS)
@@ -325,12 +325,12 @@ class OvertureNetworkPreparation:
         return h3_index_queue
 
 
-    def get_h3_5_index_queue(self):
+    def get_h3_6_index_queue(self):
         """Get queue of H3 indexes to be processed by threads."""
 
         sql_get_h3_indexes = """
             SELECT h3_short
-            FROM basic.h3_5_grid
+            FROM basic.h3_6_grid
             ORDER BY h3_index;
         """
         h3_indexes = self.db_local.select(sql_get_h3_indexes)

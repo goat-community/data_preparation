@@ -10,7 +10,7 @@ CREATE TYPE output_segment AS (
 	source_index integer, target text,
 	target_index integer, tags jsonb,
     geom public.geometry(linestring, 4326),
-    h3_3 int2, h3_5 int4
+    h3_3 int2, h3_6 int4
 );
 
 
@@ -81,8 +81,8 @@ BEGIN
 		sub_segments = array_append(sub_segments, new_sub_segment);
 	END IF;
 	
-	-- Clip sub-segments to fit into h3_3 and h3_5 cells
-	SELECT clip_segments(sub_segments, 5) INTO output_segments;
+	-- Clip sub-segments to fit into h3_3 and h3_6 cells
+	SELECT clip_segments(sub_segments, 6) INTO output_segments;
 	SELECT clip_segments(output_segments, 3) INTO output_segments;
 
 	-- Loop through final output segments
@@ -94,7 +94,7 @@ BEGIN
 		output_segment.osm_id = NULL;
 		output_segment.class_ = input_segment.class;
 		output_segment.h3_3 = to_short_h3_3(h3_lat_lng_to_cell(ST_Centroid(output_segment.geom)::point, 3)::bigint);
-		output_segment.h3_5 = to_short_h3_5(h3_lat_lng_to_cell(ST_Centroid(output_segment.geom)::point, 5)::bigint);
+		output_segment.h3_6 = to_short_h3_6(h3_lat_lng_to_cell(ST_Centroid(output_segment.geom)::point, 6)::bigint);
 
 		-- Temporarily set the following properties here, but evetually handle linear split values above
 		IF jsonb_typeof(input_segment.surface) != 'array' THEN
@@ -118,7 +118,7 @@ BEGIN
                 class_, impedance_slope, impedance_slope_reverse,
 				impedance_surface, coordinates_3857, maxspeed_forward,
 				maxspeed_backward, source, target,
-				tags, geom, h3_3, h3_5
+				tags, geom, h3_3, h3_6
         )
         VALUES (
 			output_segment.length_m, output_segment.length_3857,
@@ -126,7 +126,7 @@ BEGIN
 			output_segment.class_, output_segment.impedance_slope, output_segment.impedance_slope_reverse,
 			output_segment.impedance_surface, output_segment.coordinates_3857, output_segment.maxspeed_forward,
 			output_segment.maxspeed_backward, output_segment.source_index, output_segment.target_index,
-			output_segment.tags, output_segment.geom, output_segment.h3_3, output_segment.h3_5
+			output_segment.tags, output_segment.geom, output_segment.h3_3, output_segment.h3_6
         );
     END LOOP;
 END
