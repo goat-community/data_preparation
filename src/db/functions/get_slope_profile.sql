@@ -5,23 +5,23 @@ LANGUAGE plpgsql
 AS $function$
 DECLARE 
 	translation_m_degree NUMERIC;
+	dump_points geometry[];
 BEGIN
 	translation_m_degree = length_degree/length_meters;
 	dem_resolution = dem_resolution * translation_m_degree;
-	DROP TABLE IF EXISTS dump_points;
 
-	IF length_meters > (2*interval_) THEN 
-		CREATE TEMP TABLE dump_points AS 
-		SELECT (ST_DUMP(ST_Lineinterpolatepoints(way_geom, interval_/length_meters))).geom AS geom;
-	ELSEIF length_meters > interval_ AND length_meters < (2*interval_) THEN 
-		CREATE TEMP TABLE dump_points AS 
-		SELECT ST_LineInterpolatePoint(way_geom,0.5) AS geom;
+	IF length_meters > (2*interval_) THEN
+		SELECT ARRAY(SELECT (ST_DUMP(ST_Lineinterpolatepoints(way_geom, interval_/length_meters))).geom)
+		INTO dump_points;
+	ELSEIF length_meters > interval_ AND length_meters < (2*interval_) THEN
+		SELECT ARRAY(SELECT ST_LineInterpolatePoint(way_geom,0.5))
+		INTO dump_points;
 		interval_ = length_meters/2;
 	ELSE
-		CREATE TEMP TABLE dump_points AS
-		SELECT NULL::geometry AS geom;
+		SELECT ARRAY(SELECT NULL::geometry)
+		INTO dump_points;
 	END IF;
-		
+
 	RETURN query
 	WITH points AS 
 	(
@@ -29,7 +29,7 @@ BEGIN
 		FROM (
 			SELECT st_startpoint(way_geom) AS geom
 			UNION ALL 
-			SELECT geom FROM dump_points
+			SELECT unnest(dump_points)
 			UNION ALL 
 			SELECT st_endpoint(way_geom) 
 		) x

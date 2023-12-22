@@ -1,26 +1,26 @@
+import csv
 import os
-import shutil
-import subprocess
 import random
+import shutil
 import string
-
-from cdifflib import CSequenceMatcher
+import subprocess
+import time
+from functools import wraps
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
+
 import numpy as np
+import polars as pl
+from cdifflib import CSequenceMatcher
 from rich import print as print
 from shapely.geometry import MultiPolygon
 from sqlalchemy import text
-from src.db.db import Database
-from functools import wraps
-from src.core.enums import IfExistsType
-import polars as pl
-import csv
-from io import StringIO
-import time
-from src.core.enums import TableDumpFormat, DumpType
+
 from src.core.config import settings
+from src.core.enums import DumpType, IfExistsType, TableDumpFormat
+from src.db.db import Database
 
 
 def timing(f):
@@ -108,7 +108,7 @@ def download_link(directory: str, link: str, new_filename: str = None):
     with urlopen(link) as image, download_path.open("wb") as f:
         f.write(image.read())
 
-    print_info(f"Downloaded ended for {link}")
+    print_info(f"Download ended for {link}")
 
 
 def check_string_similarity(
@@ -727,3 +727,24 @@ def osm_generate_polygon(db_rd, geom_query: str, dest_file_path: str):
         file.write("polygon\n")
         file.write("\n".join([f" {i[0]} {i[1]}" for i in coordinates]))
         file.write("\nEND\nEND")
+
+
+def get_region_bbox_coords(db: Database, geom_query: str):
+    """Get the bounding coordinates of a specified geometry."""
+
+    sql_get_region_bbox_coords = f"""
+        SELECT
+            ST_XMin(ST_Envelope(geom)) AS xmin,
+            ST_YMin(ST_Envelope(geom)) AS ymin,
+            ST_XMax(ST_Envelope(geom)) AS xmax,
+            ST_YMax(ST_Envelope(geom)) AS ymax
+        FROM
+            ({geom_query}) sub;
+    """
+    bbox_coords = db.select(sql_get_region_bbox_coords)[0]
+    return {
+        "xmin": bbox_coords[0],
+        "ymin": bbox_coords[1],
+        "xmax": bbox_coords[2],
+        "ymax": bbox_coords[3]
+    }
