@@ -1,0 +1,14 @@
+collection:
+  # Overture data release version
+  overture_release: "2023-10-19-alpha.0"
+
+  # Must be a SQL query which returns the region's bounding geometry (omit terminating semicolon)
+  geom_query: "SELECT ST_Union(geom) AS geom
+                FROM public.geofence_active_mobility"
+
+preparation:
+  cycling_surfaces:
+    pavingStones: '0.2'
+    unpaved: '0.2'
+    gravel: '0.3'
+    dirt: '0.4'
