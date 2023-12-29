@@ -17,8 +17,8 @@ DECLARE
 	sumImpedanceReverse float := 0.0;
 	sum_slopes float := 0; 
 BEGIN
-	IF elevs IS NULL THEN 
-		RETURN; 
+	IF elevs IS NULL OR len_array < 2 THEN 
+		RETURN;
 	END IF; 
 	IF linkLength > (2*lengthInterval) THEN
 		lengthLastSection = linkLength - ((len_array - 2) * lengthInterval);
