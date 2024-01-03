@@ -1,13 +1,14 @@
 from src.collection.osm_collection_base import OSMBaseCollection
 from src.core.config import settings
 from src.db.db import Database
+from src.config.config import Config
 
 class OSMPOICollection(OSMBaseCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config, region):
         self.db_config = db_config
         super().__init__(self.db_config, dataset_type="poi", region=region)
-        
+
     def poi_collection(self):
         """Collects all POIs from OSM."""
         # Create OSM filter for POIs
@@ -29,18 +30,27 @@ class OSMPOICollection(OSMBaseCollection):
         self.download_bulk_osm()
         self.prepare_bulk_osm(osm_filter=osm_filter)
         self.merge_osm_and_import()
-        
+
 
 def collect_poi(region: str):
-    """Main function."""
+    """Main function to collect and process POI data."""
     db = Database(settings.LOCAL_DATABASE_URI)
-    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region=region)
 
+    if region == 'europe':
+        for loop_region in Config("poi", region).regions:
+            process_poi_collection(db, loop_region)
+    else:
+        process_poi_collection(db, region)
+
+    db.conn.close()
+
+def process_poi_collection(db: Database, region: str):
+    """Process POI collection for a given region."""
+    osm_poi_collection = OSMPOICollection(db_config=db.db_config, region=region)
     osm_poi_collection.poi_collection()
     osm_poi_collection.export_osm_boundaries_db(db=db)
     osm_poi_collection.upload_raw_osm_data(boto_client=settings.S3_CLIENT)
-    db.conn.close()
+
 
 if __name__ == "__main__":
     collect_poi()
-    

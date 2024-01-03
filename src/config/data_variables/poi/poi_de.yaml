@@ -153,5 +153,5 @@ preparation:
     inherit: "supermarket"
 
 subscription:
-  repo_url: "https://github.com/goat-community/poi"
+  repo_url: "https://github.com/goat-community/pois"
     
