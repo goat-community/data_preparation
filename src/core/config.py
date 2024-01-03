@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 
 import boto3
-from pydantic import BaseSettings, PostgresDsn, validator
+from pydantic.v1 import BaseSettings, PostgresDsn, validator
 
 
 class SyncPostgresDsn(PostgresDsn):

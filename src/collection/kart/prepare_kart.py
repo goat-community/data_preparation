@@ -47,7 +47,7 @@ class PrepareKart:
         self.maintainer = maintainer
         self.table_name = table_name
         # self.schema_name = f"kart_{table_name}_{maintainer}"
-        self.schema_name = f"kart_pois"
+        self.schema_name = "kart_pois"
 
         # Get repo name and user name from URL
         self.repo_owner, self.repo_name = parsed_url.path.strip("/").split("/")
@@ -108,7 +108,7 @@ class PrepareKart:
         """Print Kart status"""
         os.chdir(self.path_repo)
         # Return status
-        status = subprocess.check_output(f"kart status", shell=True)
+        status = subprocess.check_output("kart status", shell=True)
         return status.decode("utf-8")
 
     def commit(self, commit_message: str):
@@ -180,7 +180,7 @@ class PrepareKart:
         """Restore Kart repository to last commit"""
         os.chdir(self.path_repo)
         subprocess.run(
-            f"kart restore",
+            "kart restore",
             shell=True,
             check=True,
         )
