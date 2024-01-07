@@ -1,8 +1,6 @@
 collection:
-  region: "SELECT ST_Subdivide(geom) AS geom FROM kart_poi_rds.nuts WHERE nuts_id = 'DE'" #TODO: ST_SUBDIVIDE similar to PuT stops
-  source: s3://overturemaps-us-west-2/release/2023-10-19-alpha.0/theme=places/type=*/*
-  #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
-
+  region: "SELECT geom FROM kart_pois.nuts WHERE nuts_id = 'DE'"
+  source: s3a://overturemaps-us-west-2/release/2023-12-14-alpha.0/theme=places
 preparation:
 
 subscription:

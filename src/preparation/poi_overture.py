@@ -30,11 +30,11 @@ class OverturePOIPreparation:
                 housenumber,
                 zipcode,
                 CASE
-                    WHEN cardinality(phones) > 0 THEN phones[1]::varchar
+                    WHEN json_array_length(phones::json) > 0 THEN trim((phones::json->0)::text, '"')
                     ELSE NULL
                 END AS phone,
                 CASE
-                    WHEN cardinality(websites) > 0 THEN websites[1]::varchar
+                    WHEN json_array_length(websites::json) > 0 THEN trim((websites::json->0)::text, '"')
                     ELSE NULL
                 END AS website,
                 'Overture' AS source,
@@ -42,13 +42,13 @@ class OverturePOIPreparation:
                     JSONB_BUILD_OBJECT(
                         'confidence', confidence,
                         'social_media', CASE
-                            WHEN cardinality(socials) > 0 THEN socials[1]::varchar
+                            WHEN json_array_length(socials::json) > 0 THEN trim((socials::json->0)::text, '"')
                             ELSE NULL
                         END,
                         'brand', brand) ||
                     JSONB_BUILD_OBJECT('extended_source', JSONB_BUILD_OBJECT('ogc_fid', id))
                 )) AS TAGS,
-                wkb_geometry
+                geometry
             FROM temporal.places_{self.region};
         """
 

@@ -1,111 +1,126 @@
-import os
-import subprocess
-import time
-import duckdb
-from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
-from src.utils.utils import print_hashtags
+from src.utils.utils import print_info, timing, print_error, get_region_bbox_coords
 
-class OverturePOICollection:
-    """Collection of the places data set from the Overture Maps Foundation"""
-    def __init__(self, db: Database, region: str = "de"):
-        self.region = region
-        self.db = db
-        self.db_config = db.db_config
-        self.dbname = self.db_config.path.replace("/", "")
-        self.host = self.db_config.host
-        self.user = self.db_config.user
-        self.port = self.db_config.port
-        self.password = self.db_config.password
+from src.collection.overture_collection_base import OvertureBaseCollection
+from sedona.spark import SedonaContext
 
-        self.data_config = Config('poi_overture', region)
-        self.data_config_collection = self.data_config.collection
-        self.dataset_dir = self.data_config.dataset_dir
-        self.duckdb_cursor = duckdb.connect()
+from pyspark.sql.functions import col, to_json, expr
+from pyspark.sql.types import TimestampType
 
-    def initialize_duckdb(self):
-        initialize_duckdb = """
-            INSTALL spatial;
-            INSTALL parquet;
-            INSTALL httpfs;
-            LOAD spatial;
-            LOAD parquet;
-            LOAD httpfs;
-            SET s3_region='us-west-2';
-            """ #TODO: at least parts could be imported from config?
+class OverturePOICollection(OvertureBaseCollection):
+    def __init__(self, db_local, db_remote, region, collection_type):
+            super().__init__(db_local, db_remote, region, collection_type)
 
-        self.duckdb_cursor.execute(initialize_duckdb)
+    def initialize_data_source(self, sedona: SedonaContext):
+        """Initialize Overture parquet file source and data frames for places data."""
 
-    def run(self):
-
-        start_time = time.time()
-
-        file_path_raw_data = os.path.join(self.dataset_dir, f"places_{self.region}.geojsonseq")
-
-        # Create the directory if it doesn't exist
-        if not os.path.exists(self.dataset_dir):
-            os.makedirs(self.dataset_dir)
-
-        get_bounding_box = f"""
-            WITH region AS (
-                {self.data_config_collection['region']}
-            )
-            SELECT
-                MIN(ST_XMin(ST_Envelope(geom))) AS min_minx,
-                MAX(ST_XMax(ST_Envelope(geom))) AS min_maxx,
-                MIN(ST_YMin(ST_Envelope(geom))) AS min_miny,
-                MAX(ST_YMax(ST_Envelope(geom))) AS min_maxy
-            FROM region;
-        """
-        bounding_box = self.db.select(get_bounding_box)
-
-        #TODO: check if download speed can be improved using https://github.com/wherobots/OvertureMaps
-        download_overture_places =f"""
-            LOAD httpfs;
-            LOAD spatial;
-
-            COPY (
-                SELECT
-                    id,
-                    updatetime,
-                    version,
-                    CAST(names AS JSON) AS names,
-                    CAST(categories AS JSON) AS categories,
-                    confidence,
-                    CAST(websites AS JSON) AS websites,
-                    CAST(socials AS JSON) AS socials,
-                    CAST(emails AS JSON) AS emails,
-                    CAST(phones AS JSON) AS phones,
-                    CAST(brand AS JSON) AS brand,
-                    CAST(addresses AS JSON) AS addresses,
-                    CAST(sources AS JSON) AS sources,
-                    ST_GeomFromWKB(geometry)
-                FROM
-                    read_parquet('{self.data_config_collection['source']}', hive_partitioning=1)
-                WHERE
-                    bbox.minx > {bounding_box[0][0]}
-                    AND bbox.maxx < {bounding_box[0][1]}
-                    AND bbox.miny > {bounding_box[0][2]}
-                    AND bbox.maxy < {bounding_box[0][3]}
-            ) TO '{file_path_raw_data}'
-            WITH (FORMAT GDAL, DRIVER 'GeoJSONSeq');
-        """
-
-        self.duckdb_cursor.execute(download_overture_places)
-
-        # drop table if exists first
-        self.db.perform(f"DROP TABLE IF EXISTS temporal.places_{self.region}_raw;")
-
-        # import the data into the database
-        subprocess.run(
-            f"""ogr2ogr -f "PostgreSQL" PG:"host={self.host} user={self.user} dbname={self.dbname} password={self.password} port={self.port}" -nln temporal.places_{self.region}_raw {file_path_raw_data} """,
-            shell=True,
-            check=True,
+        # Load Overture parquet data into Spark DataFrames
+        self.places_df = sedona.read.format("geoparquet").load(
+            path=f"{self.data_config_collection['source']}/type=*/*"
         )
 
+    def initialize_tables(self):
+        """Create table in PostgreSQL database for places."""
+
+        #TODO: check fix data types
+        sql_create_table_places = f"""
+            DROP TABLE IF EXISTS temporal.places_{self.region}_raw;
+            CREATE TABLE temporal.places_{self.region}_raw (
+                id TEXT PRIMARY KEY,
+                categories TEXT,
+                updatetime TIMESTAMPTZ,
+                version INT,
+                names TEXT,
+                confidence DOUBLE PRECISION,
+                websites TEXT,
+                socials TEXT,
+                emails TEXT,
+                phones TEXT,
+                brand TEXT,
+                addresses TEXT,
+                sources TEXT,
+                geometry TEXT,
+                bbox TEXT
+            );
+        """
+        self.db_local.perform(sql_create_table_places)
+        print_info(f"Created table: temporal.places_{self.region}_raw.")
+
+    def filter_region_places(self, bbox_coords: dict):
+        """Initialize the places dataframe and apply relevant filters."""
+
+        # Select the necessary columns
+        places = self.places_df.selectExpr(
+            "id",
+            "updatetime",
+            "version",
+            "names",
+            "categories",
+            "confidence",
+            "websites",
+            "socials",
+            "emails",
+            "phones",
+            "brand",
+            "addresses",
+            "sources",
+            "geometry",
+            "bbox"
+        )
+
+        # Create a polygon WKT from the bounding box coordinates
+        polygon_wkt = f"POLYGON(({bbox_coords['xmin']} {bbox_coords['ymin']}, {bbox_coords['xmax']} {bbox_coords['ymin']}, {bbox_coords['xmax']} {bbox_coords['ymax']}, {bbox_coords['xmin']} {bbox_coords['ymax']}, {bbox_coords['xmin']} {bbox_coords['ymin']}))"
+
+        # Filter the DataFrame to only include rows where the geometry is within the polygon
+        places = self.places_df.filter(
+            f"ST_Contains(ST_GeomFromWKT('{polygon_wkt}'), geometry) = true"
+        )
+
+        # Convert the complex types to JSON strings
+        complex_columns = [
+            "updatetime",
+            "names",
+            "categories",
+            "brand",
+            "addresses",
+            "sources",
+            "websites", 
+            "socials", 
+            "emails", 
+            "phones",
+            "bbox"
+        ]
+
+        for column in complex_columns:
+            if column == "updatetime":
+                places = places.withColumn(column, col(column).cast(TimestampType()))
+            else:
+                places = places.withColumn(column, to_json(column))
+                
+        places = places.withColumn("geometry", expr("ST_AsText(geometry)"))             
+
+        return places
+
+    @timing
+    def fetch_data(self, data_frame, output_schema: str, output_table: str):
+        """Fetch data from Spark DataFrame and write to PostgreSQL database."""
+
+        print_info(f"Downloading Overture POI data to: {output_schema}.{output_table}.")
+
+        data_frame.write.jdbc(
+            url=self.jdbc_url,
+            table=f"{output_schema}.{output_table}",
+            mode="append",
+            properties=self.jdbc_conn_properties,
+        )
+
+    @timing
+    def alter_tables(self):
+        """Alter table in PostgreSQL database for places.""" 
+        
         # get the geometires of the study area based on the query defined in the config
-        region_geoms = self.db.select(self.data_config_collection['region'])
+        region_geoms = self.db_local.select(self.data_config_collection['region'])
 
         # create table for the Overture places
         drop_create_table_sql = f"""
@@ -116,8 +131,16 @@ class OverturePOICollection:
                 WHERE 1=0
             );
         """
-        self.db.perform(drop_create_table_sql)
-
+        self.db_local.perform(drop_create_table_sql)        
+        
+        # convert geom column to geometry type
+        alter_geom_column_sql = f"""
+            ALTER TABLE temporal.places_{self.region}
+            ALTER COLUMN geometry TYPE GEOMETRY(POINT, 4326) USING ST_GeomFromText(geometry, 4326);
+            CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
+        """
+        self.db_local.perform(alter_geom_column_sql)
+        
         # clip data to study area
         # TODO: do i create duplicates?
         for geom in region_geoms:
@@ -128,21 +151,21 @@ class OverturePOICollection:
                 )
                 SELECT p.*
                 FROM temporal.places_{self.region}_raw p, region r
-                WHERE ST_Intersects(p.wkb_geometry, r.geom)
-                AND p.wkb_geometry && r.geom;
+                WHERE ST_Intersects(ST_SetSRID(p.geometry, 4326), r.geom)
+                AND ST_SetSRID(p.geometry, 4326) && r.geom;
                 ;
             """
-            self.db.perform(clip_poi_overture)
+            self.db_local.perform(clip_poi_overture)
 
-        # adjust names column
-        adjust_names_column = f"""
+        # Adjust names column
+        sql_adjust_names_column = f"""
             UPDATE temporal.places_{self.region}
             SET names = TRIM(BOTH '"' FROM (names::jsonb->'common'->0->'value')::text);
         """
-        self.db.perform(adjust_names_column)
+        self.db_local.perform(sql_adjust_names_column)
 
-        # adjust categories column
-        adjust_categories_column = f"""
+        # Adjust categories column
+        sql_adjust_categories_column = f"""
             ALTER TABLE temporal.places_{self.region}
             ADD COLUMN other_categories varchar[];
 
@@ -159,11 +182,10 @@ class OverturePOICollection:
             UPDATE temporal.places_{self.region}
             SET categories = TRIM(BOTH '"' FROM (categories::jsonb->>'main'));
         """
-        self.db.perform(adjust_categories_column)
+        self.db_local.perform(sql_adjust_categories_column)
 
-        # addresses -> street, housenumber, zipcode
-
-        adjust_columns =f"""
+        # Adjust addresses column
+        sql_adjust_addresses_column = f"""
             ALTER TABLE temporal.places_{self.region}
             ADD COLUMN street varchar,
             ADD COLUMN housenumber varchar,
@@ -171,23 +193,56 @@ class OverturePOICollection:
 
             UPDATE temporal.places_{self.region}
             SET
-                street = (SELECT substring(addresses::jsonb->0->>'freeform', '^(.*?)([0-9])')),
-                housenumber = (SELECT substring(addresses::jsonb->0->>'freeform', '([0-9].*)$')),
-                zipcode = (SELECT (addresses::jsonb->0->>'postcode')::varchar),
-                brand = (SELECT brand::jsonb->'names'->'common'->0->>'value');
+                street = TRIM(substring((addresses::jsonb->0->>'freeform')::varchar from '^(.*)(?=\s\d)')),
+                housenumber = TRIM(substring((addresses::jsonb->0->>'freeform')::varchar from '(\s\d.*)$')),
+                zipcode = (addresses::jsonb->0->>'postcode')::varchar,
+                brand = brand::jsonb->'names'->'common'->0->>'value';
         """
-        self.db.perform(adjust_columns)
+        self.db_local.perform(sql_adjust_addresses_column)
+  
 
-        print_hashtags()
-        print(f"Calculation took {time.time() - start_time} seconds ---")
-        print_hashtags()
+    def run(self):
+        """Run Overture places collection."""
+
+        sedona = self.initialize_sedona_context()
+        self.initialize_jdbc_properties()
+        self.initialize_data_source(sedona)
+        self.initialize_tables()
+
+        bbox_coords = get_region_bbox_coords(
+            geom_query=self.data_config_collection["region"],
+            db=self.db_local
+        )
+        region_places = self.filter_region_places(bbox_coords)
+
+        self.fetch_data(
+            data_frame=region_places,
+            output_schema="temporal",
+            output_table=f"places_{self.region}_raw"
+        )
+
+        self.alter_tables()
+
+        print_info(f"Finished Overture places collection for: {self.region}.")
 
 def collect_poi_overture(region: str):
-    db = Database(settings.LOCAL_DATABASE_URI)
-    overture_poi_collection = OverturePOICollection(db=db, region=region)
-    overture_poi_collection.initialize_duckdb()
-    overture_poi_collection.run()
-    db.conn.close()
+    print_info(f"Collect Overture places data for region: {region}.")
+    db_local = Database(settings.LOCAL_DATABASE_URI)
+    db_remote = Database(settings.RAW_DATABASE_URI)
 
-
-
+    try:
+        OverturePOICollection(
+            db_local=db_local,
+            db_remote=db_remote,
+            region=region,
+            collection_type="poi_overture"
+        ).run()
+        db_local.close()
+        db_remote.close()
+        print_info("Finished Overture places collection.")
+    except Exception as e:
+        print_error(e)
+        raise e
+    finally:
+        db_local.close()
+        db_remote.close()

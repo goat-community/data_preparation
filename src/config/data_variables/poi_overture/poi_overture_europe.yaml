@@ -1,0 +1,7 @@
+collection:
+  region: "SELECT geom FROM kart_pois.geofence_active_mobility_union"
+  source: s3a://overturemaps-us-west-2/release/2023-12-14-alpha.0/theme=places
+
+preparation:
+
+subscription:

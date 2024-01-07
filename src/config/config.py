@@ -26,7 +26,7 @@ class Config:
             self.subscription = self.config.get("subscription")
             self.pbf_data = self.config.get("region_pbf")
 
-            if region == 'europe':
+            if region == 'europe' and 'overture' not in name:
                 # get the Geofabrik download links that are not in other config files
                 folder_path = os.path.join(settings.CONFIG_DIR, "data_variables", name)
                 self.regions = [file.split("_")[1].split(".")[0] for file in os.listdir(folder_path) if file.endswith(".yaml")]
