@@ -43,12 +43,12 @@ preparation:
 
       polygon:
         building_osm:
-          query: "SELECT way AS geom FROM building_osm WHERE amenity IS NOT NULL"
+          query: "SELECT way AS geom FROM building_osm_uk WHERE amenity IS NOT NULL"
           value: "'no_residents'"
           share: 0.5
 
         building_osm2:
-          query: "SELECT way AS geom FROM building_osm WHERE building NOT IN ('yes', 'apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house', 'allotment_house', 'apartment', 'apartments', 'apartments;residential', 'apartments;yes', 'maisonette', 'mobile_home', 'terrace', 'terraced', 'terraced_house', 'terrace_house')"
+          query: "SELECT way AS geom FROM building_osm_uk WHERE building NOT IN ('yes', 'apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house', 'allotment_house', 'apartment', 'apartments', 'apartments;residential', 'apartments;yes', 'maisonette', 'mobile_home', 'terrace', 'terraced', 'terraced_house', 'terrace_house')"
           value: "'no_residents'"
           share: 0.5
         

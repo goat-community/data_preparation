@@ -11,3 +11,5 @@ id_rsa.pub
 
 importer/temp/
 poetry.lock
+
+nohup.out

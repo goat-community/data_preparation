@@ -5,6 +5,14 @@ collection:
   # Must be a SQL query which returns the region's bounding geometry (omit terminating semicolon)
   geom_query: "SELECT ST_Union(geom) AS geom
                 FROM public.geofence_active_mobility"
+  
+  # # Harmonizing yaml files
+  # # Overture data release version
+  # source: s3a://overturemaps-us-west-2/release/2023-12-14--alpha.0/theme=transport
+
+  # # Must be a SQL query which returns the region's bounding geometry (omit terminating semicolon)
+  # region: "SELECT geom FROM basic.geofence_active_mobility"
+
 
 preparation:
   cycling_surfaces:

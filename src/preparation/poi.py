@@ -4,17 +4,17 @@ import polars as pl
 
 from src.config.config import Config
 from src.core.config import settings
-from src.utils.utils import (
-    vector_check_string_similarity_bulk,
-    timing,
-    polars_df_to_postgis,
-    create_table_dump,
-    restore_table_dump,
-    print_info,
-)
 from src.db.db import Database
 from src.db.tables.poi import POITable
 from src.preparation.subscription import Subscription
+from src.utils.utils import (
+    create_table_dump,
+    polars_df_to_postgis,
+    print_info,
+    restore_table_dump,
+    timing,
+    vector_check_string_similarity_bulk,
+)
 
 
 class PoiPreparation:
@@ -30,6 +30,7 @@ class PoiPreparation:
         self.db_config = self.db.db_config
         self.db_uri = f"postgresql://{self.db_config.user}:{self.db_config.password}@{self.db_config.host}:{self.db_config.port}{self.db_config.path}"
         self.engine = self.db.return_sqlalchemy_engine()
+        self.region = region
         self.config_pois = Config("poi", region)
 
         self.config_pois_preparation = self.config_pois.preparation
@@ -39,6 +40,9 @@ class PoiPreparation:
 
     def extend_config(self):
         """Build an extended config with all values that are not in the preparation config but in the collection config."""
+
+        if self.config_pois_preparation is None:
+            self.config_pois_preparation = {}
 
         config_collection = self.config_pois.collection
         # Check if config not in preparation but in collection
@@ -70,8 +74,8 @@ class PoiPreparation:
 
         # Read POIs from database
         sql_query = [
-            f"""SELECT {column_names}, 'n' AS osm_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_point""",
-            f"""SELECT {column_names}, 'w' AS osm_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_polygon""",
+            f"""SELECT {column_names}, 'n' AS osm_type, ST_ASTEXT(way) AS geom FROM public.osm_poi_{self.region}_point""",
+            f"""SELECT {column_names}, 'w' AS osm_type, ST_ASTEXT(ST_CENTROID(way)) AS geom FROM public.osm_poi_{self.region}_polygon""",
         ]
         df = pl.read_database(sql_query, self.db_uri)
         return df
@@ -101,21 +105,34 @@ class PoiPreparation:
 
         # Check if values are True then only check if tag has value
         if new_column_names == []:
-            when_condition = pl.when((pl.col(tag) != None))
+            when_condition = pl.when((pl.col(tag).is_not_null()))
         elif new_column_names != [] and values == [True]:
-            when_condition = pl.when(
-                (pl.col(tag) != None) & ~pl.any(pl.col(new_column_names) == True)
-            )
+            conditions = [
+                (pl.col(tag).is_not_null()) & ~(pl.col(name) == True)
+                for name in new_column_names
+            ]
+
+            condition = conditions[0]
+            for cond in conditions[1:]:
+                condition = condition & cond
+
+            when_condition = pl.when(condition)
         # Check if values are in list of conditions
         elif new_column_names == [] and values != [True]:
             values = [x.lower() for x in values]
             when_condition = pl.when((pl.col(tag).str.to_lowercase().is_in(values)))
         elif new_column_names != [] and values != [True]:
             values = [x.lower() for x in values]
-            when_condition = pl.when(
-                (pl.col(tag).str.to_lowercase().is_in(values))
-                & ~pl.any(pl.col(new_column_names) == True)
-            )
+            conditions = [
+                (pl.col(tag).str.to_lowercase().is_in(values)) & ~(pl.col(name) == True)
+                for name in new_column_names
+            ]
+
+            condition = conditions[0]
+            for cond in conditions[1:]:
+                condition = condition & cond
+
+            when_condition = pl.when(condition)
         else:
             raise ValueError("Conditions for tags cannot be set.")
 
@@ -155,8 +172,16 @@ class PoiPreparation:
         values_joined = "|".join(values)
 
         # Check if values are in list of conditions
+        if new_column_names:
+            conditions = [pl.col(name) == True for name in new_column_names]
+            condition = conditions[0]
+            for cond in conditions[1:]:
+                condition = condition | cond
+        else:
+            condition = pl.lit(False)
+
         when_condition = pl.when(
-            ~pl.any(pl.col(new_column_names) == True)
+            ~condition
             & (
                 (pl.col("name").str.to_lowercase().is_in(values))
                 | (pl.col("brand").str.to_lowercase().is_in(values))
@@ -197,8 +222,13 @@ class PoiPreparation:
             list[pl.DataFrame, list[str]]: Classified POIs and the list with new column names.
         """
 
-        df_unclassified = df.filter(~pl.any(pl.col(new_column_names) == True))
-        df_classified = df.filter(pl.any(pl.col(new_column_names) == True))
+        conditions = [pl.col(name) == True for name in new_column_names]
+        condition = conditions[0]
+        for cond in conditions[1:]:
+            condition = condition | cond
+
+        df_unclassified = df.filter(~condition)
+        df_classified = df.filter(condition)
 
         arr_names = df_unclassified["name"].to_numpy()
         arr_brands = df_unclassified["brand"].to_numpy()
@@ -284,7 +314,7 @@ class PoiPreparation:
             value = column_name.split("__")[0]
             df = df.with_columns(
                 pl.when(pl.col(column_name) == True)
-                .then(value)
+                .then(pl.lit(value))
                 .otherwise(pl.col("category"))
                 .alias("category")
             )
@@ -294,7 +324,7 @@ class PoiPreparation:
         unmatched_category = self.config_pois_preparation[category].get("unmatched")
         df = df.with_columns(
             pl.when(pl.col("category") == "str")
-            .then(unmatched_category)
+            .then(pl.lit(unmatched_category))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -318,7 +348,7 @@ class PoiPreparation:
                 & (pl.col("name").is_not_null())
                 & (pl.col("category") == "str")
             )
-            .then("bus_stop")
+            .then(pl.lit("bus_stop"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -330,7 +360,7 @@ class PoiPreparation:
                 & (pl.col("tags").str.json_path_match(r"$.bus") == "yes")
                 & (pl.col("category") == "str")
             )
-            .then("bus_stop")
+            .then(pl.lit("bus_stop"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -386,7 +416,7 @@ class PoiPreparation:
             [pl.from_pandas(pdf_additional_tram_stops), df_tram_stops], how="diagonal"
         ).with_columns(
             pl.when(pl.col("category") == "str")
-            .then("tram_stop")
+            .then(pl.lit("tram_stop"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -399,14 +429,14 @@ class PoiPreparation:
             pl.when(
                 (pl.col(["railway"]) == "station")
                 & (pl.col("name").is_not_null())
-                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
-                & (pl.col("tags").str.json_path_match(r"$.railway:disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.disused").is_null())
+                & (pl.col("tags").str.json_path_match(r"$.railway:disused").is_null())
                 & (
                     (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
-                    | (pl.col("tags").str.json_path_match(r"$.usage") == None)
+                    | (pl.col("tags").str.json_path_match(r"$.usage").is_null())
                 )
             )
-            .then("rail_station")
+            .then(pl.lit("rail_station"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -414,22 +444,19 @@ class PoiPreparation:
         df.filter(
             (pl.col(["railway"]) == "station")
             & (pl.col("name").is_not_null())
-            & (pl.col("tags").str.json_path_match(r"$.disused") == None)
-            & (pl.col("tags").str.json_path_match(r"$.railway:disused") == None)
+            & (pl.col("tags").str.json_path_match(r"$.disused").is_null())
+            & (pl.col("tags").str.json_path_match(r"$.railway:disused").is_null())
             & (
                 (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
-                | (pl.col("tags").str.json_path_match(r"$.usage") == None)
+                | (pl.col("tags").str.json_path_match(r"$.usage").is_null())
             )
         )
 
         df = df.with_columns(
             pl.when(
                 (
-                    pl.any(
-                        pl.col(["railway", "public_transport"]).is_in(
-                            ["stop", "station", "stop_position"]
-                        )
-                    )
+                    (pl.col("railway").is_in(["stop", "station", "stop_position"]))
+                    | (pl.col("public_transport").is_in(["stop", "station", "stop_position"]))
                 )
                 & ~(pl.col("railway").is_in(["disused_station", "proposed"]))
                 & (pl.col("name").is_not_null())
@@ -437,13 +464,13 @@ class PoiPreparation:
                     (pl.col("tags").str.json_path_match(r"$.train") == "yes")
                     | (pl.col("tags").str.json_path_match(r"$.rail") == "yes")
                 )
-                & (pl.col("tags").str.json_path_match(r"$.disused") == None)
+                & (pl.col("tags").str.json_path_match(r"$.disused").is_null())
                 & (
                     (pl.col("tags").str.json_path_match(r"$.usage") != "tourism")
-                    | (pl.col("tags").str.json_path_match(r"$.usage") == None)
+                    | (pl.col("tags").str.json_path_match(r"$.usage").is_null())
                 )
             )
-            .then("rail_station")
+            .then(pl.lit("rail_station"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -454,7 +481,7 @@ class PoiPreparation:
                 (pl.col("railway") == "subway_entrance")
                 & (pl.col("name").is_not_null())
             )
-            .then("subway_entrance")
+            .then(pl.lit("subway_entrance"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -517,8 +544,8 @@ class PoiPreparation:
                 .alias("name")
             )
             .with_columns(
-                pl.when((pl.col("name") != None))
-                .then("subway_entrance")
+                pl.when((pl.col("name").is_not_null()))
+                .then(pl.lit("subway_entrance"))
                 .otherwise(pl.col("category"))
                 .alias("category")
             )
@@ -547,7 +574,7 @@ class PoiPreparation:
                 (pl.col("leisure") == "playground")
                 | (pl.col("amenity") == "playground")
             )
-            .then("playground")
+            .then(pl.lit("playground"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -558,10 +585,10 @@ class PoiPreparation:
         df = df.with_columns(
             pl.when(
                 (pl.col("amenity") == "bicycle_rental")
-                & (pl.col("shop") == None)
+                & (pl.col("shop").is_null())
                 & (pl.col("osm_type") == "n")
             )
-            .then("bike_sharing")
+            .then(pl.lit("bike_sharing"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -577,11 +604,11 @@ class PoiPreparation:
                 )
                 & (
                     pl.col("sport").is_in(["multi", "fitness"])
-                    | (pl.col("sport") == None)
+                    | (pl.col("sport").is_null())
                 )
                 & (pl.col("name").str.to_lowercase().str.contains("yoga") == False)
             )
-            .then("gym")
+            .then(pl.lit("gym"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -595,9 +622,9 @@ class PoiPreparation:
                     (pl.col("sport") == "yoga")
                     | (pl.col("name").str.to_lowercase().str.contains("yoga"))
                 )
-                & (pl.col("shop") == None)
+                & (pl.col("shop").is_null())
             )
-            .then("yoga")
+            .then(pl.lit("yoga"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
@@ -616,48 +643,110 @@ class PoiPreparation:
             pl.when(
                 (pl.col("leisure") == "water_park")
             )
-            .then("water_park")
+            .then(pl.lit("water_park"))
             .otherwise(pl.col("category"))
             .alias("category")
         )
         classified_tags["leisure"].append("water_park")
 
-        # Filter swimming pools
+        # exclude swimming pools as we do not want the swimming pools itself, but the whole facility
         df_swimming_pools = df.filter(
             (pl.col("leisure") == "swimming_pool") & (pl.col("category") == "str")
         )
 
-        # Get dataframe without subway entrances
+        # Get dataframe without swimming pools
         df = df.join(df_swimming_pools, on="osm_id", how="anti")
 
+        df = df.with_columns(
+            pl.when(
+                (pl.col("sport") == "swimming")
+            )
+            .then(pl.lit("swimming"))
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["sport"].append("swimming")
+
+        # classify farm shops
+        df = df.with_columns(
+            pl.when(
+                (pl.col("shop") == "farm") | (pl.col("shop") == "honey")
+                )
+            .then(pl.lit("farm_shop"))
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["shop"].extend(["farm", "honey"])
+
+        # classifies ebike charging stations and charging stations
+        df = df.with_columns(
+            pl.when(
+                (pl.col("amenity") == "charging_station")
+            )
+            .then(
+                pl.when(
+                    pl.col("tags").str.contains('bicycle":"yes"')
+                )
+                .then(pl.lit("ebike_charging_station"))
+                .otherwise(pl.lit("charging_station"))
+            )
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].append("charging_station")
+
+        # classifies food vending machines
+        df = df.with_columns(
+            pl.when(
+                (pl.col("amenity") == "vending_machine")
+                & (pl.col("tags").apply(lambda tags: any(tag in tags for tag in ['food', 'bread', 'milk', 'eggs', 'meat', 'potato', 'honey', 'cheese'])))
+            )
+            .then(pl.lit("food_vending_machine"))
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].append("vending_machine")
+
+        # classifies religious sites
+        df = df.with_columns(
+            pl.when(
+                ((pl.col("amenity") == "monastery") | (pl.col("amenity") == "place_of_worship"))
+                & (pl.col("tags").str.contains('wikidata'))
+            )
+            .then(pl.lit("religious_site"))
+            .otherwise(pl.col("category"))
+            .alias("category")
+        )
+        classified_tags["amenity"].extend(["monastery", "place_of_worship"])
 
         # Loop through config
         for key in self.config_pois_preparation:
-            df_classified_config = pl.DataFrame()
-            # Get OSM tag
-            for tag, values in self.config_pois.collection["osm_tags"].items():
-                if key in values:
-                    osm_tag = tag
-                    break
+            if key not in [item for sublist in classified_tags.values() for item in sublist]:
+                df_classified_config = pl.DataFrame()
+                # Get OSM tag
+                for tag, values in self.config_pois.collection["osm_tags"].items():
+                    if key in values:
+                        osm_tag = tag
+                        break
 
-            # Check if config should be inherited
-            if list(self.config_pois_preparation[key].keys())[0] == "inherit":
-                category = self.config_pois_preparation[key]["inherit"]
-            else:
-                category = key
+                # Check if config should be inherited
+                if list(self.config_pois_preparation[key].keys())[0] == "inherit":
+                    category = self.config_pois_preparation[key]["inherit"]
+                else:
+                    category = key
 
-            # If filter returns nothing continue
-            if df.filter(pl.col(osm_tag) == key).height == 0:
-                continue
-            else:
-                df_classified_config = self.classify_by_config(
-                    df=df.filter(pl.col(osm_tag) == key), category=category
-                )
+                # If filter returns nothing continue
+                if df.filter(pl.col(osm_tag) == key).height == 0:
+                    continue
+                else:
+                    df_classified_config = self.classify_by_config(
+                        df=df.filter(pl.col(osm_tag) == key), category=category
+                    )
 
-            # Remove rows classified by config
-            df = df.filter(~(pl.col(osm_tag) == key) | (pl.col(osm_tag).is_null()))
-            df = pl.concat([df_classified_config, df], how="diagonal")
-            classified_tags[osm_tag].append(key)
+                # Remove rows classified by config
+                df = df.filter(~(pl.col(osm_tag) == key) | (pl.col(osm_tag).is_null()))
+                df = pl.concat([df_classified_config, df], how="diagonal")
+                classified_tags[osm_tag].append(key)
 
         # Remove all categories from config that were already classified
         cleaned_config_poi = self.config_pois.collection["osm_tags"]
@@ -687,6 +776,43 @@ def prepare_poi(region: str):
     """
 
     db = Database(settings.LOCAL_DATABASE_URI)
+
+    regions = Config("poi", region).regions
+
+    if 'europe' in regions:
+        process_poi_preparation(db, 'europe')
+        regions.remove('europe')
+
+    for loop_region in regions:
+        process_poi_preparation(db, loop_region)
+
+        # Insert data from regional table into 'europe' table
+        insert_poi_osm_sql = f"""
+            INSERT INTO public.poi_osm_europe(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+            SELECT
+                category,
+                name,
+                operator,
+                street,
+                housenumber,
+                zipcode,
+                phone,
+                email,
+                website,
+                capacity,
+                opening_hours,
+                wheelchair,
+                source,
+                tags,
+                geom
+            FROM public.poi_osm_{loop_region}
+        """
+        db.perform(insert_poi_osm_sql)
+
+    db.conn.close()
+
+def process_poi_preparation(db: Database, region: str):
+    """Process POI preparation for a given region."""
     poi_preparation = PoiPreparation(db=db, region=region)
 
     # Read and classify POI data
@@ -738,29 +864,8 @@ def prepare_poi(region: str):
         FROM public.poi_osm_{region}_raw
     """
     db.perform(insert_poi_osm_sql)
-    db.conn.close()
 
-    #TODO: do we export the data to Geonode? if yes, the one in our schema?
 
-    # Export OSM data to Geonode
-    # db_rd = Database(settings.RAW_DATABASE_URI)
-    # engine_rd = db_rd.return_sqlalchemy_engine()
-    # polars_df_to_postgis(
-    #     engine=engine_rd,
-    #     df=df.filter(pl.col("category") != "str"),
-    #     table_name=f"poi_osm_{region}",
-    #     schema="public",
-    #     if_exists="replace",
-    #     geom_column="geom",
-    #     srid=4326,
-    #     create_geom_index=True,
-    #     jsonb_column="tags",
-    # )
-    # db_rd.conn.close()
-
-    # Update kart repo with fresh OSM data
-    # subscription = Subscription(db=db, region=region)
-    # subscription.subscribe_osm()
 
 def export_poi(region: str):
     """Export POI data to remote database
@@ -768,19 +873,16 @@ def export_poi(region: str):
     Args:
         region (str): Region to export
     """
-    # db = Database(settings.LOCAL_DATABASE_URI)
-    # db_rd = Database(settings.RAW_DATABASE_URI)
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
 
-    # # Export to POI schema
-    # subscription = Subscription(db=db, region=region)
-    # subscription.export_to_poi_schema()
+    #TODO: refactor subscription to use the our new POI schema
+    # Update kart repo with fresh OSM data
+    subscription = Subscription(db=db, region=region)
+    subscription.subscribe_osm()
 
-    # Dump table and restore in remote database
-    # create_table_dump(db.db_config, "basic", "poi", False)
-    # db_rd.perform("DROP TABLE IF EXISTS basic.poi")
-    # restore_table_dump(db_rd.db_config, "basic", "poi", False)
-    # db.conn.close()
-    # db_rd.conn.close()
+    db.conn.close()
+    db_rd.conn.close()
 
 
 if __name__ == "__main__":
