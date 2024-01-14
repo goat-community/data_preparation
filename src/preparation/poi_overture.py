@@ -2,6 +2,7 @@ from src.config.config import Config
 from src.db.db import Database
 from src.core.config import settings
 from src.db.tables.poi import POITable
+from src.preparation.subscription import Subscription
 
 class OverturePOIPreparation:
     """Preparation of the places data set from the Overture Maps Foundation"""
@@ -25,7 +26,7 @@ class OverturePOIPreparation:
             SELECT
                 categories,
                 other_categories,
-                names,
+                TRIM(names),
                 street,
                 housenumber,
                 zipcode,
@@ -70,3 +71,24 @@ def prepare_poi_overture(region: str):
     overture_poi_preparation = OverturePOIPreparation(db, region)
     overture_poi_preparation.run()
     db.conn.close()
+
+def export_poi(region: str):
+    """Export POI data to remote database
+
+    Args:
+        region (str): Region to export
+    """
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
+
+    #TODO: refactor subscription to use the our new POI schema
+    # Update kart repo with fresh OSM data
+    subscription = Subscription(db=db, region=region)
+    subscription.subscribe_overture()
+
+    db.conn.close()
+    db_rd.conn.close()
+
+
+if __name__ == "__main__":
+    export_poi()

@@ -841,7 +841,7 @@ def process_poi_preparation(db: Database, region: str):
         INSERT INTO public.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
         SELECT
             category,
-            name,
+            TRIM(name),
             operator,
             street,
             housenumber,

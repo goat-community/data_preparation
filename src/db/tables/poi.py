@@ -7,6 +7,7 @@ class POITable:
     def create_table(self, table_name: str, category_columns: list) -> str:
         # Common columns for all POI tables
         common_columns = [
+            "id SERIAL PRIMARY KEY",
             "name text NULL",
             "operator text NULL",
             "street text NULL",
@@ -20,9 +21,7 @@ class POITable:
             "wheelchair text NULL",
             "source text NULL",
             "tags jsonb DEFAULT '{"'"extended_source"'": {}}'::jsonb",
-            "geom geometry NOT NULL",
-            "id SERIAL NOT NULL",
-            f"CONSTRAINT {table_name}_pkey PRIMARY KEY (id)"
+            "geom geometry NOT NULL"            
         ]
 
         # Combine category columns with common columns

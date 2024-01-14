@@ -74,7 +74,7 @@ class OSMOverturePOIFusion:
 
                 # insert data into the final table
                 sql_concat_resulting_tables = f"""
-                    INSERT INTO temporal.poi_{self.region}_fusion_result(
+                    INSERT INTO temporal.poi_osm_overture_{self.region}_fusion_result(
                         category, other_categories ,name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
                         wheelchair, source, tags, geom
                         )
