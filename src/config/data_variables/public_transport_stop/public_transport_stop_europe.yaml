@@ -2,7 +2,7 @@ preparation:
   region: |
     WITH 
     bounds AS (
-        SELECT ST_Extent(geom) AS geom FROM public.nuts WHERE nuts_id = 'DE'
+        SELECT ST_Extent(geom) AS geom FROM basic.geofence_active_mobility
     ),
     grid AS (
         SELECT ST_MakeEnvelope(
@@ -18,12 +18,10 @@ preparation:
     intersections AS (
         SELECT 
             (ST_Dump(ST_Intersection(a.geom, g.geom))).geom AS geom
-        FROM public.nuts a
+        FROM basic.geofence_active_mobility a
         JOIN grid g ON ST_Intersects(a.geom, g.geom)
-        WHERE nuts_id = 'DE'
     )
-    SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon';
-
+    SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon'
   classification:
     gtfs_route_types: 
       "0": "tram_stop"
