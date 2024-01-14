@@ -187,7 +187,12 @@ $function$ LANGUAGE plpgsql;
 --             UPDATE temporal.comparison_poi AS c
 --             SET 
 --                 ' || (
---                     SELECT string_agg(column_name || ' = COALESCE(t2.' || column_name || ', c.' || column_name || ')', ', ')
+--                     SELECT string_agg(
+--                         CASE 
+--                             WHEN column_name = 'source' THEN 'source = t2.source || ''_'' || c.source'
+--                             ELSE column_name || ' = COALESCE(t2.' || column_name || ', c.' || column_name || ')'
+--                         END, ', '
+--                     )
 --                     FROM information_schema.columns
 --                     WHERE table_name = split_part(name_table_1, '.', 2)
 --                     AND table_schema = split_part(name_table_1, '.', 1)
