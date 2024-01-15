@@ -8,19 +8,19 @@ from src.utils.utils import get_region_bbox_coords, print_error, print_info, tim
 
 class OvertureNetworkCollection(OvertureBaseCollection):
 
-    def __init__(self, db_local: Database, db_remote: Database, region: str):
-        super().__init__(db_local, db_remote, region, "network_overture")
+    def __init__(self, db_local: Database, db_remote: Database, region: str, collection_type: str):
+        super().__init__(db_local, db_remote, region, collection_type)
 
 
     def initialize_data_source(self, sedona: SedonaContext):
-        """Initialize Overture parquet file source and data frames for transportation data."""
+        """Initialize Overture geoparquet file source and data frames for transportation data."""
 
-        # Load Overture parquet data into Spark DataFrames
+        # Load Overture geoparquet data into Spark DataFrames
         self.segments_df = sedona.read.format("geoparquet").load(
-            path=f"s3a://overturemaps-us-west-2/release/{self.data_config_collection['overture_release']}/theme=transportation/type=segment"
+            path=f"{self.data_config_collection['source']}/type=segment"
         ) # Segments/edges
         self.connectors_df = sedona.read.format("geoparquet").load(
-            path=f"s3a://overturemaps-us-west-2/release/{self.data_config_collection['overture_release']}/theme=transportation/type=connector"
+            path=f"{self.data_config_collection['source']}/type=connector"
         ) # Connectors/nodes
 
         print_info("Initialized data source.")
@@ -123,7 +123,7 @@ class OvertureNetworkCollection(OvertureBaseCollection):
         self.initialize_tables()
 
         bbox_coords = get_region_bbox_coords(
-            geom_query=self.data_config_collection["geom_query"],
+            geom_query=self.data_config_collection["region"],
             db=self.db_remote
         )
 
@@ -153,7 +153,8 @@ def collect_overture_network(region: str):
         OvertureNetworkCollection(
             db_local=db_local,
             db_remote=db_remote,
-            region=region
+            region=region,
+            collection_type="network_overture"
         ).run()
         db_local.close()
         db_remote.close()
@@ -164,8 +165,3 @@ def collect_overture_network(region: str):
     finally:
         db_local.close()
         db_remote.close()
-
-
-# Run as main
-if __name__ == "__main__":
-    collect_overture_network("de")

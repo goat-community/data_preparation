@@ -13,9 +13,9 @@ class OverturePOICollection(OvertureBaseCollection):
             super().__init__(db_local, db_remote, region, collection_type)
 
     def initialize_data_source(self, sedona: SedonaContext):
-        """Initialize Overture parquet file source and data frames for places data."""
+        """Initialize Overture geoparquet file source and data frames for places data."""
 
-        # Load Overture parquet data into Spark DataFrames
+        # Load Overture geoparquet data into Spark DataFrames
         self.places_df = sedona.read.format("geoparquet").load(
             path=f"{self.data_config_collection['source']}/type=*/*"
         )

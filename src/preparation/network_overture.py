@@ -17,7 +17,6 @@ from src.preparation.network_overture_parallelism import (
 from src.utils.utils import (
     delete_dir,
     download_link,
-    get_region_bbox_coords,
     make_dir,
     print_error,
     print_info,
@@ -32,8 +31,7 @@ class OvertureNetworkPreparation:
         self.region = region
         self.config = Config("network_overture", region)
 
-        self.DEM_S3_URL = "https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com"
-        self.NUM_THREADS = 16
+        self.NUM_THREADS = os.cpu_count() - 2
 
 
     def initialize_dem_table(self):
@@ -46,45 +44,12 @@ class OvertureNetworkPreparation:
                 rast public.raster NULL,
                 filename text NULL,
                 CONSTRAINT dem_pkey PRIMARY KEY (rid),
-                CONSTRAINT enforce_nodata_values_rast CHECK ((_raster_constraint_nodata_values(rast) = '{{NULL}}'::numeric[])),
-                CONSTRAINT enforce_num_bands_rast CHECK ((st_numbands(rast) = 1)),
-                CONSTRAINT enforce_out_db_rast CHECK ((_raster_constraint_out_db(rast) = '{{f}}'::boolean[])),
-                CONSTRAINT enforce_pixel_types_rast CHECK ((_raster_constraint_pixel_types(rast) = '{{32BF}}'::text[])),
-                CONSTRAINT enforce_srid_rast CHECK ((st_srid(rast) = 4326))
+                CONSTRAINT enforce_num_bands_rast CHECK ((ST_NumBands(rast) = 1)),
+                CONSTRAINT enforce_srid_rast CHECK ((ST_SRID(rast) = 4326))
             );
-            CREATE INDEX dem_st_convexhull_idx ON public.dem USING gist (st_convexhull(rast));
+            CREATE INDEX dem_st_convexhull_idx ON public.dem USING gist (ST_ConvexHull(rast));
         """
         self.db_local.perform(sql_create_dem_table)
-
-
-    def get_filtered_dem_tiles(self, region_bbox_coords: dict, full_tile_list: list):
-        """Filter digital elevation model (DEM) tiles to our region of interest."""
-
-        filtered_tile_list= []
-        for tile_filename in full_tile_list:
-            tile_x = 0.0
-            tile_y = 0.0
-
-            # Extract tile latitude from filename
-            if "_N" in tile_filename:
-                tile_y = float(tile_filename.split("_N")[1].split("_00")[0])
-            elif "_S" in tile_filename:
-                tile_y = float(tile_filename.split("_S")[1].split("_00")[0]) * -1.0
-
-            # Extract tile longitude from filename
-            if "_E" in tile_filename:
-                tile_x = float(tile_filename.split("_E")[1].split("_00")[0])
-            elif "_W" in tile_filename:
-                tile_x = float(tile_filename.split("_W")[1].split("_00")[0]) * -1.0
-
-            # Filter tile by comparing coordinates to our region's bounding box
-            if tile_x >= int(region_bbox_coords["xmin"]) and \
-                tile_x <= region_bbox_coords["xmax"] and \
-                tile_y >= int(region_bbox_coords["ymin"]) and \
-                tile_y <= region_bbox_coords["ymax"]:
-                filtered_tile_list.append(tile_filename)
-
-        return filtered_tile_list
 
 
     def import_dem_tiles(self):
@@ -97,40 +62,27 @@ class OvertureNetworkPreparation:
         delete_dir(dem_dir)
         make_dir(dem_dir)
 
-        # Download list of DEM tile file names
-        tile_list_path = os.path.join(dem_dir, "tileList.txt")
-        download_link(
-            link=f"{self.DEM_S3_URL}/tileList.txt",
-            directory=dem_dir
+        # Get list of source URLs to fetch DEM tiles
+        dem_source_list_file_path = os.path.join(
+            settings.INPUT_DATA_DIR,
+            "network_overture",
+            self.config.preparation["dem_source_list"]
         )
+        dem_source_list = []
+        with open(dem_source_list_file_path, "r") as file:
+            for line in file:
+                dem_source_list.append(line.strip())
 
-        # Get region bounding coords to filter DEM tiles
-        region_bbox_coords = get_region_bbox_coords(
-            geom_query=self.config.collection["geom_query"],
-            db=self.db_remote
-        )
-        print_info(f"Calculated region bounding coordinates: {region_bbox_coords}.")
-
-        # Filter tiles to region of interest
-        full_tile_list = []
-        full_tile_count = 0
-        with open(tile_list_path, "r") as file:
-            for tile_name in file:
-                full_tile_list.append(tile_name.strip())
-                full_tile_count += 1
-        filtered_tile_list = self.get_filtered_dem_tiles(region_bbox_coords, full_tile_list)
-
-        # Download filtered DEM tiles
-        for index in range(len(filtered_tile_list)):
-            tile_name = filtered_tile_list[index]
-            dem_file_path = f"{self.DEM_S3_URL}/{tile_name}/{tile_name}.tif"
+        # Download & import relevant DEM tiles
+        for index in range(len(dem_source_list)):
             download_link(
-                link=dem_file_path,
+                link=dem_source_list[index],
                 directory=dem_dir
             )
             try:
                 subprocess.run(
-                    f"raster2pgsql -s 4326 -M -a {os.path.join(dem_dir, tile_name)}.tif -F -t auto public.dem | PGPASSWORD='{settings.POSTGRES_PASSWORD}' psql -h {settings.POSTGRES_HOST} -U {settings.POSTGRES_USER} -d {settings.POSTGRES_DB}",
+                    f"raster2pgsql -s 4326 -M -a {os.path.join(dem_dir, os.path.basename(dem_source_list[index]))} -F -t auto public.dem | " \
+                    f"PGPASSWORD='{settings.POSTGRES_PASSWORD}' psql -h {settings.POSTGRES_HOST} -U {settings.POSTGRES_USER} -d {settings.POSTGRES_DB}",
                     stdout = subprocess.DEVNULL,
                     shell=True,
                     check=True,
@@ -139,9 +91,7 @@ class OvertureNetworkPreparation:
                 print_error(e)
                 raise e
 
-            print_info(f"Imported DEM tile: {index + 1} of {len(filtered_tile_list)}.")
-
-        print_info(f"Total DEM tiles: {full_tile_count}, filtered DEM tiles: {len(filtered_tile_list)}.")
+            print_info(f"Imported DEM tile: {index + 1} of {len(dem_source_list)}.")
 
 
     def initialize_connectors_table(self):
@@ -154,7 +104,7 @@ class OvertureNetworkPreparation:
                 id text NOT NULL UNIQUE,
                 osm_id int8 NULL,
                 geom public.geometry(point, 4326) NOT NULL,
-                h3_3 int2 NOT NULL,
+                h3_3 integer NOT NULL,
                 h3_6 integer NOT NULL,
                 CONSTRAINT connector_pkey PRIMARY KEY (index, h3_3)
             );
@@ -181,14 +131,14 @@ class OvertureNetworkPreparation:
                 impedance_slope_reverse float8 NULL,
                 impedance_surface float8 NULL,
                 coordinates_3857 json NOT NULL,
-                maxspeed_forward int4 NULL,
-                maxspeed_backward int4 NULL,
+                maxspeed_forward integer NULL,
+                maxspeed_backward integer NULL,
                 "source" integer NOT NULL,
                 target integer NOT NULL,
                 tags jsonb NULL,
                 geom public.geometry(linestring, 4326) NOT NULL,
-                h3_3 int2 NOT NULL,
-                h3_6 int4 NOT NULL,
+                h3_3 integer NOT NULL,
+                h3_6 integer NOT NULL,
                 CONSTRAINT segment_pkey PRIMARY KEY (id, h3_3),
                 CONSTRAINT segment_source_fkey FOREIGN KEY ("source") REFERENCES basic.connector(index),
                 CONSTRAINT segment_target_fkey FOREIGN KEY (target) REFERENCES basic.connector(index)
@@ -205,9 +155,17 @@ class OvertureNetworkPreparation:
 
         sql_get_region_geometry = f"""
             SELECT ST_AsText(geom) AS geom
-            FROM ({self.config.collection["geom_query"]}) sub
+            FROM ({self.config.collection["region"]}) sub
         """
         region_geom = self.db_remote.select(sql_get_region_geometry)[0][0]
+
+        # TODO Remove this
+        with open("src/db/functions/fill_polygon_h3.sql", "r") as f:
+            self.db_local.perform(f.read())
+        with open("src/db/functions/to_short_h3_3.sql", "r") as f:
+            self.db_local.perform(f.read())
+        with open("src/db/functions/to_short_h3_6.sql", "r") as f:
+            self.db_local.perform(f.read())
 
         sql_create_region_h3_3_grid = f"""
             DROP TABLE IF EXISTS basic.h3_3_grid;
@@ -232,11 +190,11 @@ class OvertureNetworkPreparation:
         self.db_local.perform(sql_create_region_h3_6_grid)
 
         sql_compute_h3_short_index = """
-            ALTER TABLE basic.h3_3_grid ADD COLUMN h3_short int2;
+            ALTER TABLE basic.h3_3_grid ADD COLUMN h3_short integer;
             UPDATE basic.h3_3_grid
             SET h3_short = to_short_h3_3(h3_index::bigint);
 
-            ALTER TABLE basic.h3_6_grid ADD COLUMN h3_short int4;
+            ALTER TABLE basic.h3_6_grid ADD COLUMN h3_short integer;
             UPDATE basic.h3_6_grid
             SET h3_short = to_short_h3_6(h3_index::bigint);
         """
@@ -390,4 +348,4 @@ def prepare_overture_network(region: str):
 
 # Run as main
 if __name__ == "__main__":
-    prepare_overture_network("de")
+    prepare_overture_network("eu")
