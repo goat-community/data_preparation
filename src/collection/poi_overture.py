@@ -1,12 +1,12 @@
-from src.core.config import settings
-from src.db.db import Database
-from src.utils.utils import print_info, timing, print_error, get_region_bbox_coords
-
-from src.collection.overture_collection_base import OvertureBaseCollection
+from pyspark.sql.functions import col, expr, to_json
+from pyspark.sql.types import TimestampType
 from sedona.spark import SedonaContext
 
-from pyspark.sql.functions import col, to_json, expr
-from pyspark.sql.types import TimestampType
+from src.collection.overture_collection_base import OvertureBaseCollection
+from src.core.config import settings
+from src.db.db import Database
+from src.utils.utils import get_region_bbox_coords, print_error, print_info, timing
+
 
 class OverturePOICollection(OvertureBaseCollection):
     def __init__(self, db_local, db_remote, region, collection_type):
@@ -101,19 +101,6 @@ class OverturePOICollection(OvertureBaseCollection):
         places = places.withColumn("geometry", expr("ST_AsText(geometry)"))             
 
         return places
-
-    @timing
-    def fetch_data(self, data_frame, output_schema: str, output_table: str):
-        """Fetch data from Spark DataFrame and write to PostgreSQL database."""
-
-        print_info(f"Downloading Overture POI data to: {output_schema}.{output_table}.")
-
-        data_frame.write.jdbc(
-            url=self.jdbc_url,
-            table=f"{output_schema}.{output_table}",
-            mode="append",
-            properties=self.jdbc_conn_properties,
-        )
 
     @timing
     def alter_tables(self):
