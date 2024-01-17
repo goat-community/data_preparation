@@ -290,6 +290,35 @@ class Subscription:
 
         # Update the POIs if the extended source is already in the database and the attributes have changed
         for i in range(0, row_cnt, self.batch_size):
+            # Create a temporary table for the batch data of to_seed
+            sql_create_temp_to_seed = f"""
+                DROP TABLE IF EXISTS temp_to_seed;
+                CREATE TEMP TABLE temp_to_seed AS
+                SELECT
+                    category,
+                    other_categories,
+                    name,
+                    operator,
+                    street,
+                    housenumber,
+                    zipcode,
+                    phone,
+                    email,
+                    website,
+                    capacity,
+                    opening_hours,
+                    wheelchair,
+                    source,
+                    tags::text,
+                    geom
+                FROM temporal.{self.table_name}_to_seed
+                ORDER BY tags ->> 'extended_source'
+                LIMIT {self.batch_size}
+                OFFSET {i};
+                CREATE INDEX ON temp_to_seed USING gin((tags::jsonb -> 'extended_source') jsonb_path_ops);
+            """
+            self.db.perform(sql_create_temp_to_seed)
+
             sql_update_poi = f"""
                 UPDATE {self.kart_schema}.{self.get_kart_poi_table_name(category)} p
                 SET
@@ -309,14 +338,8 @@ class Subscription:
                     source = s.source,
                     tags = s.tags::text,
                     geom = s.geom
-                FROM (
-                    SELECT *
-                    FROM temporal.{self.table_name}_to_seed n
-                    ORDER BY tags ->> 'extended_source'
-                    LIMIT {self.batch_size}
-                    OFFSET {i}
-                ) s
-                WHERE p.tags::jsonb ->> 'extended_source' = s.tags ->> 'extended_source'
+                FROM temp_to_seed s
+                WHERE p.tags::jsonb ->> 'extended_source' = s.tags::jsonb ->> 'extended_source'
                 AND (
                     p.category != s.category
                     OR p.name != s.name

@@ -276,9 +276,13 @@ class PrepareKart:
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS website_not_empty_string_check, ADD CONSTRAINT website_not_empty_string_check CHECK (website != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
                 ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
+                ALTER TABLE {self.schema_name}.{table_name} ADD PRIMARY KEY (auto_pk);
+                CREATE INDEX IF NOT EXISTS {table_name}_geom_gist ON {self.schema_name}.{table_name} USING gist (geom);
+                CREATE INDEX IF NOT EXISTS {table_name}_tags_extended_source_gin ON {self.schema_name}.{table_name} USING gin ((tags -> 'extended_source') jsonb_path_ops);
                 ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
             self.db.perform(sql_common_poi)
+
 
             # Add additional constraints all tables besides poi_childcare and poi_school
             if table_name not in ("poi_childcare", "poi_school"):
