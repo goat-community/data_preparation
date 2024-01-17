@@ -21,7 +21,7 @@ class POITable:
             "wheelchair text NULL",
             "source text NULL",
             "tags jsonb DEFAULT '{"'"extended_source"'": {}}'::jsonb",
-            "geom geometry NOT NULL"            
+            "geom geometry NOT NULL"
         ]
 
         # Combine category columns with common columns

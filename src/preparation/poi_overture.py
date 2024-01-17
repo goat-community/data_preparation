@@ -24,30 +24,48 @@ class OverturePOIPreparation:
         insert_into_poi_table = f"""
             INSERT INTO temporal.poi_overture_{self.region}_raw(category, other_categories, name, street, housenumber, zipcode, phone, website, source, tags, geom)
             SELECT
-                categories,
-                other_categories,
-                TRIM(names),
-                street,
-                housenumber,
-                zipcode,
                 CASE
-                    WHEN json_array_length(phones::json) > 0 THEN trim((phones::json->0)::text, '"')
+                    WHEN TRIM(categories) = '' THEN NULL
+                    ELSE TRIM(categories)
+                END AS categories,
+                CASE
+                    WHEN TRIM(other_categories) = '' THEN NULL
+                    ELSE TRIM(other_categories)
+                END AS other_categories,
+                CASE
+                    WHEN TRIM(names) = '' THEN NULL
+                    ELSE TRIM(names)
+                END AS names,
+                CASE
+                    WHEN TRIM(street) = '' THEN NULL
+                    ELSE TRIM(street)
+                END AS street,
+                CASE
+                    WHEN TRIM(housenumber) = '' THEN NULL
+                    ELSE TRIM(housenumber)
+                END AS housenumber,
+                CASE
+                    WHEN TRIM(zipcode) = '' THEN NULL
+                    ELSE TRIM(zipcode)
+                END AS zipcode,
+                CASE
+                    WHEN json_array_length(phones::json) > 0 AND (phones::json->0)::text != '""' THEN trim((phones::json->0)::text, '"')
                     ELSE NULL
                 END AS phone,
                 CASE
-                    WHEN json_array_length(websites::json) > 0 THEN trim((websites::json->0)::text, '"')
+                    WHEN json_array_length(websites::json) > 0 AND (websites::json->0)::text != '""' THEN trim((websites::json->0)::text, '"')
                     ELSE NULL
                 END AS website,
                 'Overture' AS source,
                 (JSONB_STRIP_NULLS(
                     JSONB_BUILD_OBJECT(
-                        'confidence', confidence,
+                        'confidence', TRIM(confidence),
                         'social_media', CASE
-                            WHEN json_array_length(socials::json) > 0 THEN trim((socials::json->0)::text, '"')
+                            WHEN json_array_length(socials::json) > 0 AND (socials::json->0)::text != '""' THEN trim((socials::json->0)::text, '"')
                             ELSE NULL
                         END,
-                        'brand', brand) ||
-                    JSONB_BUILD_OBJECT('extended_source', JSONB_BUILD_OBJECT('ogc_fid', id))
+                        'brand', TRIM(brand)) ||
+                    JSONB_BUILD_OBJECT('extended_source', JSONB_BUILD_OBJECT('ogc_fid', TRIM(id))
                 )) AS TAGS,
                 geometry
             FROM temporal.places_{self.region};

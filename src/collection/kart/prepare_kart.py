@@ -315,16 +315,25 @@ class PrepareKart:
 
         # SQL check of timestamp is in ZULU UTC format
 
+        # Update null values to the default value
+        sql_update_nulls = f"""
+            UPDATE {self.schema_name}.data_subscription
+            SET source_date = '9999-12-31 23:59:59.999 +0000'::timestamptz
+            WHERE source_date IS NULL;
+        """
+        self.db.perform(sql_update_nulls)
+
+        # Then apply the constraints
         sql_constraints_data_subscription = f"""
-            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN nuts_id SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN geom_ref_id SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN category SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source_date SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN rule SET NOT NULL;
-            ALTER TABLE {self.schema_name}.data_subscription ADD CONSTRAINT rule_check CHECK (rule IN ('subscribe', 'unsubscribe'));
+            ALTER TABLE {self.schema_name}.data_subscription ADD CONSTRAINT rule_check CHECK (rule IN ('subscribe', 'exclude'));
             ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.nuts ADD CONSTRAINT nuts_key UNIQUE ("nuts_id");
-            ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (nuts_id) REFERENCES {self.schema_name}.nuts("nuts_id") ON DELETE CASCADE;
+            ALTER TABLE {self.schema_name}.geom_ref ADD CONSTRAINT geom_ref_key UNIQUE ("id");
+            ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (geom_ref_id) REFERENCES {self.schema_name}.geom_ref("id") ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.data_subscription OWNER TO {self.maintainer};
         """
         self.db.perform(sql_constraints_data_subscription)
