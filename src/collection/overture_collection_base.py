@@ -3,6 +3,8 @@ from sedona.spark import SedonaContext
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
+from src.utils.utils import print_info, timing
+
 
 class OvertureBaseCollection:
     def __init__(self, db_local: Database, db_remote: Database, region: str, collection_type: str):
@@ -19,10 +21,10 @@ class OvertureBaseCollection:
         config = SedonaContext.builder() \
             .config('spark.jars.packages',
                 'org.apache.sedona:sedona-spark-shaded-3.4_2.12:1.5.0,'
-                'org.datasyslab:geotools-wrapper:1.4.0-28.2,'
-                'org.apache.hadoop:hadoop-aws:3.3.4,'
-                'com.amazonaws:aws-java-sdk-bundle:1.12.583,'
-                'org.postgresql:postgresql:42.6.0'
+                    'org.datasyslab:geotools-wrapper:1.5.0-28.2,'
+                    'org.apache.hadoop:hadoop-aws:3.3.4,'
+                    'com.amazonaws:aws-java-sdk-bundle:1.12.583,'
+                    'org.postgresql:postgresql:42.6.0'
             ) \
             .config(
                 "fs.s3a.aws.credentials.provider",
@@ -47,4 +49,14 @@ class OvertureBaseCollection:
             "batchsize": "10000"
         }
 
+    @timing
+    def fetch_data(self, data_frame, output_schema: str, output_table: str):
+        """Fetch data from Spark dataframe and write to local PostgreSQL database."""
 
+        print_info(f"Downloading data to: {output_schema}.{output_table}.")
+        data_frame.write.jdbc(
+            url=self.jdbc_url,
+            table=f"{output_schema}.{output_table}",
+            mode="append",
+            properties=self.jdbc_conn_properties
+        )
