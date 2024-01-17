@@ -344,8 +344,3 @@ def prepare_overture_network(region: str):
     finally:
         db_local.close()
         db_remote.close()
-
-
-# Run as main
-if __name__ == "__main__":
-    prepare_overture_network("eu")

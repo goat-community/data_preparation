@@ -38,8 +38,8 @@ services:
     networks:
       data_preparation_proxy:
     # Enable if R5 is running locally on the host machine
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
+    extra_hosts:
+      - "host_network:host-gateway"
 
 
   db-vol-ownership:
