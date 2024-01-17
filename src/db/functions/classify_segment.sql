@@ -5,12 +5,12 @@ CREATE TYPE output_segment AS (
     class_ text, impedance_slope float8,
 	impedance_slope_reverse float8,
 	impedance_surface float8,
-    coordinates_3857 json, maxspeed_forward int4,
-	maxspeed_backward int4, "source" text,
+    coordinates_3857 json, maxspeed_forward integer,
+	maxspeed_backward integer, "source" text,
 	source_index integer, target text,
 	target_index integer, tags jsonb,
     geom public.geometry(linestring, 4326),
-    h3_3 int2, h3_6 int4
+    h3_3 integer, h3_6 integer
 );
 
 
