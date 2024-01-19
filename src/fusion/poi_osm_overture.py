@@ -1,7 +1,10 @@
+import time
+
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
 from src.db.tables.poi import POITable
+from src.utils.utils import print_info, timing
 
 
 class OSMOverturePOIFusion:
@@ -21,8 +24,11 @@ class OSMOverturePOIFusion:
         result_table_name = f"{self.region}_fusion_result"
         self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=result_table_name).create_poi_table(table_type=poi_table_type))
 
-        for top_level_category, categories in self.data_config_preparation['fusion']['categories'].items():
+        total_top_level_categories = len(self.data_config_preparation['fusion']['categories'])
+
+        for i, (top_level_category, categories) in enumerate(self.data_config_preparation['fusion']['categories'].items(), start=1):
             for category, config in categories.items():
+                start_time = time.time()
 
                  # Create temp tables for input_1 and input_2 data needed for fusion
                 input_1_table_name = f"input_1_{self.region}_fusion"
@@ -82,6 +88,9 @@ class OSMOverturePOIFusion:
                     FROM temporal.comparison_poi;
                 """
                 self.db.perform(sql_concat_resulting_tables)
+
+            end_time = time.time()
+            print_info(f"Processed category {top_level_category} {i} of {total_top_level_categories}. This category took {end_time - start_time:.2f} seconds.")
 
 def fusion_poi_osm_overture(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)

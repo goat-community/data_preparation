@@ -1,6 +1,29 @@
 collection:
-  region: "SELECT geom FROM kart_pois.nuts WHERE nuts_id = 'DE'"
-  source: s3a://overturemaps-us-west-2/release/2023-12-14-alpha.0/theme=places
+  region: |
+    WITH 
+    bounds AS (
+        SELECT ST_Extent(geom) AS geom FROM kart_pois.geom_ref WHERE id = 'DE'
+    ),
+    grid AS (
+        SELECT ST_MakeEnvelope(
+            x::numeric, 
+            y::numeric, 
+            (x + 1)::numeric, 
+            (y + 1)::numeric, 
+            4326
+        ) AS geom
+        FROM generate_series(floor(ST_XMin((SELECT geom FROM bounds)))::integer, ceiling(ST_XMax((SELECT geom FROM bounds)))::integer, 1) AS x
+        CROSS JOIN generate_series(floor(ST_YMin((SELECT geom FROM bounds)))::integer, ceiling(ST_YMax((SELECT geom FROM bounds)))::integer, 1) AS y
+    ),
+    intersections AS (
+        SELECT 
+            (ST_Dump(ST_Intersection(a.geom, g.geom))).geom AS geom
+        FROM kart_pois.geom_ref a
+        JOIN grid g ON ST_Intersects(a.geom, g.geom)
+        WHERE a.id = 'DE'
+    )
+    SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon'
+  source: s3a://overturemaps-us-west-2/release/2024-01-17-alpha.0/theme=places
 preparation:
 
 subscription:

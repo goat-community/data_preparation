@@ -1,3 +1,5 @@
+import time
+
 from pyspark.sql.functions import col, expr, to_json
 from pyspark.sql.types import TimestampType
 from sedona.spark import SedonaContext
@@ -9,8 +11,9 @@ from src.utils.utils import get_region_bbox_coords, print_error, print_info, tim
 
 
 class OverturePOICollection(OvertureBaseCollection):
+
     def __init__(self, db_local, db_remote, region, collection_type):
-            super().__init__(db_local, db_remote, region, collection_type)
+        super().__init__(db_local, db_remote, region, collection_type)
 
     def initialize_data_source(self, sedona: SedonaContext):
         """Initialize Overture geoparquet file source and data frames for places data."""
@@ -20,10 +23,11 @@ class OverturePOICollection(OvertureBaseCollection):
             path=f"{self.data_config_collection['source']}/type=*/*"
         )
 
+        print_info("Initialized data source.")
+
     def initialize_tables(self):
         """Create table in PostgreSQL database for places."""
 
-        #TODO: check fix data types
         sql_create_table_places = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region}_raw;
             CREATE TABLE temporal.places_{self.region}_raw (
@@ -40,8 +44,7 @@ class OverturePOICollection(OvertureBaseCollection):
                 brand TEXT,
                 addresses TEXT,
                 sources TEXT,
-                geometry TEXT,
-                bbox TEXT
+                geometry TEXT
             );
         """
         self.db_local.perform(sql_create_table_places)
@@ -65,17 +68,17 @@ class OverturePOICollection(OvertureBaseCollection):
             "brand",
             "addresses",
             "sources",
-            "geometry",
+            "ST_AsText(geometry) AS geometry",
             "bbox"
         )
 
-        # Create a polygon WKT from the bounding box coordinates
-        polygon_wkt = f"POLYGON(({bbox_coords['xmin']} {bbox_coords['ymin']}, {bbox_coords['xmax']} {bbox_coords['ymin']}, {bbox_coords['xmax']} {bbox_coords['ymax']}, {bbox_coords['xmin']} {bbox_coords['ymax']}, {bbox_coords['xmin']} {bbox_coords['ymin']}))"
-
-        # Filter the DataFrame to only include rows where the geometry is within the polygon
         places = self.places_df.filter(
-            f"ST_Contains(ST_GeomFromWKT('{polygon_wkt}'), geometry) = true"
+            (places.bbox.minx > bbox_coords["xmin"]) &
+            (places.bbox.miny > bbox_coords["ymin"]) &
+            (places.bbox.maxx < bbox_coords["xmax"]) &
+            (places.bbox.maxy < bbox_coords["ymax"])
         )
+        places = places.drop(places.bbox)
 
         # Convert the complex types to JSON strings
         complex_columns = [
@@ -85,11 +88,10 @@ class OverturePOICollection(OvertureBaseCollection):
             "brand",
             "addresses",
             "sources",
-            "websites", 
-            "socials", 
-            "emails", 
+            "websites",
+            "socials",
+            "emails",
             "phones",
-            "bbox"
         ]
 
         for column in complex_columns:
@@ -97,17 +99,28 @@ class OverturePOICollection(OvertureBaseCollection):
                 places = places.withColumn(column, col(column).cast(TimestampType()))
             else:
                 places = places.withColumn(column, to_json(column))
-                
-        places = places.withColumn("geometry", expr("ST_AsText(geometry)"))             
+
+        places = places.withColumn("geometry", expr("ST_AsText(geometry)"))
 
         return places
 
     @timing
     def alter_tables(self):
-        """Alter table in PostgreSQL database for places.""" 
-        
+        """Alter table in PostgreSQL database for places."""
+
+        print_info(f"Starting to alter tables temporal.places_{self.region}_raw and temporal.places_{self.region}.")
+
         # get the geometires of the study area based on the query defined in the config
         region_geoms = self.db_local.select(self.data_config_collection['region'])
+
+        # create index on places raw
+        alter_geom_column_sql = f"""
+            ALTER TABLE temporal.places_{self.region}_raw
+            ALTER COLUMN geometry TYPE GEOMETRY(POINT, 4326) USING ST_GeomFromText(geometry, 4326);
+            CREATE INDEX ON temporal.places_{self.region}_raw USING GIST (geometry);
+        """
+        self.db_local.perform(alter_geom_column_sql)
+        print_info(f"converted geometry column to geometry type and created geometry index on temporal.places_{self.region}_raw")
 
         # create table for the Overture places
         drop_create_table_sql = f"""
@@ -117,76 +130,69 @@ class OverturePOICollection(OvertureBaseCollection):
                 FROM temporal.places_{self.region}_raw
                 WHERE 1=0
             );
-        """
-        self.db_local.perform(drop_create_table_sql)        
-        
-        # convert geom column to geometry type
-        alter_geom_column_sql = f"""
             ALTER TABLE temporal.places_{self.region}
-            ALTER COLUMN geometry TYPE GEOMETRY(POINT, 4326) USING ST_GeomFromText(geometry, 4326);
+            ADD COLUMN IF NOT EXISTS other_categories varchar[],
+            ADD COLUMN IF NOT EXISTS street varchar,
+            ADD COLUMN IF NOT EXISTS housenumber varchar,
+            ADD COLUMN IF NOT EXISTS zipcode varchar;
+            ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
             CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
         """
-        self.db_local.perform(alter_geom_column_sql)
-        
-        # clip data to study area
-        # TODO: do i create duplicates?
-        for geom in region_geoms:
+        self.db_local.perform(drop_create_table_sql)
+
+        print_info(f"created table temporal.places_{self.region} including geometry index and pkey")
+
+        for index, geom in enumerate(region_geoms, start=1):
+            start_time = time.time()
+
             clip_poi_overture = f"""
-                INSERT INTO temporal.places_{self.region}
+                INSERT INTO temporal.places_{self.region} (id, names, other_categories, categories, street, housenumber, zipcode, brand, updatetime, version, confidence, websites, socials, emails, phones, addresses, sources, geometry)
                 WITH region AS (
                     SELECT ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326) AS geom
+                ),
+                new_pois AS (
+                    SELECT DISTINCT ON (p.id) p.*
+                    FROM temporal.places_{self.region}_raw p
+                    JOIN region r ON ST_Intersects(p.geometry, r.geom)
+                ),
+                adjusted_pois AS (
+                    SELECT
+                        np.id,
+                        TRIM(BOTH '"' FROM (np.names::jsonb->'common'->0->'value')::text) AS names,
+                        CASE
+                            WHEN (np.categories::jsonb->'alternate'->>0) IS NOT NULL OR (np.categories::jsonb->'alternate'->>1) IS NOT NULL THEN
+                                ARRAY_REMOVE(ARRAY_REMOVE(ARRAY[(np.categories::jsonb->'alternate'->>0)::varchar, (np.categories::jsonb->'alternate'->>1)::varchar], NULL), '')
+                            ELSE
+                                ARRAY[]::varchar[]
+                        END AS other_categories,
+                        TRIM(BOTH '"' FROM (np.categories::jsonb->>'main')) AS categories,
+                        TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '^(.*)(?=\s\d)')) AS street,
+                        TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '(\s\d.*)$')) AS housenumber,
+                        (np.addresses::jsonb->0->>'postcode')::varchar AS zipcode,
+                        np.brand::jsonb->'names'->'common'->0->>'value' AS brand,
+                        np.updatetime,
+                        np.version,
+                        np.confidence,
+                        np.websites,
+                        np.socials,
+                        np.emails,
+                        np.phones,
+                        np.addresses,
+                        np.sources,
+                        np.geometry
+                    FROM new_pois np
                 )
-                SELECT p.*
-                FROM temporal.places_{self.region}_raw p, region r
-                WHERE ST_Intersects(ST_SetSRID(p.geometry, 4326), r.geom)
-                AND ST_SetSRID(p.geometry, 4326) && r.geom;
-                ;
+                SELECT ap.*
+                FROM adjusted_pois ap
+                LEFT JOIN temporal.places_{self.region} existing ON ap.id = existing.id
+                WHERE existing.id IS NULL;
             """
+
             self.db_local.perform(clip_poi_overture)
 
-        # Adjust names column
-        sql_adjust_names_column = f"""
-            UPDATE temporal.places_{self.region}
-            SET names = TRIM(BOTH '"' FROM (names::jsonb->'common'->0->'value')::text);
-        """
-        self.db_local.perform(sql_adjust_names_column)
-
-        # Adjust categories column
-        sql_adjust_categories_column = f"""
-            ALTER TABLE temporal.places_{self.region}
-            ADD COLUMN other_categories varchar[];
-
-            UPDATE temporal.places_{self.region}
-            SET other_categories = (
-                CASE
-                    WHEN (categories::jsonb->'alternate'->>0) IS NOT NULL OR (categories::jsonb->'alternate'->>1) IS NOT NULL THEN
-                        ARRAY_REMOVE(ARRAY_REMOVE(ARRAY[(categories::jsonb->'alternate'->>0)::varchar, (categories::jsonb->'alternate'->>1)::varchar], NULL), '')
-                    ELSE
-                        ARRAY[]::varchar[]
-                END
-            );
-
-            UPDATE temporal.places_{self.region}
-            SET categories = TRIM(BOTH '"' FROM (categories::jsonb->>'main'));
-        """
-        self.db_local.perform(sql_adjust_categories_column)
-
-        # Adjust addresses column
-        sql_adjust_addresses_column = f"""
-            ALTER TABLE temporal.places_{self.region}
-            ADD COLUMN street varchar,
-            ADD COLUMN housenumber varchar,
-            ADD COLUMN zipcode varchar;
-
-            UPDATE temporal.places_{self.region}
-            SET
-                street = TRIM(substring((addresses::jsonb->0->>'freeform')::varchar from '^(.*)(?=\s\d)')),
-                housenumber = TRIM(substring((addresses::jsonb->0->>'freeform')::varchar from '(\s\d.*)$')),
-                zipcode = (addresses::jsonb->0->>'postcode')::varchar,
-                brand = brand::jsonb->'names'->'common'->0->>'value';
-        """
-        self.db_local.perform(sql_adjust_addresses_column)
-  
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print_info(f"Processing geom {index} out of {len(region_geoms)}. This iteration took {elapsed_time} seconds.")
 
     def run(self):
         """Run Overture places collection."""
@@ -197,7 +203,7 @@ class OverturePOICollection(OvertureBaseCollection):
         self.initialize_tables()
 
         bbox_coords = get_region_bbox_coords(
-            geom_query=self.data_config_collection["region"],
+            geom_query=f"""SELECT ST_Union(geom) AS geom FROM ({self.data_config_collection["region"]}) AS subquery""",
             db=self.db_local
         )
         region_places = self.filter_region_places(bbox_coords)
