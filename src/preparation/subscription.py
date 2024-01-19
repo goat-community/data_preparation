@@ -476,6 +476,7 @@ class Subscription:
         # Commit to repository
         self.prepare_kart.commit(f"Automatically updated date of data subscription for category {category}")
 
+    @timing
     def subscribe_osm(self):
 
         # Prepare a fresh kart repo

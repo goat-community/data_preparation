@@ -132,11 +132,21 @@ class PrepareKart:
     def push(self, branch_name: str):
         """Push Kart repository to remote"""
         os.chdir(self.path_repo)
-        subprocess.run(
-            f"kart push --set-upstream origin {branch_name}",
+
+        # Get the number of commits on the current branch
+        num_commits = int(subprocess.check_output(
+            "git rev-list --count HEAD",
             shell=True,
-            check=True,
-        )
+        ))
+
+        # Push the commits in batches
+        batch_size = 10  # Adjust this value based on your needs
+        for i in range(0, num_commits, batch_size):
+            subprocess.run(
+                f"git push --set-upstream origin {branch_name}~{i}:{branch_name}",
+                shell=True,
+                check=True,
+            )
 
     def create_pull_request(
         self,
@@ -276,9 +286,6 @@ class PrepareKart:
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS website_not_empty_string_check, ADD CONSTRAINT website_not_empty_string_check CHECK (website != '');
                 ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
                 ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
-                ALTER TABLE {self.schema_name}.{table_name} ADD PRIMARY KEY (auto_pk);
-                CREATE INDEX IF NOT EXISTS {table_name}_geom_gist ON {self.schema_name}.{table_name} USING gist (geom);
-                CREATE INDEX IF NOT EXISTS {table_name}_tags_extended_source_gin ON {self.schema_name}.{table_name} USING gin ((tags -> 'extended_source') jsonb_path_ops);
                 ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
             self.db.perform(sql_common_poi)
@@ -299,6 +306,7 @@ class PrepareKart:
                 sql_addition_constraints_operator_tags = f"""
                     ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
                     ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
+                    CREATE INDEX IF NOT EXISTS {table_name}_tags_extended_source_gin ON {self.schema_name}.{table_name} USING gin ((tags::jsonb -> 'extended_source') jsonb_path_ops);
                     ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
                 self.db.perform(sql_addition_constraints_operator_tags)
