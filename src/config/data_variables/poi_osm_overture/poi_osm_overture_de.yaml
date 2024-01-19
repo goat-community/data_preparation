@@ -681,8 +681,4 @@ preparation:
           matching_column_2: "name"
           decision_table_1: "keep"
           decision_fusion: "keep"
-          decision_table_2: "add"
-
-
-
-subscription:
+          decision_table_2: "add"subscription:
