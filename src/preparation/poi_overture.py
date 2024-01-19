@@ -105,8 +105,6 @@ class OverturePOIPreparation:
             end_time = time.time()
             print_info(f"Batch {i+1} out of {total_batches} processed. This batch took {end_time - start_time:.2f} seconds.")
 
-        self.db.conn.close()
-
         # Remove loop_id column
         sql_adjust_table = f"""
             ALTER TABLE temporal.places_{self.region} DROP COLUMN IF EXISTS loop_id;
