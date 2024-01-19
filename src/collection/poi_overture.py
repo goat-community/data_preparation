@@ -29,8 +29,8 @@ class OverturePOICollection(OvertureBaseCollection):
         """Create table in PostgreSQL database for places."""
 
         sql_create_table_places = f"""
-            DROP TABLE IF EXISTS temporal.places_{self.region}_raw;
-            CREATE TABLE temporal.places_{self.region}_raw (
+            DROP TABLE IF EXISTS temporal.places_{self.region}_raw_no_geom;
+            CREATE TABLE temporal.places_{self.region}_raw_no_geom (
                 id TEXT PRIMARY KEY,
                 categories TEXT,
                 updatetime TIMESTAMPTZ,
@@ -48,7 +48,7 @@ class OverturePOICollection(OvertureBaseCollection):
             );
         """
         self.db_local.perform(sql_create_table_places)
-        print_info(f"Created table: temporal.places_{self.region}_raw.")
+        print_info(f"Created table: temporal.places_{self.region}_raw_no_geom.")
 
     def filter_region_places(self, bbox_coords: dict):
         """Initialize the places dataframe and apply relevant filters."""
@@ -114,16 +114,18 @@ class OverturePOICollection(OvertureBaseCollection):
         region_geoms = self.db_local.select(self.data_config_collection['region'])
 
         # create index on places raw
-        alter_geom_column_sql = f"""
-            ALTER TABLE temporal.places_{self.region}_raw
-            ALTER COLUMN geometry TYPE GEOMETRY(POINT, 4326) USING ST_GeomFromText(geometry, 4326);
+        create_table_with_geom_sql = f"""
+            DROP TABLE IF EXISTS temporal.places_{self.region}_raw;
+            CREATE UNLOGGED TABLE temporal.places_{self.region}_raw AS
+            SELECT id, categories, updatetime, version, names, confidence, websites, socials, emails, phones, brand, addresses, sources, ST_SetSRID(ST_GeomFromText(geometry), 4326) AS geometry
+            FROM temporal.places_{self.region}_raw_no_geom;
             CREATE INDEX ON temporal.places_{self.region}_raw USING GIST (geometry);
         """
-        self.db_local.perform(alter_geom_column_sql)
-        print_info(f"converted geometry column to geometry type and created geometry index on temporal.places_{self.region}_raw")
+        self.db_local.perform(create_table_with_geom_sql)
+        print_info(f"Created new unlogged table temporal.places_{self.region}_raw with converted geometry")
 
         # create table for the Overture places
-        drop_create_table_sql = f"""
+        create_place_table_sql = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region};
             CREATE TABLE temporal.places_{self.region} AS (
                 SELECT *
@@ -138,9 +140,11 @@ class OverturePOICollection(OvertureBaseCollection):
             ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
             CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
         """
-        self.db_local.perform(drop_create_table_sql)
+        self.db_local.perform(create_place_table_sql)
 
         print_info(f"created table temporal.places_{self.region} including geometry index and pkey")
+
+        cur = self.db_local.conn.cursor()
 
         for index, geom in enumerate(region_geoms, start=1):
             start_time = time.time()
@@ -188,11 +192,26 @@ class OverturePOICollection(OvertureBaseCollection):
                 WHERE existing.id IS NULL;
             """
 
-            self.db_local.perform(clip_poi_overture)
+            try:
+                cur.execute(clip_poi_overture)
+                self.db_local.conn.commit()
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                self.db_local.conn.rollback()
 
             end_time = time.time()
             elapsed_time = end_time - start_time
             print_info(f"Processing geom {index} out of {len(region_geoms)}. This iteration took {elapsed_time} seconds.")
+
+        cur.close()
+
+        # Convert unlogged table to regular table
+        convert_to_regular_table_sql = f"""
+            ALTER TABLE temporal.places_{self.region}_raw SET LOGGED;
+        """
+        self.db_local.perform(convert_to_regular_table_sql)
+        print_info(f"Converted temporal.places_{self.region}_raw to a regular table")
+
 
     def run(self):
         """Run Overture places collection."""
@@ -211,7 +230,7 @@ class OverturePOICollection(OvertureBaseCollection):
         self.fetch_data(
             data_frame=region_places,
             output_schema="temporal",
-            output_table=f"places_{self.region}_raw"
+            output_table=f"places_{self.region}_raw_no_geom"
         )
 
         self.alter_tables()
