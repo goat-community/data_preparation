@@ -7,10 +7,6 @@ from src.db.tables.poi import POITable
 from src.preparation.subscription import Subscription
 from src.utils.utils import print_info, timing
 
-# remove gist index before and add again after
-# unlogged table
-# use cursor instead of perform
-
 class OverturePOIPreparation:
     """Preparation of the places data set from the Overture Maps Foundation"""
     def __init__(self, db: Database, region: str = "de"):
@@ -21,7 +17,7 @@ class OverturePOIPreparation:
 
     @timing
     def run(self):
-        self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"overture_{self.region}_raw").create_poi_table(table_type='standard'))
+        self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"overture_{self.region}_raw").create_poi_table(table_type='standard', create_index=False))
 
         # Add loop_id column + drop indices
         sql_adjust_table = f"""
@@ -31,6 +27,8 @@ class OverturePOIPreparation:
             CREATE INDEX ON temporal.places_{self.region} (loop_id);
         """
         self.db.perform(sql_adjust_table)
+
+        print_info(f"created table overture_{self.region}_raw + created loop id and dropped indices")
 
         batch_size = 100000
 
@@ -105,10 +103,12 @@ class OverturePOIPreparation:
             end_time = time.time()
             print_info(f"Batch {i+1} out of {total_batches} processed. This batch took {end_time - start_time:.2f} seconds.")
 
+        cur.close()
+
         # Remove loop_id column
         sql_adjust_table = f"""
             ALTER TABLE temporal.places_{self.region} DROP COLUMN IF EXISTS loop_id;
-            CREATE INDEX places_{self.region}_geom_idx ON temporal.places_{self.region} USING gist(geom);
+            CREATE INDEX places_{self.region}_geom_idx ON temporal.places_{self.region} USING gist(geometry);
             ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
         """
         self.db.perform(sql_adjust_table)
@@ -123,7 +123,7 @@ class OverturePOIPreparation:
                 AND (tags ->> 'confidence')::numeric > 0.6
             );
             ALTER TABLE public.poi_overture_{self.region} ADD PRIMARY KEY (id);
-            CREATE INDEX IF NOT EXISTS idx_poi_overture_{self.region}_geom ON public.poi_overture_{self.region} USING gist(geom);
+            CREATE INDEX ON public.poi_overture_{self.region} USING gist(geom);
         """
         self.db.perform(clean_data)
 

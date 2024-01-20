@@ -4,7 +4,7 @@ class POITable:
         self.data_set_name = data_set_name
         self.schema_name = schema_name
 
-    def create_table(self, table_name: str, category_columns: list) -> str:
+    def create_table(self, table_name: str, category_columns: list, temporary: bool = False, create_index: bool = True) -> str:
         # Common columns for all POI tables
         common_columns = [
             "id SERIAL PRIMARY KEY",
@@ -29,16 +29,18 @@ class POITable:
 
         # Create SQL query for table creation
         all_columns_str = ",\n".join(all_columns)
+        table_type = "TEMPORARY" if temporary else ""
+        index_statement = f"CREATE INDEX ON {self.schema_name}.{table_name} USING gist (geom);" if create_index else ""
         sql_create_table = f"""
             DROP TABLE IF EXISTS {self.schema_name}.{table_name};
-            CREATE TABLE {self.schema_name}.{table_name} (
+            CREATE {table_type} TABLE {self.schema_name}.{table_name} (
                 {all_columns_str}
             );
-            CREATE INDEX ON {self.schema_name}.{table_name} USING gist (geom);
+            {index_statement}
             """
         return sql_create_table
 
-    def create_poi_table(self, table_type: str = 'standard') -> str:
+    def create_poi_table(self, table_type: str = 'standard', temporary: bool = False, create_index: bool = True) -> str:
         if table_type == "standard":
             table_name = f"{self.data_set_type}_{self.data_set_name}"
             category_columns = [
@@ -62,4 +64,4 @@ class POITable:
         else:
             raise ValueError("Invalid table_type. Supported values are 'standard', 'school', or 'childcare'.")
 
-        return self.create_table(table_name, category_columns)
+        return self.create_table(table_name, category_columns, temporary, create_index)
