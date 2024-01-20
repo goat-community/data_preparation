@@ -203,6 +203,8 @@ class OverturePOICollection(OvertureBaseCollection):
             elapsed_time = end_time - start_time
             print_info(f"Processing geom {index} out of {len(region_geoms)}. This iteration took {elapsed_time} seconds.")
 
+        cur.close()
+
         # Convert unlogged table to regular table
         convert_to_regular_table_sql = f"""
             ALTER TABLE temporal.places_{self.region}_raw SET LOGGED;

@@ -30,10 +30,12 @@ class POITable:
         # Create SQL query for table creation
         all_columns_str = ",\n".join(all_columns)
         table_type = "TEMPORARY" if temporary else ""
-        index_statement = f"CREATE INDEX ON {self.schema_name}.{table_name} USING gist (geom);" if create_index else ""
+        table_name_with_schema = f"{self.schema_name}.{table_name}" if not temporary else table_name
+        drop_table_name = table_name_with_schema if not temporary else table_name
+        index_statement = f"CREATE INDEX ON {table_name_with_schema} USING gist (geom);" if create_index else ""
         sql_create_table = f"""
-            DROP TABLE IF EXISTS {self.schema_name}.{table_name};
-            CREATE {table_type} TABLE {self.schema_name}.{table_name} (
+            DROP TABLE IF EXISTS {drop_table_name};
+            CREATE {table_type} TABLE {table_name_with_schema} (
                 {all_columns_str}
             );
             {index_statement}

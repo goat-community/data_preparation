@@ -35,7 +35,8 @@ BEGIN
         GROUP BY n.id 
     ';
 
-    CREATE INDEX ON temporal.comparison_poi (id); 
+    CREATE INDEX ON temporal.comparison_poi (id);
+    CREATE INDEX ON temporal.comparison_poi (matching_key_input_2); 
 
     ALTER TABLE temporal.comparison_poi 
     ADD COLUMN decision varchar;
