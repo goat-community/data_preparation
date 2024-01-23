@@ -132,21 +132,16 @@ class PrepareKart:
     def push(self, branch_name: str):
         """Push Kart repository to remote"""
         os.chdir(self.path_repo)
-
-        # Get the number of commits on the current branch
-        num_commits = int(subprocess.check_output(
-            "git rev-list --count HEAD",
-            shell=True,
-        ))
-
-        # Push the commits in batches
-        batch_size = 10  # Adjust this value based on your needs
-        for i in range(0, num_commits, batch_size):
-            subprocess.run(
-                f"git push --set-upstream origin {branch_name}~{i}:{branch_name}",
+        try:
+            result = subprocess.run(
+                f"kart push --set-upstream origin {branch_name}",
                 shell=True,
-                check=True,
+                check=True
             )
+        except subprocess.CalledProcessError as e:
+            print(f"Error occurred while pushing to branch {branch_name}:")
+            print(e.output)  # Print the output of the failed command
+            raise  # Re-raise the exception
 
     def create_pull_request(
         self,

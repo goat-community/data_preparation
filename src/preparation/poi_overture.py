@@ -21,7 +21,7 @@ class OverturePOIPreparation:
 
         # Add loop_id column + drop indices
         sql_adjust_table = f"""
-            DROP INDEX IF EXISTS temporal.places_{self.region}_geom_idx;
+            DROP INDEX IF EXISTS temporal.places_{self.region}_geometry_idx;
             ALTER TABLE temporal.places_{self.region} DROP CONSTRAINT IF EXISTS places_{self.region}_pkey;
             ALTER TABLE temporal.places_{self.region} ADD COLUMN IF NOT EXISTS loop_id SERIAL;
             CREATE INDEX ON temporal.places_{self.region} (loop_id);
@@ -108,7 +108,7 @@ class OverturePOIPreparation:
         # Remove loop_id column
         sql_adjust_table = f"""
             ALTER TABLE temporal.places_{self.region} DROP COLUMN IF EXISTS loop_id;
-            CREATE INDEX places_{self.region}_geom_idx ON temporal.places_{self.region} USING gist(geometry);
+            CREATE INDEX places_{self.region}_geometry_idx ON temporal.places_{self.region} USING gist(geometry);
             ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
         """
         self.db.perform(sql_adjust_table)

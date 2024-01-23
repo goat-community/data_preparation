@@ -196,7 +196,7 @@ collection:
   osm_tags:
     amenity: ["atm", "bank", "bar", "biergarten", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
               "cinema", "dentist", "doctors", "fast_food", "fuel", "ice_cream", "kneipp_water_cure", "library",
-              "marketplace", "nightclub", "pharmacy", "place_of_worship", "planetarium", "post_box", "parking", "pub",
+              "marketplace", "nightclub", "pharmacy", "place_of_worship", "planetarium", "post_box", "post_office", "parking", "pub",
               "recycling", "restaurant", "taxi", "theatre", "vending_machine"]
     shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "farm", "fashion", "florist", "fuel", "general",
            "greengrocer", "grocery", "hairdresser", "health_food", "honey", "kiosk", "mall", "shoes", "sports",

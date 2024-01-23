@@ -137,8 +137,6 @@ class OverturePOICollection(OvertureBaseCollection):
             ADD COLUMN IF NOT EXISTS street varchar,
             ADD COLUMN IF NOT EXISTS housenumber varchar,
             ADD COLUMN IF NOT EXISTS zipcode varchar;
-            ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
-            CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
         """
         self.db_local.perform(create_place_table_sql)
 
@@ -158,38 +156,32 @@ class OverturePOICollection(OvertureBaseCollection):
                     SELECT DISTINCT ON (p.id) p.*
                     FROM temporal.places_{self.region}_raw p
                     JOIN region r ON ST_Intersects(p.geometry, r.geom)
-                ),
-                adjusted_pois AS (
-                    SELECT
-                        np.id,
-                        TRIM(BOTH '"' FROM (np.names::jsonb->'common'->0->'value')::text) AS names,
-                        CASE
-                            WHEN (np.categories::jsonb->'alternate'->>0) IS NOT NULL OR (np.categories::jsonb->'alternate'->>1) IS NOT NULL THEN
-                                ARRAY_REMOVE(ARRAY_REMOVE(ARRAY[(np.categories::jsonb->'alternate'->>0)::varchar, (np.categories::jsonb->'alternate'->>1)::varchar], NULL), '')
-                            ELSE
-                                ARRAY[]::varchar[]
-                        END AS other_categories,
-                        TRIM(BOTH '"' FROM (np.categories::jsonb->>'main')) AS categories,
-                        TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '^(.*)(?=\s\d)')) AS street,
-                        TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '(\s\d.*)$')) AS housenumber,
-                        (np.addresses::jsonb->0->>'postcode')::varchar AS zipcode,
-                        np.brand::jsonb->'names'->'common'->0->>'value' AS brand,
-                        np.updatetime,
-                        np.version,
-                        np.confidence,
-                        np.websites,
-                        np.socials,
-                        np.emails,
-                        np.phones,
-                        np.addresses,
-                        np.sources,
-                        np.geometry
-                    FROM new_pois np
                 )
-                SELECT ap.*
-                FROM adjusted_pois ap
-                LEFT JOIN temporal.places_{self.region} existing ON ap.id = existing.id
-                WHERE existing.id IS NULL;
+                SELECT
+                    np.id,
+                    TRIM(BOTH '"' FROM (np.names::jsonb->'common'->0->'value')::text) AS names,
+                    CASE
+                        WHEN (np.categories::jsonb->'alternate'->>0) IS NOT NULL OR (np.categories::jsonb->'alternate'->>1) IS NOT NULL THEN
+                            ARRAY_REMOVE(ARRAY_REMOVE(ARRAY[(np.categories::jsonb->'alternate'->>0)::varchar, (np.categories::jsonb->'alternate'->>1)::varchar], NULL), '')
+                        ELSE
+                            ARRAY[]::varchar[]
+                    END AS other_categories,
+                    TRIM(BOTH '"' FROM (np.categories::jsonb->>'main')) AS categories,
+                    TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '^(.*)(?=\s\d)')) AS street,
+                    TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '(\s\d.*)$')) AS housenumber,
+                    (np.addresses::jsonb->0->>'postcode')::varchar AS zipcode,
+                    np.brand::jsonb->'names'->'common'->0->>'value' AS brand,
+                    np.updatetime,
+                    np.version,
+                    np.confidence,
+                    np.websites,
+                    np.socials,
+                    np.emails,
+                    np.phones,
+                    np.addresses,
+                    np.sources,
+                    np.geometry
+                FROM new_pois np
             """
 
             try:
@@ -208,6 +200,8 @@ class OverturePOICollection(OvertureBaseCollection):
         # Convert unlogged table to regular table
         convert_to_regular_table_sql = f"""
             ALTER TABLE temporal.places_{self.region}_raw SET LOGGED;
+            ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
+            CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
         """
         self.db_local.perform(convert_to_regular_table_sql)
         print_info(f"Converted temporal.places_{self.region}_raw to a regular table")

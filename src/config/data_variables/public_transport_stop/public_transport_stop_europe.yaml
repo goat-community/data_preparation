@@ -1,8 +1,12 @@
 preparation:
-  region: |
+  region: | 
     WITH 
     bounds AS (
         SELECT ST_Extent(geom) AS geom FROM basic.geofence_active_mobility
+    ),
+    merged_geometries AS (
+        SELECT ST_Union(geom) AS geom
+        FROM basic.geofence_active_mobility
     ),
     grid AS (
         SELECT ST_MakeEnvelope(
@@ -17,11 +21,12 @@ preparation:
     ),
     intersections AS (
         SELECT 
-            (ST_Dump(ST_Intersection(a.geom, g.geom))).geom AS geom
-        FROM basic.geofence_active_mobility a
-        JOIN grid g ON ST_Intersects(a.geom, g.geom)
+            (ST_Dump(ST_Intersection(m.geom, ST_Buffer(g.geom, -0.00001)))).geom AS geom
+        FROM merged_geometries m
+        JOIN grid g ON ST_Intersects(m.geom, g.geom)
     )
     SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon'
+
   classification:
     gtfs_route_types: 
       "0": "tram_stop"
