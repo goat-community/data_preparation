@@ -11,7 +11,7 @@ from src.utils.utils import print_info, timing
 # unlogged table or temp table
 # use cursor instead of perform
 # introduce serial loop_id with index
-#TODO: test dropping GIST index of all Kart POI tables at the beginning of the subscription and adding it again at the end of the subscription
+#TODO: find a more dynamic solution for the extended soure in the insert and update functions
 
 class Subscription:
     """Class to prepare the POIs from OpenStreetMap."""
@@ -215,12 +215,23 @@ class Subscription:
             row_cnt (int): Number of rows to process
             category (str): Category of POIs to read
         """
-        # drop gist index of kart poi table
-        sql_drop_gist_index = f"""
+        # prepare kart table for insert and update
+        sql_prepare_kart_table = f"""
+            ALTER TABLE {self.kart_schema}.{self.get_kart_poi_table_name(category)} ADD COLUMN IF NOT EXISTS osm_id bigint;
+            ALTER TABLE {self.kart_schema}.{self.get_kart_poi_table_name(category)} ADD COLUMN IF NOT EXISTS osm_type text;
+            ALTER TABLE {self.kart_schema}.{self.get_kart_poi_table_name(category)} ADD COLUMN IF NOT EXISTS ogc_fid text;
             DROP INDEX IF EXISTS {self.kart_schema}.{self.get_kart_poi_table_name(category)}_idx_geom;
             DROP INDEX IF EXISTS {self.kart_schema}.{self.get_kart_poi_table_name(category)}_geom_idx;
+            UPDATE {self.kart_schema}.{self.get_kart_poi_table_name(category)}
+            SET
+                osm_id = (tags::jsonb -> 'extended_source' -> 'osm_id')::bigint,
+                osm_type = (tags::jsonb -> 'extended_source' -> 'osm_type')::text,
+                ogc_fid = (tags::jsonb -> 'extended_source' -> 'ogc_fid')::text;
+            CREATE INDEX ON {self.kart_schema}.{self.get_kart_poi_table_name(category)}(osm_id);
+            CREATE INDEX ON {self.kart_schema}.{self.get_kart_poi_table_name(category)}(osm_type);
+            CREATE INDEX ON {self.kart_schema}.{self.get_kart_poi_table_name(category)}(ogc_fid);
         """
-        self.db.perform(sql_drop_gist_index)
+        self.db.perform(sql_prepare_kart_table)
 
         max_loop_id = self.db.select(f"SELECT MAX(loop_id) FROM {self.table_name}_to_seed")[0][0]
 
@@ -252,10 +263,15 @@ class Subscription:
                     wheelchair,
                     source,
                     tags::text,
-                    geom
+                    geom,
+                    (tags::jsonb -> 'extended_source' -> 'osm_id')::bigint as osm_id,  -- Extract osm_id
+                    (tags::jsonb -> 'extended_source' -> 'osm_type')::text as osm_type,  -- Extract osm_type
+                    (tags::jsonb -> 'extended_source' -> 'ogc_fid')::text as ogc_fid  -- Extract ogc_fid
                 FROM {self.table_name}_to_seed
                 WHERE loop_id >= {offset} AND loop_id < {offset + self.batch_size};
-                CREATE INDEX ON temp_to_seed USING gin((tags::jsonb -> 'extended_source') jsonb_path_ops);
+                CREATE INDEX ON temp_to_seed(osm_id);
+                CREATE INDEX ON temp_to_seed(osm_type);
+                CREATE INDEX ON temp_to_seed(ogc_fid);
             """
 
             try:
@@ -282,13 +298,16 @@ class Subscription:
                     wheelchair,
                     source,
                     tags,
-                    geom
+                    geom,
+                    osm_id,
+                    osm_type,
+                    ogc_fid
                 )
                 SELECT p.*
                 FROM temp_to_seed p
                 LEFT JOIN {self.kart_schema}.{self.get_kart_poi_table_name(category)} k
-                ON p.tags::jsonb -> 'extended_source' = k.tags::jsonb -> 'extended_source'
-                WHERE k.tags::jsonb -> 'extended_source' IS NULL;
+                ON (p.osm_id = k.osm_id AND p.osm_type = k.osm_type AND p.ogc_fid = k.ogc_fid)
+                WHERE k.osm_id IS NULL AND k.osm_type IS NULL AND k.ogc_fid IS NULL;
             """
 
             try:
@@ -356,10 +375,12 @@ class Subscription:
                     wheelchair,
                     source,
                     tags::text,
-                    geom
+                    geom,
+                    (tags::jsonb -> 'extended_source' -> 'osm_id')::bigint AS osm_id,
+                    (tags::jsonb -> 'extended_source' -> 'osm_type')::text AS osm_type,
+                    (tags::jsonb -> 'extended_source' -> 'ogc_fid')::text AS ogc_fid
                 FROM {self.table_name}_to_seed
                 WHERE loop_id >= {offset} AND loop_id < {offset + self.batch_size};
-                CREATE INDEX ON temp_to_seed USING gin((tags::jsonb -> 'extended_source') jsonb_path_ops);
             """
             try:
                 cur.execute(sql_create_temp_to_seed)
@@ -388,7 +409,7 @@ class Subscription:
                     tags = s.tags::text,
                     geom = s.geom
                 FROM temp_to_seed s
-                WHERE p.tags::jsonb ->> 'extended_source' = s.tags::jsonb ->> 'extended_source'
+                WHERE (p.osm_id = s.osm_id AND p.osm_type = s.osm_type AND p.ogc_fid = s.ogc_fid)
                 AND (
                     p.category != s.category
                     OR p.name != s.name
@@ -414,12 +435,15 @@ class Subscription:
                 print(f"An error occurred: {e}")
                 self.db.conn.rollback()
 
-            # in final loop iteration -> restore gist index of kart poi table
+            # in final loop iteration -> restore the original structure of the kart table
             if offset + self.batch_size >= max_loop_id:
-                sql_create_gist_index = f"""
+                sql_restore_kart_table = f"""
+                    ALTER TABLE {self.kart_schema}.{self.get_kart_poi_table_name(category)} DROP COLUMN IF EXISTS osm_id;
+                    ALTER TABLE {self.kart_schema}.{self.get_kart_poi_table_name(category)} DROP COLUMN IF EXISTS osm_type;
+                    ALTER TABLE {self.kart_schema}.{self.get_kart_poi_table_name(category)} DROP COLUMN IF EXISTS ogc_fid;
                     CREATE INDEX ON {self.kart_schema}.{self.get_kart_poi_table_name(category)} USING GIST (geom);
                 """
-                self.db.perform(sql_create_gist_index)
+                self.db.perform(sql_restore_kart_table)
 
 
             # Print the number of rows processed
