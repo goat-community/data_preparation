@@ -8,7 +8,7 @@ import requests
 
 from src.core.config import settings
 from src.db.db import Database
-from src.utils.utils import delete_dir, print_hashtags, print_info, print_warning
+from src.utils.utils import delete_dir, print_hashtags, print_info, timing
 
 
 class PrepareKart:
@@ -111,6 +111,7 @@ class PrepareKart:
         status = subprocess.check_output("kart status", shell=True)
         return status.decode("utf-8")
 
+    @timing
     def commit(self, commit_message: str):
         """Commit changes in Kart repository
 
@@ -129,18 +130,22 @@ class PrepareKart:
             print_info("Nothing to commit, working copy clean")
         return
 
+    @timing
     def push(self, branch_name: str):
         """Push Kart repository to remote"""
         os.chdir(self.path_repo)
         try:
-            result = subprocess.run(
-                f"kart push --set-upstream origin {branch_name}",
+            subprocess.run(
+                f"kart -v push --set-upstream origin {branch_name}",
                 shell=True,
-                check=True
+                check=True,
+                stderr=subprocess.PIPE,  # Capture error output
+                text=True,  # Output as text, not bytes
+                bufsize=1<<30,  # Increase buffer size to 1 GB
             )
         except subprocess.CalledProcessError as e:
             print(f"Error occurred while pushing to branch {branch_name}:")
-            print(e.output)  # Print the output of the failed command
+            print(e.stderr)  # Print the error output of the failed command
             raise  # Re-raise the exception
 
     def create_pull_request(
@@ -301,7 +306,6 @@ class PrepareKart:
                 sql_addition_constraints_operator_tags = f"""
                     ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
                     ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
-                    CREATE INDEX IF NOT EXISTS {table_name}_tags_extended_source_gin ON {self.schema_name}.{table_name} USING gin ((tags::jsonb -> 'extended_source') jsonb_path_ops);
                     ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
                 self.db.perform(sql_addition_constraints_operator_tags)
@@ -363,7 +367,7 @@ def parse_args(args=None):
     # parse the command line arguments
     return parser.parse_args(args)
 
-
+@timing
 def main():
     args = parse_args()
     repo_url = args.repo_url

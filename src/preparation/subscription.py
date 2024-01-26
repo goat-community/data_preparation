@@ -1,5 +1,3 @@
-import time
-
 from src.config.config import Config
 from src.db.db import Database
 from src.db.tables.poi import POITable
@@ -7,11 +5,7 @@ from src.collection.kart.prepare_kart import PrepareKart
 from uuid import uuid4
 from src.utils.utils import print_info, timing
 
-# remove gist index before e.g. a loop and add again after
-# unlogged table or temp table
-# use cursor instead of perform
-# introduce serial loop_id with index
-#TODO: find a more dynamic solution for the extended soure in the insert and update functions
+# TODO: find a more dynamic solution for the extended soure in the insert and update functions
 
 class Subscription:
     """Class to prepare the POIs from OpenStreetMap."""
@@ -472,18 +466,6 @@ class Subscription:
         """Deletes POIs that are not in the OSM, Overture or OSM_Overture data anymore"""
         #TODO: create table of deletion candidates then check them manually and then delete them
 
-        # SQL query to delete the POIs if the extended source is not in the temporal table
-        # It is important to run this for all categories at once as it might be that is not deleted but received a new category.
-        # sql_kart_poi_table_names = f"""
-        #     SELECT DISTINCT p.table_name
-        #     FROM {self.kart_schema}.poi_categories p, {self.kart_schema}.data_subscription s
-        #     WHERE p.category IN (SELECT DISTINCT category FROM {self.kart_schema}.data_subscription WHERE "source" in ('OSM', 'Overture', 'OSM_Overture'))
-        #     """
-        # kart_poi_table_names = self.db.select(sql_kart_poi_table_names)
-        # kart_poi_table_names = [table_name[0] for table_name in kart_poi_table_names]
-
-        # for kart_poi_table_name in kart_poi_table_names:
-
         # based on kart_poi_table_name find all categories in poi_categories
         categories = self.db.select(f"""SELECT category FROM {self.kart_schema}.poi_categories WHERE table_name = '{kart_poi_table_name}'""")
 
@@ -596,9 +578,6 @@ class Subscription:
         # Initialize a counter for the overall category number
         total_category_number = 0
 
-        # write loop over POI tables (including drop gist of kart poi table) -> restore gist and push after inner loop
-        # inner loop loops over the categories of the table
-
         for i, kart_poi_table in enumerate(kart_poi_tables, start=1):
             print_info(f"Processing table {kart_poi_table} ({i} of {len(kart_poi_tables)} tables)")
 
@@ -617,7 +596,7 @@ class Subscription:
                 # Increment the overall category number
                 total_category_number += 1
 
-                print_info(f"Processing category '{category}' ({j} of {len(categories)} categories in table '{kart_poi_table}' and {total_category_number} of {total_categories} total categories)")
+                print_info(f"Processing category '{category}' ({j} out of {len(categories)} categories in the table '{kart_poi_table}' and {total_category_number} out of {total_categories} total categories in total)")
 
                 # Perform integration
                 self.read_poi(category)
