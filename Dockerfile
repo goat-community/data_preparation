@@ -40,9 +40,13 @@ RUN apt-get install -y postgresql-client-15
 RUN apt install -y nano
 RUN git config --global core.editor "nano"
 
-# # install java 11
-# RUN apt-get update && apt-get install -y software-properties-common
-# RUN add-apt-repository -y ppa:linuxuprising/java 
+# Install Java 11
+RUN echo 'deb http://deb.debian.org/debian bullseye main' > /etc/apt/sources.list
+RUN apt-get update && \
+    apt-get install -y openjdk-11-jdk && \
+    apt-get clean;
+
+
 
 # # get 3citydb importer 
 # RUN wget "https://github.com/3dcitydb/importer-exporter/releases/download/v5.3.0/3DCityDB-Importer-Exporter-5.3.0.zip"

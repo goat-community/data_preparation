@@ -17,13 +17,13 @@ class OSMBuildingCollection(OSMBaseCollection):
 
     def building_collection(self, db: Database):
         """Collects all building from OSM"""
-    
+
         osm_filter = "building= --drop-nodes --drop-relations"
         self.download_bulk_osm()
         self.prepare_bulk_osm(osm_filter=osm_filter)
         self.merge_osm_and_import()
-        db.perform(f"DROP TABLE IF EXISTS building_osm;")
-        db.perform(f"ALTER TABLE osm_building_polygon RENAME TO building_osm;")
+        db.perform("DROP TABLE IF EXISTS building_osm;")
+        db.perform("ALTER TABLE osm_building_polygon RENAME TO building_osm;")
 
 def collect_building(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)

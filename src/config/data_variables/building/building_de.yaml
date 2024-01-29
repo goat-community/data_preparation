@@ -85,12 +85,12 @@ preparation:
           share: 0.5
 
         building_osm:
-          query: "SELECT way AS geom FROM building_osm WHERE amenity IN ('hospital', 'university', 'community_centre', 'school', 'kindergarten', 'recreation_ground', 'wood') OR leisure IN ('zoo')"
+          query: "SELECT way AS geom FROM building_osm_de WHERE amenity IN ('hospital', 'university', 'community_centre', 'school', 'kindergarten', 'recreation_ground', 'wood') OR leisure IN ('zoo')"
           value: "'no_residents'"
           share: 0.5
 
         building_osm2:
-          query: "SELECT way AS geom FROM building_osm WHERE building IN ('apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house')"
+          query: "SELECT way AS geom FROM building_osm_de WHERE building IN ('apartments', 'bungalow', 'detached', 'dormitory', 'residential', 'house', 'terrace', 'home', 'semidetached_house')"
           value: "'with_residents'"
           share: 0.5
 
