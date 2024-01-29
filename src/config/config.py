@@ -1,8 +1,11 @@
-import yaml
 import os
-from src.config.osm_dict import OSM_tags, OSM_germany
-from src.utils.utils import print_info, download_link
+
+import yaml
+
+from src.config.osm_dict import OSM_germany, OSM_tags
 from src.core.config import settings
+from src.utils.utils import download_link, print_info
+
 
 class Config:
     """Reads the config file and returns the config variables.
@@ -35,6 +38,7 @@ class Config:
             self.collection = self.config.get("collection")
             self.preparation = self.config.get("preparation")
             self.subscription = self.config.get("subscription")
+            self.analysis = self.config.get("analysis")
         
     def osm2pgsql_create_style(self):
         add_columns = self.collection["additional_columns"]
