@@ -1,0 +1,17 @@
+collection:
+  # Overture data source
+  source: s3a://overturemaps-us-west-2/release/2023-12-14-alpha.0/theme=transportation
+
+  # Must be a SQL query which returns the region's bounding geometry (omit terminating semicolon)
+  region: "SELECT ST_Union(geom) AS geom FROM public.geofence_active_mobility"
+
+preparation:
+  # Name of text file containing a list of URLs to download DEM files
+  dem_source_list: dem_source_list_eu.txt
+
+  # Coefficients specifying the cost of cycling on various surfaces
+  cycling_surfaces:
+    pavingStones: '0.2'
+    unpaved: '0.2'
+    gravel: '0.3'
+    dirt: '0.4'

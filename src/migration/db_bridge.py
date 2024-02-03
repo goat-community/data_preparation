@@ -1,9 +1,10 @@
 from typing import Union
-from alembic_utils.pg_extension import PGExtension
+
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from src.core.config import settings
 from src.utils.utils import print_info
+from src.core.enums import MigrationTables
 
 class DBBridge:
     def __init__(
@@ -29,28 +30,21 @@ class DBBridge:
         self.information_schema_bridge = "foreign_information_schema_" + db_name_foreign
 
     def upgrade_postgres_fdw(self):
-        """Create postgres_fdw extension on database if not exists.
-        """        
-        postgres_fdw = PGExtension(schema="public", signature="postgres_fdw")
-        statement = postgres_fdw.to_sql_statement_create()
-        try:
-            self.engine.execute(text(statement.text))
-        except ProgrammingError as exception:
-            if exception.orig.pgcode == "42710":
-                print_info("FWD Extension already exists on database. Skipping...")
+        """Create postgres_fdw extension on database if not exists."""
+        self.engine.execute(
+            "CREATE EXTENSION IF NOT EXISTS postgres_fdw;"
+        )
 
     def downgrade_postgres_fdw(self):
-        """Drop postgres_fdw extension on database if exists.
-        """        
-        postgres_fdw = PGExtension(schema="public", signature="postgres_fdw")
-        statement = postgres_fdw.to_sql_statement_drop()
-        self.engine.execute(text(statement.text))
+        """Drop postgres_fdw extension on database if exists."""
+        self.engine.execute(
+            "DROP EXTENSION IF EXISTS postgres_fdw;"
+        )
 
     def upgrade_foreign_server(
         self,
     ):
-        """Create foreign server on database.
-        """        
+        """Create foreign server on database."""
         create_foreign_server = text(
             f"""
             CREATE SERVER {self.db_name_foreign}
@@ -69,14 +63,16 @@ class DBBridge:
     def downgrade_foreign_server(self):
         """Drop foreign server on database."""
 
-        drop_foreign_server = text(f"DROP SERVER IF EXISTS {self.db_name_foreign} CASCADE;")
+        drop_foreign_server = text(
+            f"DROP SERVER IF EXISTS {self.db_name_foreign} CASCADE;"
+        )
         values = {"foreign_server": "foreign_server"}
         self.engine.execute(drop_foreign_server, values)
 
     def upgrade_mapping_user(
         self,
     ):
-        """Create user mapping on database for foreign server."""        
+        """Create user mapping on database for foreign server."""
         create_mapping_user = text(
             f"""CREATE USER MAPPING FOR {settings.POSTGRES_USER_GOAT}
                 SERVER {self.db_name_foreign}
@@ -99,7 +95,7 @@ class DBBridge:
 
         Args:
             schema (str): Schema name.
-        """        
+        """
         create_foreign_schema = f"CREATE SCHEMA IF NOT EXISTS {schema};"
         self.engine.execute(text(create_foreign_schema))
 
@@ -115,9 +111,12 @@ class DBBridge:
         Args:
             schema_bridge (str): Local schema name where foreign tables are added.
             schema_foreign (str): Foreign schema name.
-        """        
+        """
         self.upgrade_schema(schema_bridge)
+        tables_to_import = MigrationTables.__members__.values()
+        tables_to_import_str = ", ".join(tables_to_import)
         create_foreign_table = f"""IMPORT FOREIGN SCHEMA {schema_foreign}
+        LIMIT TO ({tables_to_import_str}, columns)
         FROM SERVER {self.db_name_foreign} INTO {schema_bridge};"""
         self.engine.execute(text(create_foreign_table))
         print_info(f"Foreign schema {schema_foreign} imported into {schema_bridge}.")
@@ -125,8 +124,7 @@ class DBBridge:
     def upgrade_foreign_tables(
         self,
     ):
-        """Imports the tables from the foreign schema into the bridge schema.
-        """        
+        """Imports the tables from the foreign schema into the bridge schema."""
         # Information schema is needed for the foreign tables
         self.create_bridge(self.information_schema_bridge, self.information_schema)
         # Read specified schema from foreign database
@@ -137,7 +135,7 @@ class DBBridge:
 
         Args:
             table_name (Union[str, list[str]]): Table name or list of table names.
-        """        
+        """
         if type(table_name) == str:
             table_names = [table_name]
         else:
@@ -145,17 +143,15 @@ class DBBridge:
         for table_name in table_names:
             full_table_name = f"{self.schema_bridge}.{table_name}"
             drop_foreign_table = text(
-                f"""DROP FOREIGN TABLE IF EXISTS {full_table_name};""")
+                f"""DROP FOREIGN TABLE IF EXISTS {full_table_name};"""
+            )
 
             self.engine.execute(drop_foreign_table)
 
     def bridge_initialize(self):
-        """Initialize the migration.
-        """        
+        """Initialize the migration."""
         self.upgrade_postgres_fdw()
         self.downgrade_foreign_server()
         self.upgrade_foreign_server()
         self.upgrade_mapping_user()
         self.upgrade_foreign_tables()
-
-

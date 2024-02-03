@@ -8,8 +8,8 @@
             "program": "${workspaceFolder}/src/collection/kart/prepare_kart.py",
             "console": "integratedTerminal",
             "args": [
-                "--repo_url", "https://github.com/goat-community/poi",
-                "--maintainer", "goat",
+                "--repo_url", "https://github.com/goat-community/pois",
+                "--maintainer", "rds",
                 "--table_name", "poi"
             ],
             "cwd": "${workspaceFolder}"
@@ -21,9 +21,9 @@
             "program": "${workspaceFolder}/manage.py",
             "console": "integratedTerminal",
             "args": [
-                "--actions", "collection,preparation",
+                "--actions", "preparation",
                 "--region", "de",
-                "--datasets", "network" 
+                "--datasets", "poi_osm_overture_fusion" 
             ],
             "cwd": "${workspaceFolder}"
         }

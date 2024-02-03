@@ -20,7 +20,7 @@ class BuildingPreparation:
         self.config_classification = self.config.preparation["classification"]
 
         self.bulk_size = 10000
-    
+
     def define_residential_status(
         self,
         mask_geom: str,
@@ -38,20 +38,20 @@ class BuildingPreparation:
         """
 
         # Insert buildings query
-        sql_insert = f"""INSERT INTO temporal.building_%s(id, building_levels, building_levels_residential, residential_status, table_name_classified, geom)"""
+        sql_insert = """INSERT INTO temporal.building_%s(id, building_levels, building_levels_residential, residential_status, table_name_classified, geom)"""
 
         # Read buildings for the mask. Make sure that only buildings are read that have their centroid in the mask.
-        sql_read_buildings = f"""WITH building_to_check AS 
+        sql_read_buildings = f"""WITH building_to_check AS
         (
             SELECT s.*
-            FROM 
+            FROM
             (
                 SELECT b.*
-                FROM basic.building b  
+                FROM basic.building b
                 WHERE ST_Intersects(b.geom, ST_SETSRID(ST_GEOMFROMTEXT('{mask_geom}'), 4326))
                 AND ST_Intersects(ST_CENTROID(b.geom), ST_SETSRID(ST_GEOMFROMTEXT('{mask_geom}'), 4326))
                 AND ST_IsValid(b.geom)
-            ) s 
+            ) s
             LEFT JOIN (SELECT * FROM temporal.building_%s WHERE {column_name} IS NOT NULL) c
             ON s.id = c.id
             WHERE c.id IS NULL
@@ -67,8 +67,8 @@ class BuildingPreparation:
                     sql_classify = f"""
                         {sql_insert % column_name}
                         {sql_read_buildings % column_name}
-                        SELECT id, building_levels, building_levels_residential, '{key}', '{classification_data}', geom  
-                        FROM building_to_check 
+                        SELECT id, building_levels, building_levels_residential, '{key}', '{classification_data}', geom
+                        FROM building_to_check
                         WHERE {classification_data} IN ({str(value)[1:-1]})
                         """
                     self.db.perform(sql_classify)
@@ -89,19 +89,19 @@ class BuildingPreparation:
                     where_clause = 'AND'
                 else:
                     where_clause = 'WHERE'
-                    
+
                 # Check the number of points in the mask that are within each building
                 sql_classify = f"""
                     {sql_insert % column_name}
                     {sql_read_buildings % column_name}
                     ,classified_buildings AS
-                    (      
-                        SELECT b.id, building_levels, building_levels_residential, 
-                        CASE WHEN {self.config_classification[column_name][classification_type][classification_data]["count"]} {operator} j.count  
+                    (
+                        SELECT b.id, building_levels, building_levels_residential,
+                        CASE WHEN {self.config_classification[column_name][classification_type][classification_data]["count"]} {operator} j.count
                         THEN {self.config_classification[column_name][classification_type][classification_data]["value"]}
-                        ELSE NULL END AS {column_name}, geom 
+                        ELSE NULL END AS {column_name}, geom
                         FROM building_to_check b
-                        CROSS JOIN LATERAL 
+                        CROSS JOIN LATERAL
                         (
                             {self.config_classification[column_name][classification_type][classification_data]["query"]}
                             {where_clause} ST_Intersects(b.geom, p.geom)
@@ -109,7 +109,7 @@ class BuildingPreparation:
                     )
                     SELECT id, building_levels, building_levels_residential, {column_name}, '{classification_data}', geom
                     FROM classified_buildings
-                    WHERE {column_name} IS NOT NULL               
+                    WHERE {column_name} IS NOT NULL
                 """
                 self.db.perform(sql_classify)
 
@@ -125,24 +125,24 @@ class BuildingPreparation:
                         THEN {self.config_classification[column_name][classification_type][classification_data]["value"]}
                         ELSE NULL END AS {column_name}, geom
                         FROM building_to_check b
-                        CROSS JOIN LATERAL  
+                        CROSS JOIN LATERAL
                         (
                             SELECT CASE WHEN SUM(share) > 1 THEN 1 ELSE SUM(share) END AS share
-                            FROM 
+                            FROM
                             (
-                                SELECT CASE WHEN ST_CONTAINS(p.geom, b.geom) THEN 1 
+                                SELECT CASE WHEN ST_CONTAINS(p.geom, b.geom) THEN 1
                                 ELSE ST_AREA(ST_INTERSECTION(p.geom, b.geom)) / ST_AREA(b.geom) END AS share
-                                FROM 
-                                (   
+                                FROM
+                                (
                                     {self.config_classification[column_name][classification_type][classification_data]["query"]}
-                                ) p 
+                                ) p
                                 WHERE ST_Intersects(b.geom, p.geom)
-                            ) s 
+                            ) s
                         )  j
                     )
                     SELECT id, building_levels, building_levels_residential, {column_name}, '{classification_data}', geom
                     FROM classified_buildings
-                    WHERE {column_name} IS NOT NULL   
+                    WHERE {column_name} IS NOT NULL
                 """
                 self.db.perform(sql_classify)
 
@@ -156,18 +156,18 @@ class BuildingPreparation:
                     {sql_insert % column_name}
                     {sql_read_buildings % column_name}
                     , classified_buildings AS
-                       (      
-                        SELECT b.id, building_levels, building_levels - j.substract AS building_levels_residential, 
-                        CASE WHEN building_levels - j.substract = 0 THEN 'no_residents' ELSE NULL END AS residential_status, geom 
+                       (
+                        SELECT b.id, building_levels, building_levels - j.substract AS building_levels_residential,
+                        CASE WHEN building_levels - j.substract = 0 THEN 'no_residents' ELSE NULL END AS residential_status, geom
                         FROM building_to_check b
-                        CROSS JOIN LATERAL 
+                        CROSS JOIN LATERAL
                         (
                             {self.config_classification[column_name][classification_type][classification_data]["query"]}
                         ) j
                     )
                     SELECT id, building_levels, {column_name}, residential_status, '{classification_data}', geom
                     FROM classified_buildings
-                    WHERE {column_name} IS NOT NULL 
+                    WHERE {column_name} IS NOT NULL
                 """
                 self.db.perform(sql_classify)
 
@@ -184,9 +184,9 @@ class BuildingPreparation:
         # Get processing units from study area by creating rectangular grid and make sure they intersect the study area
         processing_units = self.db.select(
             f"""
-            WITH grids AS 
+            WITH grids AS
             (
-                SELECT DISTINCT ST_TRANSFORM(s.geom, 4326) AS geom 
+                SELECT DISTINCT ST_TRANSFORM(s.geom, 4326) AS geom
                 FROM basic.study_area, ST_SquareGrid(5000, ST_TRANSFORM(geom, 3857)) s
                 WHERE id IN ({str(study_area_ids)[1:-1]})
             )
@@ -195,7 +195,7 @@ class BuildingPreparation:
             CROSS JOIN LATERAL
             (
                 SELECT g.geom
-                FROM basic.study_area s 
+                FROM basic.study_area s
                 WHERE ST_Intersects(g.geom, s.geom)
             ) j
         """
@@ -210,10 +210,10 @@ class BuildingPreparation:
 
         # Create temporary table for classified buildings
         for column_name in self.config_classification:
-            # Create one table per classified column 
+            # Create one table per classified column
             sql_building_classified = f"""
-            DROP TABLE IF EXISTS temporal.building_{column_name}; 
-            CREATE TABLE temporal.building_{column_name} 
+            DROP TABLE IF EXISTS temporal.building_{column_name};
+            CREATE TABLE temporal.building_{column_name}
             (
                 id integer,
                 building_levels integer,
@@ -221,7 +221,7 @@ class BuildingPreparation:
                 residential_status text,
                 table_name_classified text,
                 geom geometry
-            ); 
+            );
             CREATE INDEX ON temporal.building_{column_name} (id);
             """
             self.db.perform(sql_building_classified)
@@ -268,7 +268,7 @@ class BuildingPreparation:
                     SET {column_name} = t.{column_name}
                     FROM temporal.building_{column_name} t
                     WHERE b.id = t.id
-                    AND t.id_loop BETWEEN {i} AND {i+self.bulk_size};   
+                    AND t.id_loop BETWEEN {i} AND {i+self.bulk_size};
                 """
                 self.db.perform(sql_update_building_table)
 
@@ -285,7 +285,7 @@ class BuildingPreparation:
         #         UPDATE basic.building b
         #         SET residential_status = 'with_residents'
         #         WHERE b.residential_status IS NULL
-        #         AND b.id BETWEEN {i} AND {i+self.bulk_size};   
+        #         AND b.id BETWEEN {i} AND {i+self.bulk_size};
         #     """
         #     self.db.perform(sql_update_remaining_buildings)
 

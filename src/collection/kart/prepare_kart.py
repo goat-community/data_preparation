@@ -1,11 +1,15 @@
 import argparse
+import json
 import os
 import subprocess
 import urllib.parse
-import json, requests
+
+import requests
+
 from src.core.config import settings
 from src.db.db import Database
-from src.utils.utils import print_hashtags, print_info, print_warning, delete_dir
+from src.utils.utils import delete_dir, print_hashtags, print_info, timing
+
 
 class PrepareKart:
     """Clone Kart repo and setup with workingcopy in PostgreSQL"""
@@ -22,18 +26,36 @@ class PrepareKart:
         self.db = db
         self.path_ssh_key = "/app/id_rsa"
 
+        self.table_names = [
+            "poi_food_drink",
+            "poi_health",
+            "poi_public_transport",
+            "poi_other",
+            "poi_mobility_service",
+            "poi_public_service",
+            "poi_service",
+            "poi_shopping",
+            "poi_sport",
+            "poi_tourism_leisure",
+            "poi_childcare",
+            "poi_school",
+        ]
+
         # Prepare repository URL
         self.repo_url = repo_url
         parsed_url = urllib.parse.urlparse(self.repo_url)
         self.maintainer = maintainer
         self.table_name = table_name
-        self.schema_name = f"kart_{table_name}_{maintainer}"
+        # self.schema_name = f"kart_{table_name}_{maintainer}"
+        self.schema_name = "kart_pois"
 
         # Get repo name and user name from URL
         self.repo_owner, self.repo_name = parsed_url.path.strip("/").split("/")
         self.git_domain = parsed_url.netloc
         # self.repo_ssh_url = f"git@{self.git_domain}:{self.repo_owner}/{self.repo_name}"
-        self.repo_ssh_url = f"https://{self.git_domain}/{self.repo_owner}/{self.repo_name}"
+        self.repo_ssh_url = (
+            f"https://{self.git_domain}/{self.repo_owner}/{self.repo_name}"
+        )
         self.path_repo = os.path.join(
             settings.DATA_DIR, self.repo_name + "_" + self.maintainer
         )
@@ -86,9 +108,10 @@ class PrepareKart:
         """Print Kart status"""
         os.chdir(self.path_repo)
         # Return status
-        status = subprocess.check_output(f"kart status", shell=True)
+        status = subprocess.check_output("kart status", shell=True)
         return status.decode("utf-8")
 
+    @timing
     def commit(self, commit_message: str):
         """Commit changes in Kart repository
 
@@ -107,14 +130,23 @@ class PrepareKart:
             print_info("Nothing to commit, working copy clean")
         return
 
+    @timing
     def push(self, branch_name: str):
         """Push Kart repository to remote"""
         os.chdir(self.path_repo)
-        subprocess.run(
-            f"kart push --set-upstream origin {branch_name}",
-            shell=True,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                f"kart -v push --set-upstream origin {branch_name}",
+                shell=True,
+                check=True,
+                stderr=subprocess.PIPE,  # Capture error output
+                text=True,  # Output as text, not bytes
+                bufsize=1<<30,  # Increase buffer size to 1 GB
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"Error occurred while pushing to branch {branch_name}:")
+            print(e.stderr)  # Print the error output of the failed command
+            raise  # Re-raise the exception
 
     def create_pull_request(
         self,
@@ -158,7 +190,7 @@ class PrepareKart:
         """Restore Kart repository to last commit"""
         os.chdir(self.path_repo)
         subprocess.run(
-            f"kart restore",
+            "kart restore",
             shell=True,
             check=True,
         )
@@ -182,7 +214,7 @@ class PrepareKart:
             raise Exception(f"User {self.maintainer} does not exist")
 
         # Drop schema if it already exists
-        self.db.perform(f"DROP SCHEMA {self.schema_name} CASCADE")
+        self.db.perform(f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE")
         print_info(f"Schema {self.schema_name} deleted")
 
         # Create schema
@@ -192,7 +224,7 @@ class PrepareKart:
         # Grant privilegescd
         sql_grant_privileges = f"""
             GRANT USAGE ON SCHEMA {self.schema_name} TO {self.maintainer};
-            GRANT SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER 
+            GRANT SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER
             ON ALL TABLES IN SCHEMA {self.schema_name} TO {self.maintainer};
             GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA {self.schema_name} TO {self.maintainer};
             GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA {self.schema_name} TO {self.maintainer};
@@ -219,12 +251,14 @@ class PrepareKart:
         """
         self.db.perform(sql_owner_kart_tables)
 
-    def prepare_schema_poi(self):
+    def prepare_schema_kart(self):
         """Prepare a database schema for POI"""
 
         sql_constraints_poi_category = f"""
            ALTER TABLE {self.schema_name}.poi_categories ADD CONSTRAINT poi_category_key UNIQUE (category);
            ALTER TABLE {self.schema_name}.poi_categories ALTER COLUMN category SET NOT NULL;
+           ALTER TABLE {self.schema_name}.poi_categories ALTER COLUMN table_name SET NOT NULL;
+           ALTER TABLE {self.schema_name}.poi_categories ADD CONSTRAINT poi_table_name_check CHECK (table_name IN ('poi_food_drink', 'poi_health', 'poi_childcare', 'poi_public_transport', 'poi_mobility_service', 'poi_public_service', 'poi_service', 'poi_shopping', 'poi_sport', 'poi_tourism_leisure', 'poi_school', 'poi_other'));
            ALTER TABLE {self.schema_name}.poi_categories OWNER TO {self.maintainer};
         """
         sql_constraints_data_source = f"""
@@ -233,136 +267,95 @@ class PrepareKart:
             ALTER TABLE {self.schema_name}.data_source ALTER COLUMN url SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_source OWNER TO {self.maintainer};
         """
-        sql_constraints_poi_uid = f"""
-            ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN uid SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN category SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN x_rounded SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN y_rounded SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi_uid ALTER COLUMN uid_count SET NOT NULL;
-            --ALTER TABLE {self.schema_name}.poi_uid ADD CONSTRAINT poi_uid_uid_key UNIQUE (uid);
-            CREATE INDEX ON {self.schema_name}.poi_uid (x_rounded, y_rounded, category);
-            ALTER TABLE {self.schema_name}.poi_uid ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category);
-            ALTER TABLE {self.schema_name}.poi_uid OWNER TO {self.maintainer};
-        """
-        sql_constraints_poi = f"""
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN category SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN x_rounded SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN x_rounded SET DEFAULT 0;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN y_rounded SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN y_rounded SET DEFAULT 0;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN uid_count SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN uid_count SET DEFAULT 0;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN source SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN geom SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN edit_timestamp SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN edit_timestamp SET DEFAULT current_timestamp;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN edit_by SET NOT NULL;
-            ALTER TABLE {self.schema_name}.poi ALTER COLUMN edit_by  SET DEFAULT current_user;
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT other_uid_not_empty_string_check CHECK (other_uid != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT osm_type_check CHECK (osm_type IN ('w', 'n', 'r'));
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT osm_id_and_osm_type_check1 CHECK ((osm_id IS NULL AND osm_type IS NOT NULL) = FALSE);
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT osm_id_and_osm_type_check2 CHECK ((osm_id IS NOT NULL AND osm_type IS NULL) = FALSE);
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT uid_count_check CHECK (uid_count BETWEEN 0 AND 9999);
-            ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
-            --ALTER TABLE {self.schema_name}.poi ADD CONSTRAINT poi_uid_key UNIQUE (uid);
-            --ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (uid) REFERENCES {self.schema_name}.poi_uid(uid) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.poi ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.poi OWNER TO {self.maintainer};
+        self.db.perform(sql_constraints_poi_category)
+        self.db.perform(sql_constraints_data_source)
+
+        for table_name in self.table_names:
+            sql_common_poi = f"""
+                ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN source SET NOT NULL;
+                ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN geom SET NOT NULL;
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS name_not_empty_string_check, ADD CONSTRAINT name_not_empty_string_check CHECK (name != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS check_name_no_whitespace, ADD CONSTRAINT check_name_no_whitespace CHECK (name = LTRIM(RTRIM(name)) AND name <> '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS check_street_no_whitespace, ADD CONSTRAINT check_street_no_whitespace CHECK (street = LTRIM(RTRIM(street)) AND street <> '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS street_not_empty_string_check, ADD CONSTRAINT street_not_empty_string_check CHECK (street != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS housenumber_not_empty_string_check, ADD CONSTRAINT housenumber_not_empty_string_check CHECK (housenumber != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS zipcode_not_empty_string_check, ADD CONSTRAINT zipcode_not_empty_string_check CHECK (zipcode != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS phone_not_empty_string_check, ADD CONSTRAINT phone_not_empty_string_check CHECK (phone != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS email_check, ADD CONSTRAINT email_check CHECK (octet_length(email) BETWEEN 6 AND 320 AND email LIKE '_%@_%.__%');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS opening_hours_not_empty_string_check, ADD CONSTRAINT opening_hours_not_empty_string_check CHECK (opening_hours != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS website_not_empty_string_check, ADD CONSTRAINT website_not_empty_string_check CHECK (website != '');
+                ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS wheelchair_check, ADD CONSTRAINT wheelchair_check CHECK (wheelchair IN ('yes', 'no', 'limited'));
+                ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (source) REFERENCES {self.schema_name}.data_source(name) ON DELETE CASCADE;
+                ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
             """
+            self.db.perform(sql_common_poi)
+
+
+            # Add additional constraints all tables besides poi_childcare and poi_school
+            if table_name not in ("poi_childcare", "poi_school"):
+                sql_addition_constraints = f"""
+                    ALTER TABLE {self.schema_name}.{table_name}  ALTER COLUMN category SET NOT NULL;
+                    ALTER TABLE {self.schema_name}.{table_name}  ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS other_categories_array_check, ADD CONSTRAINT other_categories_array_check CHECK (other_categories IS NULL OR other_categories::text[] IS NOT NULL);
+                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+                """
+                self.db.perform(sql_addition_constraints)
+
+            # Add additional constraint for operator and tags column to all tables besides poi_childcare
+            if table_name not in ("poi_childcare"):
+                sql_addition_constraints_operator_tags = f"""
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS operator_not_empty_string_check,  ADD CONSTRAINT operator_not_empty_string_check CHECK (operator != '');
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS tags_jsonb_check, ADD CONSTRAINT tags_jsonb_check CHECK (jsonb_typeof(tags::jsonb) = 'object');
+                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+            """
+                self.db.perform(sql_addition_constraints_operator_tags)
+
+            # Add additional constraints for poi_childcare
+            if table_name in ("poi_childcare"):
+                sql_addition_constraints_childcare = f"""
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS min_age_check, ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS max_age_check, ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
+                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS min_max_check, ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+                """
+                print(f"Executing SQL: {sql_addition_constraints_childcare}")
+
+                self.db.perform(sql_addition_constraints_childcare)
 
         # SQL check of timestamp is in ZULU UTC format
 
+        # Update null values to the default value
+        sql_update_nulls = f"""
+            UPDATE {self.schema_name}.data_subscription
+            SET source_date = '9999-12-31 23:59:59.999 +0000'::timestamptz
+            WHERE source_date IS NULL;
+        """
+        self.db.perform(sql_update_nulls)
+
+        # Then apply the constraints
         sql_constraints_data_subscription = f"""
-            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN nuts_id SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN geom_ref_id SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source SET NOT NULL;
             ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN category SET NOT NULL;
-            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source_date SET NOT NULL; 
-            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN rule SET NOT NULL; 
-            ALTER TABLE {self.schema_name}.data_subscription ADD CONSTRAINT rule_check CHECK (rule IN ('subscribe', 'unsubscribe'));
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN source_date SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ALTER COLUMN rule SET NOT NULL;
+            ALTER TABLE {self.schema_name}.data_subscription ADD CONSTRAINT rule_check CHECK (rule IN ('subscribe', 'exclude'));
             ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (category) REFERENCES {self.schema_name}.poi_categories(category) ON DELETE CASCADE;
-            ALTER TABLE {self.schema_name}.nuts ADD CONSTRAINT nuts_key UNIQUE ("nuts_id");
-            ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (nuts_id) REFERENCES {self.schema_name}.nuts("nuts_id") ON DELETE CASCADE;
+            ALTER TABLE {self.schema_name}.geom_ref ADD CONSTRAINT geom_ref_key UNIQUE ("id");
+            ALTER TABLE {self.schema_name}.data_subscription ADD FOREIGN KEY (geom_ref_id) REFERENCES {self.schema_name}.geom_ref("id") ON DELETE CASCADE;
             ALTER TABLE {self.schema_name}.data_subscription OWNER TO {self.maintainer};
         """
-
-        self.db.perform(sql_constraints_poi_category)
-        self.db.perform(sql_constraints_data_source)
-        self.db.perform(sql_constraints_poi_uid)
-        self.db.perform(sql_constraints_poi)
         self.db.perform(sql_constraints_data_subscription)
 
-        sql_create_trigger = f"""
-            CREATE OR REPLACE FUNCTION {self.schema_name}.update_poi_trigger()
-            RETURNS TRIGGER AS $$
-            DECLARE 
-                cnt integer;
-                cnt_text TEXT; 
-            BEGIN	
-                NEW.edit_by = current_user;
-                NEW.edit_timestamp = current_timestamp;
-                NEW.x_rounded = (ST_X(NEW.geom) * 1000)::integer;
-                NEW.y_rounded = (ST_Y(NEW.geom) * 1000)::integer;
-            
-                IF OLD.x_rounded = NEW.x_rounded AND OLD.y_rounded = NEW.y_rounded AND OLD.category = NEW.category THEN 
-                    NEW.uid = OLD.uid; 
-                ELSE 
-                    cnt = (
-                        SELECT CASE WHEN max(uid_count) IS NULL THEN 0 ELSE max(uid_count) + 1 END AS uid_count  
-                        FROM {self.schema_name}.poi_uid p
-                        WHERE p.x_rounded = NEW.x_rounded 
-                        AND p.y_rounded = NEW.y_rounded 
-                        AND p.category = NEW.category
-                    ); 
-                    NEW.uid_count = cnt; 
-                
-                    IF NEW.uid_count != 0 THEN 
-                        cnt_text = REPLACE((NEW.uid_count::float / 1000)::TEXT, '.', '');
-                    ELSE 
-                        cnt_text = '0000';
-                    END IF; 
-                
-                    NEW.uid = NEW.x_rounded::TEXT || '-' || NEW.y_rounded::TEXT || '-' || NEW.category || '-' || cnt_text; 
-                    INSERT INTO {self.schema_name}.poi_uid(uid, category, x_rounded, y_rounded, uid_count)
-                    SELECT NEW.uid, NEW.category, NEW.x_rounded, NEW.y_rounded, NEW.uid_count;
-                    
-                END IF; 
-                
-                IF NEW.uid IS NULL THEN 
-                    RAISE 'UID cannot be NULL';
-                END IF; 
-            
-                RETURN NEW;
-            END;
-            $$ LANGUAGE plpgsql;
-
-            CREATE TRIGGER update_poi_trigger
-            BEFORE UPDATE ON {self.schema_name}.poi
-            FOR EACH ROW
-            EXECUTE PROCEDURE {self.schema_name}.update_poi_trigger();
-
-            CREATE TRIGGER insert_poi_trigger
-            BEFORE INSERT ON {self.schema_name}.poi
-            FOR EACH ROW
-            EXECUTE PROCEDURE {self.schema_name}.update_poi_trigger();
-        """
-        self.db.perform(sql_create_trigger)
-        
     def prepare_kart(self):
         """Run all functions to prepare Kart for POI data"""
         self.clone_data_repo()
         self.create_schema()
         self.kart_remote_workingcopy()
-        self.prepare_schema_poi()
+        self.prepare_schema_kart()
+
 
 def parse_args(args=None):
     # define the flags and their default values
@@ -374,7 +367,7 @@ def parse_args(args=None):
     # parse the command line arguments
     return parser.parse_args(args)
 
-
+@timing
 def main():
     args = parse_args()
     repo_url = args.repo_url

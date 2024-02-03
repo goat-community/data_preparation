@@ -9,37 +9,46 @@ from src.utils.utils import download_link, print_info
 
 class Config:
     """Reads the config file and returns the config variables.
-    """    
+    """
     def __init__(self, name: str, region: str):
         #TODO: Add validation of config files here
+
         self.dataset_dir = os.path.join(settings.INPUT_DATA_DIR, name)
-        
-        # Read config for data set or read global config
-        config_path_base = os.path.join(settings.CONFIG_DIR, "config" + ".yaml")
-        with open(
-            config_path_base,
-            encoding="utf-8",
-        ) as stream:
-            config_base = yaml.safe_load(stream)
-        self.config_base = config_base
-       
-        config_path = os.path.join(settings.CONFIG_DIR, "data_variables", name, name + "_" + region + ".yaml")
-        # Read config file
-        with open(
-            config_path,
-            encoding="utf-8",
-        ) as stream:
-            config = yaml.safe_load(stream)
-        self.config = config
-        
-        if name != "global":   
+
+        # Read the base config file
+        self.config_base = self.read_config("config.yaml")
+
+        # Read the specific config file for the dataset
+        config_file_name = f"{name}_{region}.yaml"
+        self.config = self.read_config(os.path.join("data_variables", name, config_file_name))
+
+        if name != "global":
             self.name = name
-            self.pbf_data = self.config.get("region_pbf")
             self.collection = self.config.get("collection")
             self.preparation = self.config.get("preparation")
             self.subscription = self.config.get("subscription")
             self.analysis = self.config.get("analysis")
-        
+            self.pbf_data = self.config.get("region_pbf")
+
+            if region == 'europe' and name == 'poi':
+                # get the Geofabrik download links that are not in other config files
+                folder_path = os.path.join(settings.CONFIG_DIR, "data_variables", name)
+                self.regions = [file.split("_")[1].split(".")[0] for file in os.listdir(folder_path) if file.endswith(".yaml")]
+                for file in os.listdir(folder_path):
+                    if file.endswith(".yaml") and file != f"{name}_{region}.yaml":
+                        other_config = self.read_config(os.path.join("data_variables", name, file))
+                        self.pbf_data = [item for item in self.pbf_data if item not in other_config.get("region_pbf", [])]
+            else:
+                self.regions = [region]
+
+
+    def read_config(self, config_file_path):
+        """Reads a YAML config file and returns the configuration."""
+        config_path = os.path.join(settings.CONFIG_DIR, config_file_path)
+        with open(config_path, encoding="utf-8") as stream:
+            config = yaml.safe_load(stream)
+        return config
+
     def osm2pgsql_create_style(self):
         add_columns = self.collection["additional_columns"]
         osm_tags = self.collection["osm_tags"]
