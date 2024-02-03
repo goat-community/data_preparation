@@ -1,13 +1,13 @@
 collection:
-  region: | 
+  region: |
     WITH 
     bounds AS (
-        SELECT ST_Extent(geom) AS geom FROM kart_pois.geom_ref WHERE id = 'DE'
+        SELECT ST_Extent(geom) AS geom FROM kart_pois.geom_ref WHERE id = 'geofence_active_mobility'
     ),
     merged_geometries AS (
         SELECT ST_Union(geom) AS geom
         FROM kart_pois.geom_ref
-        WHERE id = 'DE'
+        WHERE id = 'geofence_active_mobility'
     ),
     grid AS (
         SELECT ST_MakeEnvelope(
@@ -28,10 +28,8 @@ collection:
     )
     SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon'
 
-
   source: s3a://overturemaps-us-west-2/release/2024-01-17-alpha.0/theme=places
+
 preparation:
 
 subscription:
-
-

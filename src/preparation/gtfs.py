@@ -1,6 +1,3 @@
-import csv
-import os
-
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
@@ -8,6 +5,7 @@ from src.utils.utils import create_table_dump, print_info, timing
 
 
 class GTFS:
+
     def __init__(self, db: Database, region: str):
         self.db = db
         self.region = region
@@ -15,56 +13,6 @@ class GTFS:
         self.small_bulk = 100
         self.large_bulk = 10000
         self.schema = self.config.preparation["target_schema"]
-
-
-    @timing
-    def implement_data_corrections(self):
-        """Implement corrections as defined in CSV format correction files listed in config"""
-
-        # Return if no correction files are listed in config
-        if "network_corrections" not in self.config.preparation:
-            print_info("No corrections to be made.")
-            return
-
-        # Get list of tables in GTFS data schema
-        sql_get_tables = f"""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = '{self.schema}';
-        """
-        schema_tables = self.db.select(sql_get_tables)
-        schema_tables = [item for tuple in schema_tables for item in tuple]
-
-        # Implement corrections by table
-        corr_tables = self.config.preparation["network_corrections"]
-        for table_name in corr_tables.keys():
-            if table_name not in schema_tables:
-                print_info(f"Table {table_name} doesn't exist, skipping.")
-                continue
-
-            corr_filename = os.path.join(
-                settings.INPUT_DATA_DIR, "gtfs",
-                self.config.preparation["network_dir"],
-                corr_tables[table_name]
-            )
-            with open(corr_filename) as csv_file:
-                reader = csv.DictReader(csv_file)
-                header = reader.fieldnames
-                for line in reader:
-                    corrections = ""
-                    for column in header[1:]:
-                        # Correction not required if value is empty
-                        if not line[column]:
-                            continue
-                        corrections += f"{column} = '{line[column]}', "
-                    corrections = corrections.rstrip(", ")
-                    # Update relevant row in table assuming first column in header is the primary key
-                    sql_perform_correction = f"""
-                        UPDATE {self.schema}.{table_name}
-                        SET {corrections}
-                        WHERE {header[0]} = '{line[header[0]]}';
-                    """
-                    self.db.perform(sql_perform_correction)
 
 
     @timing
@@ -86,15 +34,14 @@ class GTFS:
         self.db.perform(sql_create_shape_dist_region)
 
         # Get region ids and names
-        regions = self.db.select(self.config.preparation["regions"])
+        regions = self.db.select(self.config.preparation["regions_query"])
         cnt_regions = len(regions)
         cnt = 0
 
         # Loop through regions and calculate shape_dist_traveled
         for region in regions:
             cnt += 1
-            region[0]
-            name = region[1]
+            id, name = region[0], region[1]
 
             # Create temporary table with region
             sql_create_table_region = f"""DROP TABLE IF EXISTS region_subdivided;
@@ -110,8 +57,8 @@ class GTFS:
             INSERT INTO region_subdivided
             WITH region AS
             (
-                {self.config.preparation["regions"]}
-                WHERE name = '{name}'
+                SELECT * FROM public.nuts
+                WHERE nuts_id = '{id}' AND nuts_name = '{name}'
             )
             ,border_points AS
             (
@@ -124,7 +71,7 @@ class GTFS:
                 ST_SETSRID(h3_cell_to_boundary(h3_lat_lng_to_cell(geom, 3))::geometry, 4326) AS geom
                 FROM border_points
             )
-            SELECT r.id, r.name, ST_SUBDIVIDE(ST_Intersection(h.geom, r.geom), 20) AS geom, h.h3_3
+            SELECT r.nuts_id, r.nuts_name, ST_SUBDIVIDE(ST_Intersection(h.geom, r.geom), 20) AS geom, h.h3_3
             FROM h3_ids h, region r;
             CREATE INDEX ON region_subdivided USING GIST(h3_3, geom);
             """
@@ -188,95 +135,199 @@ class GTFS:
 
         # Run processing in batches of routes to avoid memory issues
         for i in range(0, max_loop_id, self.small_bulk):
-            # This is currently optimized to fetch only the monday therefore the interval is just one day
             sql_get_date_with_max_trips = f"""
                 DROP TABLE IF EXISTS {self.schema}.dates_max_trips;
                 CREATE TABLE {self.schema}.dates_max_trips AS
-                WITH date_series AS 
-                (
-                    SELECT 
-                    TO_CHAR(DATE '{self.config.preparation["start_date"]}' + (7 * s.a), 'YYYY-MM-DD')::date AS start_date,
-                    TO_CHAR(DATE '{self.config.preparation["start_date"]}' + (7 * s.a) + INTERVAL '1 day', 'YYYY-MM-DD')::date AS end_date
-                    FROM generate_series(0, {self.config.preparation["num_weeks"]}) as s(a)
+                WITH date_series AS (
+                    SELECT generate_series::date AS check_date_mon,
+                        (generate_series + INTERVAL '5 days')::date AS check_date_sat,
+                        (generate_series + INTERVAL '6 days')::date AS check_date_sun
+                    FROM generate_series(DATE '{self.config.preparation["start_date"]}',
+                                            DATE '{self.config.preparation["start_date"]}' +
+                                            INTERVAL '{self.config.preparation["num_weeks"]} weeks',
+                                            INTERVAL '7 days')
                 ),
-                trip_cnt AS 
-                (
-                    SELECT s.*, j.*
-                    FROM date_series s 
-                    CROSS JOIN LATERAL 
-                    (
-                        SELECT jj.*
-                        FROM (SELECT route_id FROM {self.schema}.routes r WHERE r.loop_id > {i} AND r.loop_id <= {i+self.small_bulk}) r 
-                        CROSS JOIN LATERAL 
-                        (
-                            SELECT
-                                sum(c.monday::integer) cnt_trips_mon,
-                                sum(c.saturday::integer) cnt_trips_sat,
-                                sum(c.sunday::integer) cnt_trips_sun,
-                                t.route_id
-                            FROM {self.schema}.trips t, {self.schema}.calendar c
-                            WHERE t.route_id = r.route_id 
-                            AND t.service_id = c.service_id 
-                            AND s.start_date >= start_date
-                            AND s.end_date <= end_date
-                            GROUP BY t.route_id
-                        ) jj
-                    ) j
-                ),
-                dates_max_trips AS
+                trip_cnt AS
                 (
                     SELECT
+                        j.route_id,
+                        s.check_date_mon, j.cnt_trips_mon,
+                        s.check_date_sat, j.cnt_trips_sat,
+                        s.check_date_sun, j.cnt_trips_sun
+                    FROM date_series s
+                    CROSS JOIN LATERAL
+                    (
+                        SELECT sub.*
+                        FROM (
+                            SELECT route_id from
+                                {self.schema}.routes r
+                            WHERE r.loop_id > {i} AND r.loop_id <= {i+self.small_bulk}
+                        ) r
+                        CROSS JOIN LATERAL
+                        (
+                            select route_id,
+                                sum(cnt_trips_mon) cnt_trips_mon,
+                                sum(cnt_trips_sat) cnt_trips_sat,
+                                sum(cnt_trips_sun) cnt_trips_sun
+                            from
+                            (
+                                    select
+                                        sum(c.monday::integer) as cnt_trips_mon,
+                                        0 as cnt_trips_sat,
+                                        0 as cnt_trips_sun,
+                                        t.route_id
+                                    FROM {self.schema}.trips t,
+                                        (
+                                            select c.*, cd.exception_type from
+                                                {self.schema}.calendar c
+                                            left outer join
+                                                {self.schema}.calendar_dates cd
+                                            on cd.service_id = c.service_id
+                                                and cd.date = s.check_date_mon
+                                        ) c
+                                    WHERE t.route_id = r.route_id
+                                    AND t.service_id = c.service_id
+                                    and (c.exception_type is null or c.exception_type != 2)
+                                    AND s.check_date_mon >= start_date
+                                    AND s.check_date_mon <= end_date
+                                    GROUP BY t.route_id
+                                UNION ALL
+                                    SELECT
+                                        0 as cnt_trips_mon,
+                                        sum(c.saturday::integer) as cnt_trips_sat,
+                                        0 as cnt_trips_sun,
+                                        t.route_id
+                                    FROM {self.schema}.trips t,
+                                        (
+                                            select c.*, cd.exception_type from
+                                                {self.schema}.calendar c
+                                            left outer join
+                                                {self.schema}.calendar_dates cd
+                                            on cd.service_id = c.service_id
+                                                and cd.date = s.check_date_sat
+                                        ) c
+                                    WHERE t.route_id = r.route_id
+                                    AND t.service_id = c.service_id
+                                    and (c.exception_type is null or c.exception_type != 2)
+                                    AND s.check_date_sat >= start_date
+                                    AND s.check_date_sat <= end_date
+                                    GROUP BY t.route_id
+                                union all
+                                    select
+                                        0 as cnt_trips_mon,
+                                        0 as cnt_trips_sat,
+                                        sum(c.sunday::integer) as cnt_trips_sun,
+                                        t.route_id
+                                    FROM {self.schema}.trips t,
+                                        (
+                                            select c.*, cd.exception_type from
+                                                {self.schema}.calendar c
+                                            left outer join
+                                                {self.schema}.calendar_dates cd
+                                            on cd.service_id = c.service_id
+                                                and cd.date = s.check_date_sun
+                                        ) c
+                                    WHERE t.route_id = r.route_id
+                                    AND t.service_id = c.service_id
+                                    and (c.exception_type is null or c.exception_type != 2)
+                                    AND s.check_date_sun >= start_date
+                                    AND s.check_date_sun <= end_date
+                                    GROUP BY t.route_id
+                                UNION ALL
+                                    SELECT
+                                        sum(cd.exception_type) cnt_trips_mon,
+                                        0 as cnt_trips_sat,
+                                        0 as cnt_trips_sun,
+                                        t.route_id
+                                    FROM {self.schema}.trips t, {self.schema}.calendar_dates cd
+                                    WHERE t.route_id = r.route_id
+                                    AND t.service_id = cd.service_id
+                                    AND cd.exception_type = 1
+                                    AND cd.date = s.check_date_mon
+                                    GROUP BY t.route_id
+                                UNION ALL
+                                    SELECT
+                                        0 as cnt_trips_mon,
+                                        sum(cd.exception_type) as cnt_trips_sat,
+                                        0 as cnt_trips_sun,
+                                        t.route_id
+                                    FROM {self.schema}.trips t, {self.schema}.calendar_dates cd
+                                    WHERE t.route_id = r.route_id
+                                    AND t.service_id = cd.service_id
+                                    AND cd.exception_type = 1
+                                    AND cd.date = check_date_sat
+                                    GROUP BY t.route_id
+                                UNION ALL
+                                    SELECT
+                                        0 as cnt_trips_mon,
+                                        0 as cnt_trips_sat,
+                                        sum(cd.exception_type) cnt_trips_sun,
+                                        t.route_id
+                                    FROM {self.schema}.trips t, {self.schema}.calendar_dates cd
+                                    WHERE t.route_id = r.route_id
+                                    AND t.service_id = cd.service_id
+                                    AND cd.exception_type = 1
+                                    AND cd.date = check_date_sun
+                                    GROUP BY t.route_id
+                            ) route_trips
+                            group by route_id
+                        ) sub
+                        where sub.cnt_trips_mon > 0 or sub.cnt_trips_sat > 0 or sub.cnt_trips_sun > 0
+                    ) j
+                ),
+                route_mode_trips AS (
+                    SELECT
                         r.route_id,
-                        j_mon.start_date_mon[1] AS start_date_mon,
-                        j_mon.end_date_mon[1] AS end_date_mon,
-                        j_sat.start_date_sat[1] AS start_date_sat,
-                        j_sat.end_date_sat[1] AS end_date_sat,
-                        j_sun.start_date_sun[1] AS start_date_sun,
-                        j_sun.end_date_sun[1] AS end_date_sun
-                    FROM (SELECT DISTINCT route_id FROM trip_cnt r) r
-                    CROSS JOIN LATERAL 
-                    (
-                        SELECT cnt_trips_mon, max(cnt_trips_mon), ARRAY_AGG(start_date) AS start_date_mon, ARRAY_AGG(end_date) AS end_date_mon
-                        FROM trip_cnt t 
-                        WHERE r.route_id = t.route_id  
-                        GROUP BY cnt_trips_mon
-                        ORDER BY max(cnt_trips_mon)
-                        DESC
-                        LIMIT 1 
-                    ) j_mon
-                    CROSS JOIN LATERAL 
-                    (
-                        SELECT cnt_trips_sat, max(cnt_trips_sat), ARRAY_AGG(start_date) AS start_date_sat, ARRAY_AGG(end_date) AS end_date_sat
-                        FROM trip_cnt t 
-                        WHERE r.route_id = t.route_id  
-                        GROUP BY cnt_trips_sat
-                        ORDER BY max(cnt_trips_sat)
-                        DESC
-                        LIMIT 1 
-                    ) j_sat
-                    CROSS JOIN LATERAL 
-                    (
-                        SELECT cnt_trips_sun, max(cnt_trips_sun), ARRAY_AGG(start_date) AS start_date_sun, ARRAY_AGG(end_date) AS end_date_sun
-                        FROM trip_cnt t 
-                        WHERE r.route_id = t.route_id  
-                        GROUP BY cnt_trips_sun
-                        ORDER BY max(cnt_trips_sun)
-                        DESC
-                        LIMIT 1 
-                    ) j_sun
+                        MODE() WITHIN GROUP (ORDER BY cnt_trips_mon) AS mode_trips_mon,
+                        MODE() WITHIN GROUP (ORDER BY cnt_trips_sat) AS mode_trips_sat,
+                        MODE() WITHIN GROUP (ORDER BY cnt_trips_sun) AS mode_trips_sun
+                    FROM (
+                        SELECT DISTINCT route_id
+                        FROM trip_cnt
+                    ) r
+                    LEFT JOIN trip_cnt t ON r.route_id = t.route_id
+                    GROUP BY r.route_id
+                ),
+                date_mon_mode_trips AS (
+                    select rmt.route_id, rmt.mode_trips_mon, min(tc.check_date_mon) as mode_date_mon
+                    from
+                    route_mode_trips rmt join trip_cnt tc
+                    on tc.route_id = rmt.route_id and tc.cnt_trips_mon = rmt.mode_trips_mon
+                    group by rmt.route_id, rmt.mode_trips_mon
+
+                ),
+                date_sat_mode_trips AS (
+                    select rmt.route_id, rmt.mode_trips_sat, min(tc.check_date_sat) as mode_date_sat
+                    from
+                    route_mode_trips rmt join trip_cnt tc
+                    on tc.route_id = rmt.route_id and tc.cnt_trips_sat = rmt.mode_trips_sat
+                    group by rmt.route_id, rmt.mode_trips_sat
+
+                ),
+                date_sun_mode_trips AS (
+                    select rmt.route_id, rmt.mode_trips_sun, min(tc.check_date_sun) as mode_date_sun
+                    from
+                    route_mode_trips rmt join trip_cnt tc
+                    on tc.route_id = rmt.route_id and tc.cnt_trips_sun = rmt.mode_trips_sun
+                    group by rmt.route_id, rmt.mode_trips_sun
+
                 )
-                SELECT
-                    r.*,
-                    d.start_date_mon, d.end_date_mon,
-                    d.start_date_sat, d.end_date_sat,
-                    d.start_date_sun, d.end_date_sun
-                FROM dates_max_trips d, {self.schema}.routes r
-                WHERE d.route_id = r.route_id;
-            """ 
-                
+                SELECT r.*,
+                    d_mon.mode_trips_mon, d_mon.mode_date_mon as date_mon,
+                    d_sat.mode_trips_sat, d_sat.mode_date_sat as date_sat,
+                    d_sun.mode_trips_sun, d_sun.mode_date_sun as date_sun
+                FROM date_mon_mode_trips d_mon,
+                    date_sat_mode_trips d_sat,
+                    date_sun_mode_trips d_sun,
+                    {self.schema}.routes r
+                WHERE d_mon.route_id = r.route_id
+                    and d_sat.route_id = r.route_id
+                    and d_sun.route_id = r.route_id;
+            """
+
             self.db.perform(sql_get_date_with_max_trips)
             self.db.perform(f"CREATE INDEX ON {self.schema}.dates_max_trips (route_id);")
-            
+
             # Select relevant trips with relevant route information and save them into a new table
             sql_create_trips_weekday = f"""DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday;
             CREATE TABLE {self.schema}.temp_trips_weekday AS
@@ -284,80 +335,90 @@ class GTFS:
                 SELECT t.trip_id, t.service_id, t.shape_id, t.trip_headsign, r.*
                 FROM {self.schema}.trips t
                 INNER JOIN {self.schema}.dates_max_trips r ON t.route_id = r.route_id
+            ),
+            cal AS (
+                select c.*, cd.inactive_dates
+                from {self.schema}.calendar c
+                left outer join (
+                    select service_id, array_agg("date") as inactive_dates
+                    from {self.schema}.calendar_dates where exception_type = 2 group by service_id
+                ) cd
+                on cd.service_id = c.service_id
             )
-            SELECT trip_id, route_id, route_type, trip_headsign, shape_id,
+            SELECT trip_id, route_id, service_id, route_type, trip_headsign, shape_id,
                 ARRAY[CASE WHEN 'true' = ANY(array_agg(weekday)) THEN 'true'::boolean ELSE 'false'::boolean END,
                         CASE WHEN 'true' = ANY(array_agg(sat)) THEN 'true'::boolean ELSE 'false'::boolean END,
-                        CASE WHEN 'true' = ANY(array_agg(sun)) THEN 'true'::boolean ELSE 'false'::boolean END] AS weekdays
+                        CASE WHEN 'true' = ANY(array_agg(sun)) THEN 'true'::boolean ELSE 'false'::boolean END] AS weekdays,
+                ARRAY[CASE WHEN 'true' = ANY(array_agg(weekday)) THEN (ARRAY_AGG(date_mon))[1]::date ELSE NULL END,
+                        CASE WHEN 'true' = ANY(array_agg(sat)) THEN (ARRAY_AGG(date_sat))[1]::date ELSE NULL END,
+                        CASE WHEN 'true' = ANY(array_agg(sun)) THEN (ARRAY_AGG(date_sun))[1]::date ELSE NULL END] AS weekday_dates
             FROM (
-                SELECT t.*,
-                    'true' as weekday, 
-                    'false' as sat,
-                    'false' as sun
-                FROM t
-                INNER JOIN {self.schema}.calendar c ON
-                    t.service_id = c.service_id
-                    AND t.start_date_mon >= c.start_date
-                    AND t.end_date_mon <= c.end_date
-                    AND c.monday = '1'
+                    SELECT t.*,
+                        'true' as weekday,
+                        'false' as sat,
+                        'false' as sun
+                    FROM t INNER JOIN cal
+                    ON t.service_id = cal.service_id
+                        AND t.date_mon >= cal.start_date
+                        AND t.date_mon <= cal.end_date
+                        AND cal.monday = '1'
+                        AND (cal.inactive_dates is null or (NOT (t.date_mon = ANY (cal.inactive_dates))))
                 UNION
-                SELECT t.*,
-                    'false' as weekday, 
-                    'true' as sat,
-                    'false' as sun
-                FROM t
-                INNER JOIN {self.schema}.calendar c ON
-                    t.service_id = c.service_id
-                    AND t.start_date_sat >= c.start_date
-                    AND t.end_date_sat <= c.end_date
-                    AND c.saturday = '1'
+                    SELECT t.*,
+                        'true' as weekday,
+                        'false' as sat,
+                        'false' as sun
+                    FROM t INNER JOIN {self.schema}.calendar_dates cd
+                    ON t.service_id = cd.service_id
+                        AND t.date_mon = cd.date
+                        AND cd.exception_type = 1
                 UNION
-                SELECT t.*,
-                    'false' as weekday,
-                    'false' as sat,
-                    'true' as sun
-                FROM t
-                INNER JOIN {self.schema}.calendar c ON
-                    t.service_id = c.service_id
-                    AND t.start_date_sun >= c.start_date
-                    AND t.end_date_sun <= c.end_date
-                    AND c.sunday = '1'
+                    SELECT t.*,
+                        'false' as weekday,
+                        'true' as sat,
+                        'false' as sun
+                    FROM t INNER JOIN cal
+                    ON t.service_id = cal.service_id
+                        AND t.date_sat >= cal.start_date
+                        AND t.date_sat <= cal.end_date
+                        AND cal.saturday = '1'
+                        AND (cal.inactive_dates is null or (NOT (t.date_sat = ANY (cal.inactive_dates))))
+                UNION
+                    SELECT t.*,
+                        'false' as weekday,
+                        'true' as sat,
+                        'false' as sun
+                    FROM t INNER JOIN {self.schema}.calendar_dates cd
+                    ON t.service_id = cd.service_id
+                        AND t.date_sat = cd.date
+                        AND cd.exception_type = 1
+                UNION
+                    SELECT t.*,
+                        'false' as weekday,
+                        'false' as sat,
+                        'true' as sun
+                    FROM t INNER JOIN cal
+                    ON t.service_id = cal.service_id
+                        AND t.date_sun >= cal.start_date
+                        AND t.date_sun <= cal.end_date
+                        AND cal.sunday = '1'
+                        AND (cal.inactive_dates is null or (NOT (t.date_sun = ANY (cal.inactive_dates))))
+                UNION
+                    SELECT t.*,
+                        'false' as weekday,
+                        'false' as sat,
+                        'true' as sun
+                    FROM t INNER JOIN {self.schema}.calendar_dates cd
+                    ON t.service_id = cd.service_id
+                        AND t.date_sun = cd.date
+                        AND cd.exception_type = 1
             ) trips_combined
-            GROUP BY trip_id, route_id, route_type, trip_headsign, shape_id;
+            GROUP BY trip_id, route_id, service_id, route_type, trip_headsign, shape_id;
             ALTER TABLE {self.schema}.temp_trips_weekday ADD COLUMN id serial;
             ALTER TABLE {self.schema}.temp_trips_weekday ADD PRIMARY KEY (id);
             CREATE INDEX ON {self.schema}.temp_trips_weekday (trip_id);
             CREATE INDEX ON {self.schema}.temp_trips_weekday (shape_id);"""
             self.db.perform(sql_create_trips_weekday)
-            
-            
-            # # Select relevant trips with relevant route information and save them into a new table
-            # sql_create_trips_weekday = f"""DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday;
-            # CREATE TABLE {self.schema}.temp_trips_weekday AS
-            # SELECT t.trip_id, t.route_type::text::smallint, t.shape_id, ARRAY[
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.monday::text)::boolean,
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.tuesday::text)::boolean,
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.wednesday::text)::boolean,
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.thursday::text)::boolean,
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.friday::text)::boolean,
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.saturday::text)::boolean,
-            # (('{'{'}"1": "true", "0": "false"{'}'}'::jsonb) ->> c.sunday::text)::boolean
-            # ] AS weekdays
-            # FROM
-            # (
-            #     SELECT t.trip_id, t.service_id, r.route_type, t.shape_id
-            #     FROM {self.schema}.trips t, {self.schema}.routes r
-            #     WHERE t.route_id = r.route_id
-            #     AND r.loop_id > {i} AND r.loop_id <= {i+self.small_bulk}
-            # ) t, {self.schema}.calendar c
-            # WHERE t.service_id = c.service_id
-            # AND '{self.config.preparation["start_date"]}' >= start_date
-            # AND '{self.config.preparation["end_date"]}' <= end_date;
-            # ALTER TABLE {self.schema}.temp_trips_weekday ADD COLUMN id serial;
-            # ALTER TABLE {self.schema}.temp_trips_weekday ADD PRIMARY KEY (id);
-            # CREATE INDEX ON {self.schema}.temp_trips_weekday (trip_id);
-            # CREATE INDEX ON {self.schema}.temp_trips_weekday (shape_id);"""
-            # self.db.perform(sql_create_trips_weekday)
 
             # Create distributed table for temp_trips_weekday
             sql_create_temp_trips_weekday_distributed = f"""
@@ -417,6 +478,7 @@ class GTFS:
             )
 
         # Clean up temporary tables
+        self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.dates_max_trips;")
         self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday;")
         self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday_distributed;")
         self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.undistributed_shape_dist_region;")
@@ -433,10 +495,10 @@ class GTFS:
         self.db.perform(f"""CREATE INDEX ON {self.schema}.stop_times_optimized (h3_3, trip_id);""")
         print_info("Added index to stop_times_optimized (h3_3, trip_id).")
 
+
     def run(self):
         """Run the gtfs preparation."""
 
-        self.implement_data_corrections()
         self.prepare_shape_dist_region()
         self.prepare_stop_times()
         self.add_indices()

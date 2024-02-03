@@ -1,10 +1,11 @@
 import os
 import time
+
 import requests
-from src.db.db import Database
+
 from src.config.config import Config
 from src.core.config import settings
-
+from src.db.db import Database
 
 R5_FRONTEND_URL_REGIONS = f"{settings.R5_FRONTEND_HOST}:{settings.R5_FRONTEND_PORT}/api/db/regions"
 R5_BACKEND_URL_BUNDLE = f"{settings.R5_BACKEND_HOST}:{settings.R5_BACKEND_PORT}/api/bundle"
@@ -42,7 +43,7 @@ class NetworkPTPreparation:
                 description="",
                 bounds=self.get_sub_region_bounds(id=id)
             )
-            if region_id == None:
+            if region_id is None:
                 print(f"Unable to create new R5 region: {region_name}")
                 break
             
@@ -50,7 +51,7 @@ class NetworkPTPreparation:
             bundle_name = f"bundle-{self.region}_{id}"
             success = self.delete_bundle_r5(name=bundle_name) # Delete old bundle
             if not success:
-                print(f"Unable to delete old R5 bundl: {bundle_name}")
+                print(f"Unable to delete old R5 bundle: {bundle_name}")
                 break
             bundle_id = self.create_bundle_r5( # Create new bundle with latest OSM & GTFS data for this sub-region
                 name=bundle_name,
@@ -58,14 +59,14 @@ class NetworkPTPreparation:
                 osm_path=os.path.join(self.sub_region_osm_output_dir, f"{id}.pbf"),
                 gtfs_path=os.path.join(self.sub_region_gtfs_input_dir, f"{id}.zip")
             )
-            if bundle_id == None:
+            if bundle_id is None:
                 print(f"Unable to create new R5 bundle: {bundle_name}")
                 break
             
             # Wait until previous bundle is processed
             bundle_status = self.get_bundle_status_r5(id=bundle_id)
             while bundle_status == "PROCESSING_OSM":
-                time.sleep(5)
+                time.sleep(10)
                 bundle_status = self.get_bundle_status_r5(id=bundle_id)
             if bundle_status != "DONE":
                 print(f"R5 engine failed to process bundle: {bundle_name}")
@@ -118,10 +119,10 @@ class NetworkPTPreparation:
             "name": name,
             "description": description,
             "bounds": {
-                "west": bounds[0], # xmin
+                "north": bounds[3], # ymax
                 "south": bounds[1], # ymin
                 "east": bounds[2], # xmax
-                "north": bounds[3] # ymax
+                "west": bounds[0], # xmin
             }
         }
         response = requests.post(
@@ -205,7 +206,3 @@ def prepare_network_pt(region: str):
         raise e
     finally:
         db_rd.conn.close()
-
-
-if __name__ == "__main__":
-    prepare_network_pt()

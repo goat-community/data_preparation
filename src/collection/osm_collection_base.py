@@ -20,14 +20,14 @@ from src.core.config import settings
 from src.db.db import Database
 
 class OSMBaseCollection:
-    def __init__(self, db_config: str, dataset_type: str, region: str = "de"):  
+    def __init__(self, db_config: str, dataset_type: str, region: str = "de"):
         """Constructor for OSM Base Class.
 
         Args:
             db_config (str): Configuration for database.
             dataset_type (str): Type of dataset. Currently supported: "poi", "network", "building".
-        """        
-        
+        """
+
         self.db_config = db_config
         self.dataset_type = dataset_type
         self.dbname = self.db_config.path.replace("/", "")
@@ -35,10 +35,11 @@ class OSMBaseCollection:
         self.username = self.db_config.user
         self.port = self.db_config.port
         self.password = self.db_config.password
-        
+
+        self.region = region
         self.data_config = Config(self.dataset_type, region)
         self.region_links = self.data_config.pbf_data
-        
+
         self.dataset_dir = self.data_config.dataset_dir
         self.s3_osm_basedir = os.path.join("osm-raw", self.dataset_type)
         self.available_cpus = os.cpu_count()
@@ -52,11 +53,11 @@ class OSMBaseCollection:
         Args:
             link (str): _Download link to OSM data.
             osm_filter (str): Filter for OSM data.
-        """        
+        """
 
         # Change directory
         os.chdir(self.dataset_dir)
-        
+
         # Process OSM data
         full_name = link.split("/")[-1]
         only_name = full_name.split(".")[0]
@@ -76,7 +77,7 @@ class OSMBaseCollection:
             shell=True,
             check=True,
         )
-        
+
         # Delete temporary files
         delete_file(f"{only_name}.o5m")
         delete_file(f"{only_name + '_' + self.dataset_type}.o5m")
@@ -90,7 +91,7 @@ class OSMBaseCollection:
         Returns:
             str: Timestamp of OSM file.
         """
-        
+
         # Get timestamp of OSM file using osmium
         cmd = ['osmium', 'fileinfo', path]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -98,7 +99,7 @@ class OSMBaseCollection:
         # Extract the timestamp from the command output using regular expressions
         match = re.search(r'timestamp=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', result.stdout)
         timestamp = match.group(1)
-        
+
         return timestamp
 
     def export_osm_boundaries_db(self, db: Database, use_poly=True):
@@ -107,7 +108,7 @@ class OSMBaseCollection:
         Args:
             db (Database): Database object.
             use_poly (bool, optional): Shall use poly file. Defaults to True.
-        """    
+        """
 
         if use_poly is True:
             file_ending = ".poly"
@@ -128,7 +129,7 @@ class OSMBaseCollection:
         download = partial(download_link, self.dataset_dir)
         pool = Pool(processes=self.available_cpus)
         print_hashtags()
-        print_info(f"Downloading OSM Poly Boundaries started.")
+        print_info("Downloading OSM Poly Boundaries started.")
         print_hashtags()
         pool.map(download, region_poly_links)
         pool.close()
@@ -145,7 +146,7 @@ class OSMBaseCollection:
                 geom geometry(MULTIPOLYGON, 4326)
             );
             ALTER TABLE {self.dataset_type}_osm_boundary ADD PRIMARY KEY(id);
-            CREATE INDEX ON {self.dataset_type}_osm_boundary USING GIST(geom); 
+            CREATE INDEX ON {self.dataset_type}_osm_boundary USING GIST(geom);
         """
         db.perform(sql_create_table)
 
@@ -155,7 +156,7 @@ class OSMBaseCollection:
             path_osm_file = os.path.join(self.dataset_dir, os.path.basename(self.region_links[idx]))
             # Get timestamp of OSM file
             time_stamp_osm_file = self.get_timestamp_osm_file(path_osm_file)
-            
+
             # Get geometry of OSM boundary
             file_dir = os.path.join(self.dataset_dir, os.path.basename(link))
             if use_poly is True:
@@ -173,13 +174,13 @@ class OSMBaseCollection:
                 query=sql_insert,
                 params=[os.path.basename(link).split("-latest")[0], time_stamp_osm_file, geom.wkt],
             )
-        print_info(f"OSM boundaries inserted into database.")
-        
+        print_info("OSM boundaries inserted into database.")
+
         # Export OSM boundaries to GeoJSON
         gdf = gpd.read_postgis(f"SELECT * FROM {self.dataset_type}_osm_boundary", db.return_sqlalchemy_engine(), geom_col="geom")
         gdf.to_file(os.path.join(self.dataset_dir, f"{self.dataset_type}_osm_boundary.geojson"), driver="GeoJSON")
-        print_info(f"OSM boundaries exported to GeoJSON.")
-        
+        print_info("OSM boundaries exported to GeoJSON.")
+
     def import_dem(self, filepath=None):
         """Import DEM data into PostGIS database.
 
@@ -197,7 +198,7 @@ class OSMBaseCollection:
         filepath_converted_dem = filepath_no_ext + "_conv.tif"
         filepath_sql_dem = filepath_no_ext + ".sql"
 
-        delete_file(filepath_converted_dem) 
+        delete_file(filepath_converted_dem)
         delete_file(filepath_sql_dem)
 
         # Prepare and import digital elevation model
@@ -224,10 +225,10 @@ class OSMBaseCollection:
 
     def download_bulk_osm(self):
         """Download bulk OSM data.
-        """        
-        
+        """
+
         # Cleanup
-        delete_dir(self.dataset_dir)            
+        delete_dir(self.dataset_dir)
         os.mkdir(self.dataset_dir)
         os.chdir(self.dataset_dir)
 
@@ -236,12 +237,12 @@ class OSMBaseCollection:
         # pool = Pool(processes=self.available_cpus)
 
         print_hashtags()
-        print_info(f"Downloading OSM files started.")
+        print_info("Downloading OSM files started.")
         print_hashtags()
-        
+
         for link in self.region_links:
             download_link("", link)
-        
+
         # pool.map(download, self.region_links)
         # pool.close()
         # pool.join()
@@ -254,12 +255,12 @@ class OSMBaseCollection:
             if not os.path.exists(dir) or os.stat(dir).st_size == 0:
                 print_warning(f"File {os.path.basename(link)} could not be downloaded. Processing stopped.")
                 sys.exit()
-        
+
         # Check if all files are from the same date
         if len(set(data_source_date)) > 1:
-            print_warning(f"OSM files are not from the same date. Processing stopped.")
+            print_warning("OSM files are not from the same date. Processing stopped.")
             sys.exit()
-        
+
     def prepare_bulk_osm(
         self, osm_filter: str
     ):
@@ -267,12 +268,12 @@ class OSMBaseCollection:
 
         Args:
             osm_filter (str): OSM filter to use.
-        """        
+        """
         pool = Pool(processes=self.available_cpus)
 
         # Prepare and filter osm files
         print_hashtags()
-        print_info(f"Preparing OSM files started.")
+        print_info("Preparing OSM files started.")
         print_hashtags()
         pool.map(
             partial(
@@ -285,11 +286,10 @@ class OSMBaseCollection:
         pool.join()
 
     def merge_osm_and_import(self):
-        """Merge all osm files and import them into PostGIS database.
-        """        
+        """Merge all osm files and import them into PostGIS database."""
         # Change to data directory
         os.chdir(self.dataset_dir)
-        
+
         # Merge all osm files
         print_info("Merging files")
         file_names = [
@@ -307,27 +307,27 @@ class OSMBaseCollection:
         subprocess.run(
             f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
             + "merged.osm"
-            + f" -s --drop -C {self.cache} --style {path_style_file} --prefix osm_{self.data_config.name}",
+            + f" -s --drop -C {self.cache} --style {path_style_file} --prefix osm_{self.data_config.name}_{self.region}",
             shell=True,
             check=True,
         )
-     
+
     def upload_raw_osm_data(self, boto_client):
         """Uploads raw osm data to s3 bucket.
 
         Args:
             boto_client (_type_): Boto3 client
-        """        
+        """
         print_hashtags()
         print_info(f"Uploading raw OSM data to s3 bucket {settings.AWS_BUCKET_NAME} started.")
         print_hashtags()
-        
+
         for file in os.listdir(self.dataset_dir):
-            
+
             # Continue if files does not end with .pbf or .geojson
             if not file.endswith(".pbf") and not file.endswith(".geojson"):
                 continue
-            
+
             # Upload file to s3 bucket
             file_path = os.path.join(self.dataset_dir, file)
             if os.path.isfile(file_path):
@@ -338,8 +338,7 @@ class OSMBaseCollection:
                 )
                 print_info(f"Uploaded {file_path} to s3 bucket {settings.AWS_BUCKET_NAME}")
             else:
-                print_warning(f"File {file_path} does not exist.")      
-                             
+                print_warning(f"File {file_path} does not exist.")
 
     def clip_osm_by_bbox(self, bbox: str, filename: str, fileToClip: str):
         """Clips the OSM data by the polygon file"""
@@ -362,11 +361,11 @@ class OSMBaseCollection:
 
     #     regions = db.select(
     #         """SELECT id, CONCAT(ST_XMin(geom)::TEXT, ',', ST_YMin(geom)::text,',', ST_XMax(geom)::text, ',', ST_YMax(geom)) AS bbox
-    #         FROM 
+    #         FROM
     #         (
-	#             SELECT id, st_envelope(geom_buffer) AS geom  
-	#             FROM region_gtfs rg 
-    #             WHERE id < 7 
+    #             SELECT id, st_envelope(geom_buffer) AS geom
+    #             FROM region_gtfs rg
+    #             WHERE id < 7
     #         ) x """
     #     )
 

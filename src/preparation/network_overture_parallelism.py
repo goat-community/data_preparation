@@ -1,6 +1,7 @@
 import time
 from threading import Thread
 
+import psycopg2
 from tqdm import tqdm
 
 from src.utils.utils import print_error
@@ -62,8 +63,21 @@ class ProcessSegments(Thread):
                     # This significantly improves performance
                     if index % 1000 == 0:
                         self.db_connection.commit()
+                # TODO In the event of a fatal exception, rollback all segments/connectors for this H3_3 region
+                except psycopg2.Error as e:
+                    if "deadlock detected" in str(e):
+                        print_error(f"Thread {self.thread_id}: Deadlock detected, retrying.")
+                        time.sleep(1)
+                        try:
+                            self.db_connection.commit()
+                            continue
+                        except Exception as e:
+                            print_error(f"Thread {self.thread_id}: Failed to resolve deadlock, error: {e}.")
+                    else:
+                        print_error(f"Thread {self.thread_id} failed to process H3 index {h3_index}, error: {e}.")
+                    break
                 except Exception as e:
-                    print_error(f"Thread {self.thread_id} failed to process segment {h3_index}, error: {e}.")
+                    print_error(f"Thread {self.thread_id} failed to process H3 index {h3_index}, error: {e}.")
                     break
 
             h3_index = self.get_next_h3_index()

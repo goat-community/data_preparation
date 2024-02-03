@@ -268,7 +268,7 @@ def create_table_dump(
 
 
 def restore_table_dump(
-    db_config: dict, schema: str, table_name: str, dump_type: DumpType = DumpType.all.value
+    db_config: dict, schema: str, table_name: str, dump_type: DumpType = DumpType.all
 ):
     """Restores the dump from a table
 
@@ -306,11 +306,11 @@ def restore_table_dump(
             dir_output,
         ]
         # Append to -2 position of the command if it is a data only dump
-        if dump_type.value == DumpType.data.value:
+        if dump_type == DumpType.data.value:
             command.insert(-2, "--data-only")
-        elif dump_type.value == DumpType.schema.value:
+        elif dump_type == DumpType.schema.value:
             command.insert(-2,"--schema-only")
-        elif dump_type.value == DumpType.all.value:
+        elif dump_type == DumpType.all.value:
             pass
         else:
             raise ValueError(f"Dump type {dump_type} not supported")

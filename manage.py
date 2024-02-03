@@ -54,7 +54,7 @@ action_dict = {
         "network_overture": prepare_overture_network,
     },
     "fusion":{
-        "poi_osm_overture": fusion_poi_osm_overture
+        "poi_osm_overture": fusion_poi_osm_overture,
     },
     "export": {
         "poi": export_poi,
