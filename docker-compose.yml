@@ -65,6 +65,7 @@ services:
       - DB_PASSWORD_PREPARATION=${POSTGRES_PASSWORD}
     volumes:
       - goat_data_preparation_data:/storage/data:rw
+      - ./src/data/input/gtfs:/tmp/gtfs:rw
     ports:
       - "${POSTGRES_OUTER_PORT}:5432"
     healthcheck:

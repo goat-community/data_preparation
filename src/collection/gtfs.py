@@ -107,6 +107,15 @@ class GTFSCollection:
         with open(first_file, "w", encoding="utf-8") as f:
             f.writelines(lines[1:])
 
+        # Clean all split files to remove invalid UTF-8 characters
+        for temp_file in os.listdir(output_dir):
+            temp_file_path = os.path.join(output_dir, temp_file)
+            with open(temp_file_path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+            with open(temp_file_path, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+            print_info(f"Cleaned file {temp_file_path}.")
+
         return header, columns
 
     def import_file(self, input_dir: str, table: str, header: list, table_columns: list):
@@ -150,7 +159,7 @@ class GTFSCollection:
             file_path_postgres = os.path.join("/tmp/gtfs", self.network_dir, "temp", file)
             sql_copy = f"""
                 COPY {self.schema}.{table}_temp ({",".join(header)}) FROM '{file_path_postgres}'
-                CSV DELIMITER ',' QUOTE '"' ESCAPE '"' ENCODING 'ISO 8859-15';
+                CSV DELIMITER ',' QUOTE '"' ESCAPE '"' ENCODING 'UTF8';
             """
             self.db.perform(sql_copy)
 
