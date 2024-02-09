@@ -153,7 +153,8 @@ class Subscription:
                 sql_delete_poi = f"""
                     DELETE FROM {self.kart_schema}.{self.get_kart_poi_table_name(category)} p
                     WHERE ST_Intersects(p.geom, (SELECT geom FROM geom_filter_exclude))
-                    AND p.category = '{category}';
+                    AND p.category = '{category}'
+                    ANS p.source in ('OSM', 'Overture', 'OSM_Overture');
                 """
                 self.db.perform(sql_delete_poi)
 
@@ -473,7 +474,7 @@ class Subscription:
         categories = ', '.join(f"'{category[0]}'" for category in categories)
 
         # with the list of categories find the sources in data_subscription
-        sources = self.db.select(f"""SELECT DISTINCT source FROM {self.kart_schema}.data_subscription WHERE category IN ({categories}) and rule = 'unsubscribe'""")
+        sources = self.db.select(f"""SELECT DISTINCT source FROM {self.kart_schema}.data_subscription WHERE category IN ({categories})""")
         # iwie den source table name finden bzw. nur über die loopen die da sind oder if else
 
         for source in sources:
