@@ -73,12 +73,12 @@ class DataCorrections:
             Not sure what's up in Nuremburg (agency 654)?, but they're randomly adding incorrect
             U-Bahn (route type 402) & Tram (route type 900) trips to almost every route in the city :(
 
-            NOTE: This fix currently only cleans up data in the stop_times_optimized table, not routes or trips.
+            NOTE: This fix cleans up data in the stop_times, trips, and routes tables. This should be run
+            before stop_times_optimized is computed.
             Funnily enough, actual U-Bahn routes are labelled type 400, so we can just delete all 402 routes."""
 
-        sql_fix_nuremberg_stop_times = """
-            with extra_trips as
-            (
+        sql_fix_nuremberg_data = """
+            WITH extra_trips AS (
                 with route_types as (
                     select route_short_name, jsonb_object_agg(route_type, route_id) as route_types
                     from gtfs.routes
@@ -97,21 +97,27 @@ class DataCorrections:
                     where route_types->>'700' is not null
                         and route_types->>'900' is not null
                 )
-                select trip_id from
-                    (
-                        select * from extra_metro_routes
-                        union
-                        select * from extra_tram_routes
-                    ) r
-                inner join
-                    gtfs.trips t
-                on
-                    t.route_id = r.route_id
+                SELECT r.route_id, t.trip_id
+                FROM (
+                    SELECT * FROM extra_metro_routes
+                    UNION
+                    SELECT * FROM extra_tram_routes
+                ) r
+                INNER JOIN gtfs.trips t
+                ON t.route_id = r.route_id
+            ),
+            delete_stop_times AS (
+                DELETE FROM gtfs.stop_times
+                WHERE trip_id IN (SELECT trip_id FROM extra_trips)
+            ),
+            delete_trips AS (
+                DELETE FROM gtfs.trips
+                WHERE trip_id IN (SELECT trip_id FROM extra_trips)
             )
-            delete from gtfs.stop_times_optimized
-            where trip_id in (select trip_id from extra_trips);
+            DELETE FROM gtfs.routes
+            WHERE route_id IN (SELECT DISTINCT route_id FROM extra_trips);
         """
-        self.db.perform(sql_fix_nuremberg_stop_times)
+        self.db.perform(sql_fix_nuremberg_data)
 
         print_info("Finished fixing Nuremberg routes.")
 
