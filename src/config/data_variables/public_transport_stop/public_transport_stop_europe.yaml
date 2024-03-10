@@ -45,3 +45,12 @@ preparation:
       "704": "bus_stop"
       "715": "bus_stop"
       "900": "tram_stop"
+
+  sources:
+    "be:sn:": "gtfs.de"
+    "be:dw:": "gtfs.be"
+    "be:st:": "gtfs.be"
+    "be:dl:": "gtfs.be"
+    "be:te:": "transportdata.be"
+    "others": "gtfs.de"
+    

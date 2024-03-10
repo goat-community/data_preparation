@@ -9,7 +9,6 @@ class POITable:
         common_columns = [
             "id SERIAL PRIMARY KEY",
             "name text NULL",
-            "operator text NULL",
             "street text NULL",
             "housenumber text NULL",
             "zipcode text NULL",
@@ -47,21 +46,27 @@ class POITable:
             table_name = f"{self.data_set_type}_{self.data_set_name}"
             category_columns = [
                 "category text NULL",
-                "other_categories text[] NULL"
+                "other_categories text[] NULL",
+                "operator text NULL"
             ]
         elif table_type == "school":
-            table_name = f"{self.data_set_type}_school_{self.data_set_name}"
+            table_name = f"{self.data_set_type}_{self.data_set_name}"
             category_columns = [
                 "school_isced_level_1 bool NULL",
                 "school_isced_level_2 bool NULL",
-                "school_isced_level_3 bool NULL"
+                "school_isced_level_3 bool NULL",
+                "operator text NULL"
             ]
         elif table_type == "childcare":
-            table_name = f"{self.data_set_type}_childcare_{self.data_set_name}"
+            table_name = f"{self.data_set_type}_{self.data_set_name}"
             category_columns = [
                 "nursery bool NULL",
                 "kindergarten bool NULL",
-                "after_school bool NULL"
+                "after_school bool NULL",
+                "min_age int NULL",
+                "max_age int NULL",
+                "carrier text NULL",
+                "carrier_type text NULL"
             ]
         else:
             raise ValueError("Invalid table_type. Supported values are 'standard', 'school', or 'childcare'.")

@@ -46,3 +46,7 @@ preparation:
       "704": "bus_stop"
       "715": "bus_stop"
       "900": "tram_stop"
+
+  sources:
+    "others": "gtfs.de"
+    

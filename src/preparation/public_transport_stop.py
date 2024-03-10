@@ -21,10 +21,10 @@ class PublicTransportStopPreparation:
         # get the geometires of the study area based on the query defined in the config
         region_geoms = self.db.select(self.data_config_preparation['region'])
 
-        print_info(f"Started to create table basic.poi_public_transport_stop_{self.region}.")
+        print_info(f"Started to create table poi.poi_public_transport_stop_{self.region}.")
         # Create table for public transport stops
-        self.db.perform(POITable(data_set_type="poi", schema_name="basic", data_set_name=f"public_transport_stop_{self.region}").create_poi_table(table_type='standard'))
-        print_info(f"Created table basic.poi_public_transport_stop_{self.region}.")
+        self.db.perform(POITable(data_set_type="poi", schema_name="poi", data_set_name=f"public_transport_stop_{self.region}").create_poi_table(table_type='standard'))
+        print_info(f"Created table poi.poi_public_transport_stop_{self.region}.")
 
         # loops through the geometries of the study area and classifies the public transport stops based on GTFS
         # loops through the gtfs stops and classifies them based on the route type in the stop_times table
@@ -32,7 +32,7 @@ class PublicTransportStopPreparation:
             ts = time.time()
 
             classify_gtfs_stop_sql = f"""
-                INSERT INTO basic.poi_public_transport_stop_{self.region}(
+                INSERT INTO poi.poi_public_transport_stop_{self.region}(
                     category,
                     name,
                     source,
@@ -91,11 +91,11 @@ class PublicTransportStopPreparation:
             WITH processed_staions AS (
                 SELECT
                     unnest(string_to_array(ppts.tags ->> 'parent_station', ',')) AS stop_id
-                FROM basic.poi_public_transport_stop_{self.region} ppts
+                FROM poi.poi_public_transport_stop_{self.region} ppts
                 UNION
                 SELECT
                     jsonb_array_elements_text(ppts.tags -> 'extended_source' -> 'stop_id') AS stop_id
-                FROM basic.poi_public_transport_stop_{self.region} ppts
+                FROM poi.poi_public_transport_stop_{self.region} ppts
             )
             SELECT s.*
             FROM basic.stops s
@@ -113,7 +113,7 @@ class PublicTransportStopPreparation:
             ts = time.time()
 
             classify_gtfs_stop_sql = f"""
-                INSERT INTO basic.poi_public_transport_stop_{self.region}(
+                INSERT INTO poi.poi_public_transport_stop_{self.region}(
                     category,
                     name,
                     source,
@@ -154,6 +154,25 @@ class PublicTransportStopPreparation:
             te = time.time()  # End time of the iteration
             iteration_time = te - ts  # Time taken by the iteration
             print_info(f"Processing {i + 1} of {len(region_geoms)}. Iteration time: {iteration_time} seconds.")
+
+        print_info("Adding sources to the public_transport_stop table.")
+        for identifier, source in self.data_config_preparation['sources'].items():
+            if identifier == 'others':
+                continue
+
+            add_source_sql = f"""
+                UPDATE poi.poi_public_transport_stop_{self.region}
+                SET "source" = '{source}'
+                WHERE tags::jsonb->'extended_source'->>'stop_id' LIKE '%{identifier}%'
+            """
+            self.db.perform(add_source_sql)
+
+        add_source_sql = f"""
+            UPDATE poi.poi_public_transport_stop_{self.region}
+            SET "source" = '{self.data_config_preparation['sources']['others']}'
+            WHERE "source" IS NULL
+        """
+        self.db.perform(add_source_sql)
 
 def prepare_public_transport_stop(region: str):
 

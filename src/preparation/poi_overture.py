@@ -113,17 +113,20 @@ class OverturePOIPreparation:
         """
         self.db.perform(sql_adjust_table)
 
+        # create poi schema
+        self.db.perform("""CREATE SCHEMA IF NOT EXISTS poi;""")
+
         # Clean data
         clean_data = f"""
-            DROP TABLE IF EXISTS public.poi_overture_{self.region};
-            CREATE TABLE public.poi_overture_{self.region} AS (
+            DROP TABLE IF EXISTS poi.poi_overture_{self.region};
+            CREATE TABLE poi.poi_overture_{self.region} AS (
                 SELECT *
                 FROM temporal.poi_overture_{self.region}_raw
                 WHERE category IS NOT NULL
                 AND (tags ->> 'confidence')::numeric > 0.6
             );
-            ALTER TABLE public.poi_overture_{self.region} ADD PRIMARY KEY (id);
-            CREATE INDEX ON public.poi_overture_{self.region} USING gist(geom);
+            ALTER TABLE poi.poi_overture_{self.region} ADD PRIMARY KEY (id);
+            CREATE INDEX ON poi.poi_overture_{self.region} USING gist(geom);
         """
         self.db.perform(clean_data)
 

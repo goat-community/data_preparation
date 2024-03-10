@@ -833,12 +833,15 @@ def process_poi_preparation(db: Database, region: str):
         jsonb_column="tags",
     )
 
+    # create poi schema
+    db.perform("""CREATE SCHEMA IF NOT EXISTS poi;""")
+
     # insert into our POI schema
-    create_table_sql = POITable(data_set_type='poi', schema_name = 'public', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
+    create_table_sql = POITable(data_set_type='poi', schema_name = 'poi', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
     db.perform(create_table_sql)
 
     insert_poi_osm_sql = f"""
-        INSERT INTO public.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+        INSERT INTO poi.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
         SELECT
             category,
             TRIM(name),
@@ -876,10 +879,8 @@ def export_poi(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
 
-    #TODO: refactor subscription to use the our new POI schema
-    # Update kart repo with fresh OSM data
-    subscription = Subscription(db=db, region=region)
-    subscription.subscribe_osm()
+    subscription = Subscription(db=db, db_rd = db_rd, region=region)
+    subscription.subscribe_poi()
 
     db.conn.close()
     db_rd.conn.close()
