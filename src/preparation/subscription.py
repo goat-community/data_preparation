@@ -146,10 +146,19 @@ class Subscription:
 
         poi_table_name = f"poi_{poi_category}"
 
-        # rename outdated tables
+        # rename outdated tables -> add creation date
         if poi_table_name in geonode_poi_table_names:
+            comment_sql = f"""
+            SELECT obj_description('{self.geonode_schema_name}.{poi_table_name}'::regclass);
+            """
+            comment = self.db_rd.select(comment_sql)[0][0]
+
+            # Assuming the comment is in the format 'Created on YYYYMMDD'
+            date_str = comment.split(' ')[-1]
+
+            # Now you can use date_str in your ALTER TABLE command
             sql_rename_table = f"""
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name} RENAME TO {poi_table_name}_{datetime.datetime.now().strftime("%Y%m%d")};
+            ALTER TABLE {self.geonode_schema_name}.{poi_table_name} RENAME TO {poi_table_name}_{date_str};
             """
             self.db_rd.perform(sql_rename_table)
 
@@ -561,5 +570,11 @@ class Subscription:
                     CREATE INDEX ON {self.geonode_schema_name}.poi_{poi_category} (category);
                 """
                 self.db_rd.perform(addtional_indices_sql)
+
+                # add comment with creation date
+                comment_sql = f"""
+                    COMMENT ON TABLE {self.geonode_schema_name}.poi_{poi_category} IS 'Created on {datetime.datetime.now().strftime("%Y%m%d")}';
+                """
+                self.db_rd.perform(comment_sql)
 
 
