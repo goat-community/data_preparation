@@ -491,14 +491,13 @@ class Subscription:
             source_to_date = {
                 'OSM': self.osm_data_date.replace(tzinfo=None),
                 'Overture': self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None),
-                'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None))
+                'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None)),
+                'GTFS': datetime(2024, 2, 20) #TODO: find better solution
             }
 
             #TODO: add date for GTFS
 
             for source in sources:
-                if source == 'GTFS':
-                    continue
 
                 source_date = source_to_date[source[0]]
 
