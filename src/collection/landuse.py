@@ -1,9 +1,9 @@
 
-from src.collection.osm_collection_base import OSMBaseCollection
+from src.collection.osm_collection_base import OSMCollection
 from src.core.config import settings
 from src.db.db import Database
 
-class OSMLanduseCollection(OSMBaseCollection):
+class OSMLanduseCollection(OSMCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config, region):
         self.db_config = db_config

@@ -13,7 +13,7 @@ from src.utils.utils import (
     create_table_schema,
 )
 from multiprocessing.pool import Pool
-from src.collection.osm_collection_base import OSMBaseCollection
+from src.collection.osm_collection_base import OSMCollection
 from src.preparation.network_islands import NetworkIslands
 from src.utils.utils import create_table_schema, create_pgpass, restore_table_dump
 from src.core.config import settings
@@ -280,7 +280,7 @@ def prepare_ways(db, region: str):
 def prepare_network(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
-    osm_collection = OSMBaseCollection(
+    osm_collection = OSMCollection(
         db_config=db.db_config, dataset_type="network", region=region
     )
 

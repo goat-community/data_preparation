@@ -1,9 +1,10 @@
-from src.collection.osm_collection_base import OSMBaseCollection
+from src.collection.osm_collection_base import OSMCollection
 from src.core.config import settings
 from src.db.db import Database
 from src.config.config import Config
+from src.utils.utils import timing
 
-class OSMPOICollection(OSMBaseCollection):
+class OSMPOICollection(OSMCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config, region):
         self.db_config = db_config
@@ -12,12 +13,14 @@ class OSMPOICollection(OSMBaseCollection):
     def poi_collection(self):
         """Collects all POIs from OSM."""
         # Create OSM filter for POIs
-        osm_filter = " ".join([i + "=" for i in self.data_config.collection["osm_tags"].keys()])
         osm_filter = ""
-        for tag in self.data_config.collection["osm_tags"]:
-            osm_filter += tag
-            for tag_value in self.data_config.collection["osm_tags"][tag]:
-                osm_filter += "=" + tag_value + " "
+        if self.data_config.collection["osm_tags"]:
+            for tag in self.data_config.collection["osm_tags"]:
+                if self.data_config.collection["osm_tags"][tag]:
+                    for tag_value in self.data_config.collection["osm_tags"][tag]:
+                        osm_filter += tag + "=" + tag_value + " "
+                else:
+                    osm_filter += tag + " "
 
         # Remove not needed osm feature categories
         if self.data_config.collection["nodes"] == False:
@@ -31,7 +34,7 @@ class OSMPOICollection(OSMBaseCollection):
         self.prepare_bulk_osm(osm_filter=osm_filter)
         self.merge_osm_and_import()
 
-
+@timing
 def collect_poi(region: str):
     """Main function to collect and process POI data."""
     db = Database(settings.LOCAL_DATABASE_URI)

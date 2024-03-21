@@ -10,6 +10,9 @@ from src.collection.network_overture import collect_overture_network
 from src.collection.network_pt import collect_network_pt
 from src.collection.poi import collect_poi
 from src.collection.poi_overture import collect_poi_overture
+from src.collection.admins_overture import collect_admins_overture
+from src.collection.base_overture import collect_base_overture
+from src.collection.building_overture import collect_building_overture
 from src.core.config import settings
 from src.db.db import Database
 from src.fusion.poi_osm_overture import fusion_poi_osm_overture
@@ -41,6 +44,9 @@ action_dict = {
         "network_pt": collect_network_pt,
         "gtfs": collect_gtfs,
         "network_overture": collect_overture_network,
+        "admins_overture": collect_admins_overture,
+        "base_overture": collect_base_overture,
+        "building_overture": collect_building_overture,
     },
     "preparation": {
         "poi": prepare_poi,

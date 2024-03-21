@@ -11,6 +11,7 @@ from src.utils.utils import (
     print_hashtags,
     delete_file,
     print_warning,
+    timing
 )
 from src.utils.utils import create_pgpass, parse_poly
 from functools import partial
@@ -19,7 +20,7 @@ from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
 
-class OSMBaseCollection:
+class OSMCollection:
     def __init__(self, db_config: str, dataset_type: str, region: str = "de"):
         """Constructor for OSM Base Class.
 
@@ -47,12 +48,12 @@ class OSMBaseCollection:
         self.cache = round(self.memory / 1073741824 * 1000 * 0.75)
         create_pgpass(db_config=self.db_config)
 
-    def prepare_osm_data(self, link: str, osm_filter: str):
+    def prepare_osm_data(self, link: str, osm_filter: str = None):
         """Prepare OSM data for import into PostGIS database.
 
         Args:
             link (str): _Download link to OSM data.
-            osm_filter (str): Filter for OSM data.
+            osm_filter (str): Filter for OSM data. If None, no filtering is applied.
         """
 
         # Change directory
@@ -67,40 +68,52 @@ class OSMBaseCollection:
             shell=True,
             check=True,
         )
-        subprocess.run(
-            f'osmfilter {only_name}.o5m -o={only_name + "_" + self.dataset_type}.o5m --keep="{osm_filter}"',
-            shell=True,
-            check=True,
-        )
-        subprocess.run(
-            f'osmconvert {only_name + "_" + self.dataset_type}.o5m -o={only_name + "_" + self.dataset_type}.osm',
-            shell=True,
-            check=True,
-        )
-
-        # Delete temporary files
-        delete_file(f"{only_name}.o5m")
-        delete_file(f"{only_name + '_' + self.dataset_type}.o5m")
+        if osm_filter is not None and osm_filter != '':
+            subprocess.run(
+                f'osmfilter {only_name}.o5m -o={only_name + "_" + self.dataset_type}.o5m --keep="{osm_filter}"',
+                shell=True,
+                check=True,
+            )
+            subprocess.run(
+                f'osmconvert {only_name + "_" + self.dataset_type}.o5m -o={only_name + "_" + self.dataset_type}.osm',
+                shell=True,
+                check=True,
+            )
+            # Delete temporary files
+            delete_file(f"{only_name}.o5m")
+            delete_file(f"{only_name + '_' + self.dataset_type}.o5m")
+            delete_file(f"{only_name}.osm.pbf")
+        else:
+            subprocess.run(
+                f'osmconvert {only_name}.o5m -o={only_name + "_" + self.dataset_type}.osm',
+                shell=True,
+                check=True,
+            )
+            # Delete temporary files
+            delete_file(f"{only_name}.o5m")
+            delete_file(f"{only_name + '_' + self.dataset_type}.o5m")
+            delete_file(f"{only_name}.osm.pbf")
 
     def get_timestamp_osm_file(self, path: str) -> str:
         """Get timestamp of OSM file.
 
         Args:
-            path (str): Download link to OSM data.
+            path (str): Path to OSM data.
 
         Returns:
             str: Timestamp of OSM file.
         """
 
-        # Get timestamp of OSM file using osmium
-        cmd = ['osmium', 'fileinfo', path]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Open the file and read lines until the osm element is found
+        with open(path, 'r') as file:
+            for line in file:
+                if '<osm ' in line:
+                    # Extract the timestamp from the osm element using regular expressions
+                    match = re.search(r'timestamp="(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)"', line)
+                    if match is not None:
+                        return match.group(1)
 
-        # Extract the timestamp from the command output using regular expressions
-        match = re.search(r'timestamp=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', result.stdout)
-        timestamp = match.group(1)
-
-        return timestamp
+        raise ValueError(f"No timestamp found in OSM file at {path}")
 
     def export_osm_boundaries_db(self, db: Database, use_poly=True):
         """Export OSM boundaries to PostGIS database.
@@ -153,7 +166,7 @@ class OSMBaseCollection:
         # Insert OSM boundaries into database
         for idx, link in enumerate(region_poly_links):
             # Get path to OSM file
-            path_osm_file = os.path.join(self.dataset_dir, os.path.basename(self.region_links[idx]))
+            path_osm_file = os.path.join(self.dataset_dir, os.path.basename(self.region_links[idx].replace('.osm.pbf', '_poi.osm')))
             # Get timestamp of OSM file
             time_stamp_osm_file = self.get_timestamp_osm_file(path_osm_file)
 
@@ -285,32 +298,46 @@ class OSMBaseCollection:
         pool.close()
         pool.join()
 
+    def import_osm_file(self, file_name, path_style_file):
+        """Import an OSM file using custom osm2pgsql style."""
+        subprocess.run(
+            f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
+            + file_name
+            + f" -s --drop -C {self.cache} --style {path_style_file} --prefix osm_{self.data_config.name}_{self.region}",
+            shell=True,
+            check=True,
+        )
+
+    @timing
     def merge_osm_and_import(self):
         """Merge all osm files and import them into PostGIS database."""
         # Change to data directory
         os.chdir(self.dataset_dir)
 
-        # Merge all osm files
-        print_info("Merging files")
+        # Get list of osm files
         file_names = [
             f.split("/")[-1].split(".")[0] + f"_{self.data_config.name}.osm" for f in self.region_links
         ]
 
-        subprocess.run(
-            f'osmium merge {" ".join(file_names)} -o merged.osm',
-            shell=True,
-            check=True,
-        )
-        # Import merged osm file using customer osm2pgsql style
+        # Create custom osm2pgsql style
         self.data_config.osm2pgsql_create_style()
         path_style_file = os.path.join(self.dataset_dir, "osm2pgsql.style")
-        subprocess.run(
-            f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
-            + "merged.osm"
-            + f" -s --drop -C {self.cache} --style {path_style_file} --prefix osm_{self.data_config.name}_{self.region}",
-            shell=True,
-            check=True,
-        )
+
+        if self.region == "europe_all": #TODO: find better way then hard coding europe_all
+            # Import each osm file using custom osm2pgsql style
+            for file_name in file_names:
+                self.import_osm_file(file_name, path_style_file)
+        else:
+            # Merge all osm files
+            print_info("Merging files")
+            subprocess.run(
+                f'osmium merge {" ".join(file_names)} -o merged.osm',
+                shell=True,
+                check=True,
+            )
+
+            # Import merged osm file using custom osm2pgsql style
+            self.import_osm_file("merged.osm", path_style_file)
 
     def upload_raw_osm_data(self, boto_client):
         """Uploads raw osm data to s3 bucket.

@@ -4,16 +4,16 @@ from pyspark.sql.functions import col, expr, to_json
 from pyspark.sql.types import TimestampType
 from sedona.spark import SedonaContext
 
-from src.collection.overture_collection_base import OvertureBaseCollection
+from src.collection.overture_collection_base import OvertureCollection
 from src.core.config import settings
 from src.db.db import Database
-from src.utils.utils import get_region_bbox_coords, print_error, print_info, timing
+from src.utils.utils import get_region_bbox_coords, print_error, print_info, timing, create_table_dump, restore_table_dump
 
 
-class OverturePOICollection(OvertureBaseCollection):
+class OverturePOICollection(OvertureCollection):
 
-    def __init__(self, db_local, db_remote, region, collection_type):
-        super().__init__(db_local, db_remote, region, collection_type)
+    def __init__(self, db, db_rd, region, collection_type):
+        super().__init__(db, db_rd, region, collection_type)
 
     def initialize_data_source(self, sedona: SedonaContext):
         """Initialize Overture geoparquet file source and data frames for places data."""
@@ -26,7 +26,23 @@ class OverturePOICollection(OvertureBaseCollection):
         print_info("Initialized data source.")
 
     def initialize_tables(self):
-        """Create table in PostgreSQL database for places."""
+        """Create table in PostgreSQL tables for places."""
+
+        # get latest geofence active mobility
+        create_table_dump(
+            db_config=self.db_rd.db_config,
+            schema={'poi'},
+            table_name='geom_ref'
+        )
+
+        self.db.perform("DROP TABLE IF EXISTS poi.geom_ref;")
+
+        restore_table_dump(
+            db_config=self.db.db_config,
+            schema={'poi'},
+            table_name='geom_ref'
+        )
+        print_info("Migrated geom_ref")
 
         sql_create_table_places = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region}_raw_no_geom;
@@ -47,7 +63,7 @@ class OverturePOICollection(OvertureBaseCollection):
                 geometry TEXT
             );
         """
-        self.db_local.perform(sql_create_table_places)
+        self.db.perform(sql_create_table_places)
         print_info(f"Created table: temporal.places_{self.region}_raw_no_geom.")
 
     def filter_region_places(self, bbox_coords: dict):
@@ -111,7 +127,7 @@ class OverturePOICollection(OvertureBaseCollection):
         print_info(f"Starting to alter tables temporal.places_{self.region}_raw and temporal.places_{self.region}.")
 
         # get the geometires of the study area based on the query defined in the config
-        region_geoms = self.db_local.select(self.data_config_collection['region'])
+        region_geoms = self.db.select(self.data_config_collection['region'])
 
         # create index on places raw
         create_table_with_geom_sql = f"""
@@ -121,7 +137,7 @@ class OverturePOICollection(OvertureBaseCollection):
             FROM temporal.places_{self.region}_raw_no_geom;
             CREATE INDEX ON temporal.places_{self.region}_raw USING GIST (geometry);
         """
-        self.db_local.perform(create_table_with_geom_sql)
+        self.db.perform(create_table_with_geom_sql)
         print_info(f"Created new unlogged table temporal.places_{self.region}_raw with converted geometry")
 
         # create table for the Overture places
@@ -138,11 +154,11 @@ class OverturePOICollection(OvertureBaseCollection):
             ADD COLUMN IF NOT EXISTS housenumber varchar,
             ADD COLUMN IF NOT EXISTS zipcode varchar;
         """
-        self.db_local.perform(create_place_table_sql)
+        self.db.perform(create_place_table_sql)
 
         print_info(f"created table temporal.places_{self.region} including geometry index and pkey")
 
-        cur = self.db_local.conn.cursor()
+        cur = self.db.conn.cursor()
 
         for index, geom in enumerate(region_geoms, start=1):
             start_time = time.time()
@@ -186,10 +202,10 @@ class OverturePOICollection(OvertureBaseCollection):
 
             try:
                 cur.execute(clip_poi_overture)
-                self.db_local.conn.commit()
+                self.db.conn.commit()
             except Exception as e:
                 print(f"An error occurred: {e}")
-                self.db_local.conn.rollback()
+                self.db.conn.rollback()
 
             end_time = time.time()
             elapsed_time = end_time - start_time
@@ -203,7 +219,7 @@ class OverturePOICollection(OvertureBaseCollection):
             ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
             CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
         """
-        self.db_local.perform(convert_to_regular_table_sql)
+        self.db.perform(convert_to_regular_table_sql)
         print_info(f"Converted temporal.places_{self.region}_raw to a regular table")
 
 
@@ -217,7 +233,7 @@ class OverturePOICollection(OvertureBaseCollection):
 
         bbox_coords = get_region_bbox_coords(
             geom_query=f"""SELECT ST_Union(geom) AS geom FROM ({self.data_config_collection["region"]}) AS subquery""",
-            db=self.db_local
+            db=self.db
         )
         region_places = self.filter_region_places(bbox_coords)
 
@@ -233,22 +249,22 @@ class OverturePOICollection(OvertureBaseCollection):
 
 def collect_poi_overture(region: str):
     print_info(f"Collect Overture places data for region: {region}.")
-    db_local = Database(settings.LOCAL_DATABASE_URI)
-    db_remote = Database(settings.RAW_DATABASE_URI)
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
 
     try:
         OverturePOICollection(
-            db_local=db_local,
-            db_remote=db_remote,
+            db=db,
+            db_rd=db_rd,
             region=region,
             collection_type="poi_overture"
         ).run()
-        db_local.close()
-        db_remote.close()
+        db.close()
+        db_rd.close()
         print_info("Finished Overture places collection.")
     except Exception as e:
         print_error(e)
         raise e
     finally:
-        db_local.close()
-        db_remote.close()
+        db.close()
+        db_rd.close()

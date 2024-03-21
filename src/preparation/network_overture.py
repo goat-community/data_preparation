@@ -25,9 +25,9 @@ from src.utils.utils import (
 
 class OvertureNetworkPreparation:
 
-    def __init__(self, db_local: Database, db_remote: Database, region: str):
-        self.db_local = db_local
-        self.db_remote = db_remote
+    def __init__(self, db: Database, db_rd: Database, region: str):
+        self.db = db
+        self.db_rd = db_rd
         self.region = region
         self.config = Config("network_overture", region)
 
@@ -49,7 +49,7 @@ class OvertureNetworkPreparation:
             );
             CREATE INDEX dem_st_convexhull_idx ON public.dem USING gist (ST_ConvexHull(rast));
         """
-        self.db_local.perform(sql_create_dem_table)
+        self.db.perform(sql_create_dem_table)
 
 
     def import_dem_tiles(self):
@@ -111,7 +111,7 @@ class OvertureNetworkPreparation:
             CREATE INDEX idx_connector_id on basic.connector (id);
             CREATE INDEX idx_connector_geom ON basic.connector USING gist (geom);
         """
-        self.db_local.perform(sql_create_connectors_table)
+        self.db.perform(sql_create_connectors_table)
 
 
     def initialize_segments_table(self):
@@ -147,7 +147,7 @@ class OvertureNetworkPreparation:
             CREATE INDEX ix_basic_segment_source ON basic.segment USING btree (source);
             CREATE INDEX ix_basic_segment_target ON basic.segment USING btree (target);
         """
-        self.db_local.perform(sql_create_segments_table)
+        self.db.perform(sql_create_segments_table)
 
 
     def compute_region_h3_grid(self):
@@ -157,15 +157,15 @@ class OvertureNetworkPreparation:
             SELECT ST_AsText(geom) AS geom
             FROM ({self.config.collection["region"]}) sub
         """
-        region_geom = self.db_remote.select(sql_get_region_geometry)[0][0]
+        region_geom = self.db_rd.select(sql_get_region_geometry)[0][0]
 
         # TODO Remove this
         with open("src/db/functions/fill_polygon_h3.sql", "r") as f:
-            self.db_local.perform(f.read())
+            self.db.perform(f.read())
         with open("src/db/functions/to_short_h3_3.sql", "r") as f:
-            self.db_local.perform(f.read())
+            self.db.perform(f.read())
         with open("src/db/functions/to_short_h3_6.sql", "r") as f:
-            self.db_local.perform(f.read())
+            self.db.perform(f.read())
 
         sql_create_region_h3_3_grid = f"""
             DROP TABLE IF EXISTS basic.h3_3_grid;
@@ -176,7 +176,7 @@ class OvertureNetworkPreparation:
             CREATE INDEX ON basic.h3_3_grid USING GIST (h3_boundary);
             CREATE INDEX ON basic.h3_3_grid USING GIST (h3_geom);
         """
-        self.db_local.perform(sql_create_region_h3_3_grid)
+        self.db.perform(sql_create_region_h3_3_grid)
 
         sql_create_region_h3_6_grid = f"""
             DROP TABLE IF EXISTS basic.h3_6_grid;
@@ -187,7 +187,7 @@ class OvertureNetworkPreparation:
             CREATE INDEX ON basic.h3_6_grid USING GIST (h3_boundary);
             CREATE INDEX ON basic.h3_6_grid USING GIST (h3_geom);
         """
-        self.db_local.perform(sql_create_region_h3_6_grid)
+        self.db.perform(sql_create_region_h3_6_grid)
 
         sql_compute_h3_short_index = """
             ALTER TABLE basic.h3_3_grid ADD COLUMN h3_short integer;
@@ -198,7 +198,7 @@ class OvertureNetworkPreparation:
             UPDATE basic.h3_6_grid
             SET h3_short = to_short_h3_6(h3_index::bigint);
         """
-        self.db_local.perform(sql_compute_h3_short_index)
+        self.db.perform(sql_compute_h3_short_index)
 
         print_info(f"Computed H3 grid for region: {self.region}.")
 
@@ -208,9 +208,9 @@ class OvertureNetworkPreparation:
 
         # TODO Remove this
         with open("src/db/functions/classify_segment.sql", "r") as f:
-            self.db_local.perform(f.read())
+            self.db.perform(f.read())
         with open("src/db/functions/clip_segments.sql", "r") as f:
-            self.db_local.perform(f.read())
+            self.db.perform(f.read())
 
         # Load user-configured impedance coefficients for various surface types
         cycling_surfaces = json.dumps(self.config.preparation["cycling_surfaces"])
@@ -276,7 +276,7 @@ class OvertureNetworkPreparation:
             FROM basic.h3_3_grid
             ORDER BY h3_index;
         """
-        h3_indexes = self.db_local.select(sql_get_h3_indexes)
+        h3_indexes = self.db.select(sql_get_h3_indexes)
         h3_index_queue = Queue()
         for h3_index in h3_indexes:
             h3_index_queue.put(h3_index[0])
@@ -291,7 +291,7 @@ class OvertureNetworkPreparation:
             FROM basic.h3_6_grid
             ORDER BY h3_index;
         """
-        h3_indexes = self.db_local.select(sql_get_h3_indexes)
+        h3_indexes = self.db.select(sql_get_h3_indexes)
         h3_index_queue = Queue()
         for h3_index in h3_indexes:
             h3_index_queue.put(h3_index[0])
@@ -305,7 +305,7 @@ class OvertureNetworkPreparation:
             ALTER TABLE basic.connector DROP COLUMN id;
             ALTER TABLE basic.connector RENAME COLUMN index TO id;
         """
-        self.db_local.perform(sql_clean_up)
+        self.db.perform(sql_clean_up)
 
 
     def run(self):
@@ -326,21 +326,21 @@ class OvertureNetworkPreparation:
 
 def prepare_overture_network(region: str):
     print_info(f"Prepare Overture network data for region: {region}.")
-    db_local = Database(settings.LOCAL_DATABASE_URI)
-    db_remote = Database(settings.RAW_DATABASE_URI)
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
 
     try:
         OvertureNetworkPreparation(
-            db_local=db_local,
-            db_remote=db_remote,
+            db=db,
+            db_rd=db_rd,
             region=region
         ).run()
-        db_local.close()
-        db_remote.close()
+        db.close()
+        db_rd.close()
         print_info("Finished Overture network preparation.")
     except Exception as e:
         print_error(e)
         raise e
     finally:
-        db_local.close()
-        db_remote.close()
+        db.close()
+        db_rd.close()
