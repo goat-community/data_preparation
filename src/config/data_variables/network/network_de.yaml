@@ -1,8 +1,9 @@
 region_pbf: [
-    "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" , 
-    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf", 
-    "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf", 
+    "https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
+    "https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf" , 
+    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf", 
     "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
@@ -12,7 +13,6 @@ region_pbf: [
     "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
-    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf",
     "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
   ]
 collection: 

@@ -317,11 +317,12 @@ def restore_table_dump(
         
         # Run the command
         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
-        print_info(f"Successfully restored {table_name}.dump from {dir_output}")
-    except Exception as e:
+    except subprocess.CalledProcessError as e:
         print_warning(
-            f"The following exeption happened when restoring {table_name}: {e}"
+            f"The following exception happened when restoring {table_name}: {e.output.decode()}"
         )
+    else:
+        print_info(f"Successfully restored {table_name}.dump from {dir_output}")
 
 
 def create_table_schema(db: Database, table_full_name: str):

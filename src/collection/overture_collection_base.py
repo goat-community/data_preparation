@@ -6,11 +6,11 @@ from src.db.db import Database
 from src.utils.utils import print_info, timing
 
 
-class OvertureBaseCollection:
-    def __init__(self, db_local: Database, db_remote: Database, region: str, collection_type: str):
+class OvertureCollection:
+    def __init__(self, db: Database, db_rd: Database, region: str, collection_type: str):
         self.region = region
-        self.db_local = db_local
-        self.db_remote = db_remote
+        self.db = db
+        self.db_rd = db_rd
         self.data_config = Config(collection_type, region)
         self.data_config_collection = self.data_config.collection
         self.dataset_dir = self.data_config.dataset_dir

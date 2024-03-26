@@ -22,9 +22,12 @@ class OSMOverturePOIFusion:
         # define poi_table_type
         poi_table_type = self.data_config_preparation['fusion']['poi_table_type']
 
+        # create poi schema
+        self.db.perform("""CREATE SCHEMA IF NOT EXISTS poi;""")
+
         # Create standard POI table for fusion result
         result_table_name = f"osm_overture_{self.region}_fusion_result"
-        self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=result_table_name).create_poi_table(table_type=poi_table_type, create_index=False))
+        self.db.perform(POITable(data_set_type="poi", schema_name="poi", data_set_name=result_table_name).create_poi_table(table_type=poi_table_type, create_index=False))
 
         cur = self.db.conn.cursor()
 
@@ -109,7 +112,7 @@ class OSMOverturePOIFusion:
 
                 # insert data into the final table
                 sql_concat_resulting_tables = f"""
-                    INSERT INTO temporal.poi_{result_table_name}(
+                    INSERT INTO poi.poi_{result_table_name}(
                         category, other_categories ,name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
                         wheelchair, source, tags, geom
                         )
@@ -129,7 +132,7 @@ class OSMOverturePOIFusion:
         cur.close()
 
         create_indices_result_table = f"""
-            CREATE INDEX ON temporal.poi_{result_table_name} USING gist(geom);
+            CREATE INDEX ON poi.poi_{result_table_name} USING gist(geom);
         """
         self.db.perform(create_indices_result_table)
 

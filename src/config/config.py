@@ -6,6 +6,8 @@ from src.config.osm_dict import OSM_germany, OSM_tags
 from src.core.config import settings
 from src.utils.utils import download_link, print_info
 
+import subprocess
+
 
 class Config:
     """Reads the config file and returns the config variables.
@@ -53,8 +55,6 @@ class Config:
         add_columns = self.collection["additional_columns"]
         osm_tags = self.collection["osm_tags"]
 
-        pol_columns = [tag for tag in osm_tags if tag in ("railway", "highway")]
-
         f = open(
             os.path.join(settings.CONFIG_DIR, "style_template.style"), "r"
         )
@@ -75,7 +75,7 @@ class Config:
         print_info(f"Creating osm2pgsql for {self.name}...")
 
         for column in add_columns:
-            if column in pol_columns:
+            if column in ["railway", "highway"]:
                 style_line = f"node,way  {column}  text  polygon"
                 f1.write(style_line)
                 f1.write("\n")
@@ -84,15 +84,20 @@ class Config:
                 f1.write(style_line)
                 f1.write("\n")
 
-        for tag in osm_tags:
-            if tag in ["railway", "highway"]:
-                style_line = f"node,way  {tag}  text  linear"
-                f1.write(style_line)
-                f1.write("\n")
-            else:
-                style_line = f"node,way  {tag}  text  polygon"
-                f1.write(style_line)
-                f1.write("\n")
+        if osm_tags is None:
+            keys = ["aerialway", "aeroway", "amenity", "barrier", "boundary", "building", "craft", "emergency", "geological", "healthcare", "historic", "leisure", "man_made", "military", "nature", "office", "power", "public_transport", "railway", "shop", "sport", "tourism", "water"]
+            for key in keys:
+                f1.write(f"node,way  {key}  text  linear\n")
+        else:
+            for tag in osm_tags:
+                if tag in ["railway", "highway"]:
+                    style_line = f"node,way  {tag}  text  linear"
+                    f1.write(style_line)
+                    f1.write("\n")
+                else:
+                    style_line = f"node,way  {tag}  text  polygon"
+                    f1.write(style_line)
+                    f1.write("\n")
 
     def download_db_schema(self):
         """Download database schema from PostGIS database."""

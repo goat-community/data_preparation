@@ -1,6 +1,7 @@
 import geopandas as gpd
 import numpy as np
 import polars as pl
+import os
 
 from src.config.config import Config
 from src.core.config import settings
@@ -47,8 +48,15 @@ class PoiPreparation:
         config_collection = self.config_pois.collection
         # Check if config not in preparation but in collection
         new_config_collection = {}
-        for osm_tag in config_collection["osm_tags"]:
-            values = config_collection["osm_tags"][osm_tag]
+
+        osm_tags = config_collection["osm_tags"]
+
+        if not osm_tags: # osm_tags is an empty list which means all osm_tags are collected
+            print_info("Extracting tags")
+            osm_tags = Config.get_unique_tags(os.path.join(self.config_pois.dataset_dir, 'merged.osm'))
+
+        for osm_tag in osm_tags:
+            values = osm_tags[osm_tag]
             for value in values:
                 if value not in self.config_pois_preparation:
                     new_config_collection[value] = {
@@ -833,12 +841,15 @@ def process_poi_preparation(db: Database, region: str):
         jsonb_column="tags",
     )
 
+    # create poi schema
+    db.perform("""CREATE SCHEMA IF NOT EXISTS poi;""")
+
     # insert into our POI schema
-    create_table_sql = POITable(data_set_type='poi', schema_name = 'public', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
+    create_table_sql = POITable(data_set_type='poi', schema_name = 'poi', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
     db.perform(create_table_sql)
 
     insert_poi_osm_sql = f"""
-        INSERT INTO public.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+        INSERT INTO poi.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
         SELECT
             category,
             TRIM(name),
@@ -876,10 +887,8 @@ def export_poi(region: str):
     db = Database(settings.LOCAL_DATABASE_URI)
     db_rd = Database(settings.RAW_DATABASE_URI)
 
-    #TODO: refactor subscription to use the our new POI schema
-    # Update kart repo with fresh OSM data
-    subscription = Subscription(db=db, region=region)
-    subscription.subscribe_osm()
+    subscription = Subscription(db=db, db_rd = db_rd, region=region)
+    subscription.subscribe_poi()
 
     db.conn.close()
     db_rd.conn.close()

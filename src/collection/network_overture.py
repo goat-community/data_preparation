@@ -1,15 +1,15 @@
 from sedona.spark import SedonaContext
 
-from src.collection.overture_collection_base import OvertureBaseCollection
+from src.collection.overture_collection_base import OvertureCollection
 from src.core.config import settings
 from src.db.db import Database
 from src.utils.utils import get_region_bbox_coords, print_error, print_info, timing
 
 
-class OvertureNetworkCollection(OvertureBaseCollection):
+class OvertureNetworkCollection(OvertureCollection):
 
-    def __init__(self, db_local: Database, db_remote: Database, region: str, collection_type: str):
-        super().__init__(db_local, db_remote, region, collection_type)
+    def __init__(self, db: Database, db_rd: Database, region: str, collection_type: str):
+        super().__init__(db, db_rd, region, collection_type)
 
 
     def initialize_data_source(self, sedona: SedonaContext):
@@ -39,7 +39,7 @@ class OvertureNetworkCollection(OvertureBaseCollection):
                 geometry TEXT
             );
         """
-        self.db_local.perform(sql_create_table_segments)
+        self.db.perform(sql_create_table_segments)
         print_info("Created table: temporal.segments.")
 
         sql_create_table_connectors = """
@@ -49,7 +49,7 @@ class OvertureNetworkCollection(OvertureBaseCollection):
                 geometry TEXT
             );
         """
-        self.db_local.perform(sql_create_table_connectors)
+        self.db.perform(sql_create_table_connectors)
         print_info("Created table: temporal.connectors.")
 
 
@@ -103,7 +103,7 @@ class OvertureNetworkCollection(OvertureBaseCollection):
             ALTER COLUMN geometry SET DATA TYPE GEOMETRY(LINESTRING, 4326);
             CREATE INDEX ON temporal.segments USING GIST (geometry);
         """
-        self.db_local.perform(sql_alter_table_segments)
+        self.db.perform(sql_alter_table_segments)
 
         print_info("Altering table: temporal.connectors.")
         sql_alter_table_connectors = """
@@ -111,7 +111,7 @@ class OvertureNetworkCollection(OvertureBaseCollection):
             ALTER COLUMN geometry SET DATA TYPE GEOMETRY(POINT, 4326);
             CREATE INDEX ON temporal.connectors USING GIST (geometry);
         """
-        self.db_local.perform(sql_alter_table_connectors)
+        self.db.perform(sql_alter_table_connectors)
 
 
     def run(self):
@@ -124,7 +124,7 @@ class OvertureNetworkCollection(OvertureBaseCollection):
 
         bbox_coords = get_region_bbox_coords(
             geom_query=self.data_config_collection["region"],
-            db=self.db_remote
+            db=self.db_rd
         )
 
         region_segments = self.filter_region_segments(bbox_coords)
@@ -146,22 +146,22 @@ class OvertureNetworkCollection(OvertureBaseCollection):
 
 def collect_overture_network(region: str):
     print_info(f"Collect Overture network data for region: {region}.")
-    db_local = Database(settings.LOCAL_DATABASE_URI)
-    db_remote = Database(settings.RAW_DATABASE_URI)
+    db = Database(settings.LOCAL_DATABASE_URI)
+    db_rd = Database(settings.RAW_DATABASE_URI)
 
     try:
         OvertureNetworkCollection(
-            db_local=db_local,
-            db_remote=db_remote,
+            db=db,
+            db_rd=db_rd,
             region=region,
             collection_type="network_overture"
         ).run()
-        db_local.close()
-        db_remote.close()
+        db.close()
+        db_rd.close()
         print_info("Finished Overture network collection.")
     except Exception as e:
         print_error(e)
         raise e
     finally:
-        db_local.close()
-        db_remote.close()
+        db.close()
+        db_rd.close()

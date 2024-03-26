@@ -2,11 +2,12 @@ preparation:
   region: | 
     WITH 
     bounds AS (
-        SELECT ST_Extent(geom) AS geom FROM basic.geofence_active_mobility
+        SELECT ST_Extent(geom) AS geom FROM poi.geom_ref WHERE id = 'geofence_active_mobility'
     ),
     merged_geometries AS (
         SELECT ST_Union(geom) AS geom
-        FROM basic.geofence_active_mobility
+        FROM poi.geom_ref
+        WHERE id = 'geofence_active_mobility'
     ),
     grid AS (
         SELECT ST_MakeEnvelope(
@@ -45,3 +46,12 @@ preparation:
       "704": "bus_stop"
       "715": "bus_stop"
       "900": "tram_stop"
+
+  sources:
+    "be:sn:": "gtfs.de"
+    "be:dw:": "gtfs.be"
+    "be:st:": "gtfs.be"
+    "be:dl:": "gtfs.be"
+    "be:te:": "transportdata.be"
+    "others": "gtfs.de"
+    
