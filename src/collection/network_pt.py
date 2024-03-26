@@ -1,14 +1,17 @@
 import os
 import subprocess
 from pathlib import Path
-from src.db.db import Database
+
 from src.config.config import Config
 from src.core.config import settings
-from src.utils.utils import delete_file
-from src.utils.utils import download_link
-from src.utils.utils import make_dir
-from src.utils.utils import osm_crop_to_polygon
-from src.utils.utils import osm_generate_polygon
+from src.db.db import Database
+from src.utils.utils import (
+    delete_file,
+    download_link,
+    make_dir,
+    osm_crop_to_polygon,
+    osm_generate_polygon,
+)
 
 
 class NetworkPTCollection():

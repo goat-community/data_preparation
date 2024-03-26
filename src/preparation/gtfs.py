@@ -113,6 +113,7 @@ class GTFS:
             CREATE TABLE {self.schema}.stop_times_optimized (
                 id serial4 NOT NULL,
                 trip_id text NULL,
+                route_id text NULL,
                 arrival_time interval NULL,
                 stop_id text NULL,
                 route_type smallint NULL,
@@ -426,9 +427,9 @@ class GTFS:
                 CREATE TABLE {self.schema}.temp_trips_weekday_distributed
                 (
                     trip_id TEXT,
-                    route_id TEXT, 
+                    route_id TEXT,
                     route_type SMALLINT,
-                    trip_headsign TEXT, 
+                    trip_headsign TEXT,
                     shape_id TEXT,
                     weekdays bool[],
                     h3_3 integer
@@ -455,7 +456,7 @@ class GTFS:
             # Create temporary table to be cleaned
             sql_create_stop_times_to_clean = f"""
                 DROP TABLE IF EXISTS {self.schema}.stop_times_to_clean;
-                CREATE TABLE {self.schema}.stop_times_to_clean AS 
+                CREATE TABLE {self.schema}.stop_times_to_clean AS
                 SELECT st.trip_id, st.arrival_time, stop_id, route_type::text::smallint, weekdays, w.route_id, w.trip_headsign, st.h3_3
                 FROM {self.schema}.stop_times st
                 LEFT JOIN {self.schema}.temp_trips_weekday_distributed w
@@ -463,13 +464,13 @@ class GTFS:
                 WHERE st.h3_3 = w.h3_3;
             """
             self.db.perform(sql_create_stop_times_to_clean)
-                            
+
             # Join stop_times with temp_trips_weekday_distributed and insert into stop_times_optimized
             sql_insert_stop_times_optimized = f"""
-                INSERT INTO {self.schema}.stop_times_optimized(trip_id, stop_id, arrival_time, weekdays, route_type,  h3_3)
-                SELECT (ARRAY_AGG(trip_id))[1], stop_id, arrival_time, weekdays, (ARRAY_AGG(route_type))[1],  h3_3
+                INSERT INTO {self.schema}.stop_times_optimized(trip_id, route_id, stop_id, arrival_time, weekdays, route_type,  h3_3)
+                SELECT (ARRAY_AGG(trip_id))[1], (ARRAY_AGG(route_id))[1], stop_id, arrival_time, weekdays, (ARRAY_AGG(route_type))[1],  h3_3
                 FROM {self.schema}.stop_times_to_clean
-                GROUP BY stop_id, arrival_time, weekdays, h3_3; 
+                GROUP BY stop_id, arrival_time, weekdays, h3_3;
             """
             self.db.perform(sql_insert_stop_times_optimized)
 
@@ -478,6 +479,7 @@ class GTFS:
             )
 
         # Clean up temporary tables
+        self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.stop_times_to_clean;")
         self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.dates_max_trips;")
         self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday;")
         self.db.perform(f"DROP TABLE IF EXISTS {self.schema}.temp_trips_weekday_distributed;")

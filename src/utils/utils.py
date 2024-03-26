@@ -698,7 +698,7 @@ def osm_crop_to_polygon(orig_file_path: str, dest_file_path: str, poly_file_path
     """
     
     subprocess.run(
-        f"osmconvert {orig_file_path} -B={poly_file_path} --complete-ways -o={dest_file_path}",
+        f"osmconvert {orig_file_path} -B={poly_file_path} --complete-ways --drop-relations --drop-author --drop-version -o={dest_file_path}",
         shell=True,
         check=True,
     )
