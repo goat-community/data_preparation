@@ -113,7 +113,7 @@ class OSMOverturePOIFusion:
                 # insert data into the final table
                 sql_concat_resulting_tables = f"""
                     INSERT INTO poi.poi_{result_table_name}(
-                        category, other_categories ,name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
+                        category, other_categories, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
                         wheelchair, source, tags, geom
                         )
                     SELECT category, other_categories, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom

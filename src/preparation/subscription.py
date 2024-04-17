@@ -490,8 +490,8 @@ class Subscription:
 
             source_to_date = {
                 'OSM': self.osm_data_date.replace(tzinfo=None),
-                'Overture': self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None),
-                'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None)),
+                'Overture': self.db.select(f"SELECT update_time FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None),
+                'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT update_time FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None)),
                 'GTFS': datetime(2024, 2, 20) #TODO: find better solution
             }
 
@@ -570,10 +570,10 @@ class Subscription:
                 """
                 self.db_rd.perform(addtional_indices_sql)
 
-                # add comment with creation date
-                comment_sql = f"""
-                    COMMENT ON TABLE {self.geonode_schema_name}.poi_{poi_category} IS 'Created on {datetime.datetime.now().strftime("%Y%m%d")}';
-                """
-                self.db_rd.perform(comment_sql)
+            # add comment with creation date
+            comment_sql = f"""
+                COMMENT ON TABLE {self.geonode_schema_name}.poi_{poi_category} IS 'Created on {datetime.datetime.now().strftime("%Y%m%d")}';
+            """
+            self.db_rd.perform(comment_sql)
 
 
