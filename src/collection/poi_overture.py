@@ -89,10 +89,10 @@ class OverturePOICollection(OvertureCollection):
         )
 
         places = self.places_df.filter(
-            (places.bbox.minx > bbox_coords["xmin"]) &
-            (places.bbox.miny > bbox_coords["ymin"]) &
-            (places.bbox.maxx < bbox_coords["xmax"]) &
-            (places.bbox.maxy < bbox_coords["ymax"])
+            (places.bbox.xmin > bbox_coords["xmin"]) &
+            (places.bbox.ymin > bbox_coords["ymin"]) &
+            (places.bbox.xmax < bbox_coords["xmax"]) &
+            (places.bbox.ymax < bbox_coords["ymax"])
         )
         places = places.drop(places.bbox)
 
