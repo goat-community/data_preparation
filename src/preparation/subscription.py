@@ -557,7 +557,7 @@ class Subscription:
                 'OSM': self.osm_data_date.replace(tzinfo=None),
                 'Overture': self.db.select(f"SELECT update_time FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None),
                 'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT update_time FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None)),
-                'GTFS': datetime(2024, 2, 20) #TODO: find better solution
+                'GTFS': datetime(2024, 6, 9) #TODO: find better solution
             }
 
             #TODO: add date for GTFS
@@ -588,7 +588,7 @@ class Subscription:
             print("User is not 'geonode_p4b_data'. Please change user to 'geonode_p4b_data' in the .env file.")
             return
 
-        # self.migrate_osm_and_overture()
+        self.migrate_osm_and_overture()
 
         # 2. if poi tables in Geonode exist -> rename tables (add date (probably date of running/ "putting date out of order")) + create fresh poi tables + apply constraints
         #TODO: do i need to worry about index names?

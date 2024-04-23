@@ -98,22 +98,26 @@ class OSMCollection:
         """Get timestamp of OSM file.
 
         Args:
-            path (str): Path to OSM data.
+            path (str): Download link to OSM data.
 
         Returns:
             str: Timestamp of OSM file.
         """
 
-        # Open the file and read lines until the osm element is found
-        with open(path, 'r') as file:
-            for line in file:
-                if '<osm ' in line:
-                    # Extract the timestamp from the osm element using regular expressions
-                    match = re.search(r'timestamp="(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)"', line)
-                    if match is not None:
-                        return match.group(1)
+        # Get timestamp of OSM file using osmium
+        cmd = ['osmium', 'fileinfo', path]
+        result = subprocess.run(cmd, capture_output=True, text=True)
 
-        raise ValueError(f"No timestamp found in OSM file at {path}")
+        # Extract the timestamp from the command output using regular expressions
+        match = re.search(r'timestamp=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', result.stdout)
+        if match:
+            timestamp = match.group(1)
+            return timestamp
+        else:
+            # Handle the case where no timestamp is found
+            print("No timestamp found in the file info output.")
+            return None
+
 
     def export_osm_boundaries_db(self, db: Database, use_poly=True):
         """Export OSM boundaries to PostGIS database.
