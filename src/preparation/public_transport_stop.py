@@ -43,13 +43,13 @@ class PublicTransportStopPreparation:
                     SELECT s.stop_name AS name, s.stop_id
                     FROM basic.stops s
                     WHERE ST_Intersects(s.geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
-                    AND parent_station IS NULL
+                    AND parent_station = ''
                 ),
                 clipped_gfts_stops AS (
                     SELECT p.name, s.geom, json_build_object('stop_id', s.stop_id, 'parent_station', s.parent_station, 'h3_3', s.h3_3) AS tags
                     FROM basic.stops s, parent_station_name p
                     WHERE ST_Intersects(s.geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
-                    AND parent_station IS NOT NULL
+                    AND parent_station != ''
                     AND s.parent_station = p.stop_id
                 ),
                 categorized_gtfs_stops AS (
@@ -143,7 +143,7 @@ class PublicTransportStopPreparation:
                         ORDER BY r.route_type
                     ) j
                 )
-                SELECT route_type AS category, stop_name AS name, NULL AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id'))) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
+                SELECT route_type AS category, stop_name AS name, NULL AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')), 'parent_station', NULL) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
                 FROM categorized_gtfs_stops
                 GROUP BY route_type, stop_name
                 ;
@@ -220,6 +220,8 @@ class PublicTransportStopPreparation:
             FROM temporal.poi_public_transport_stop_{self.region}_multi;
         """
         self.db.perform(dissovle_multipoint_sql)
+
+        print_info("Preparatrion of the GTFS PT stops is done.")
 
 def prepare_public_transport_stop(region: str):
 
