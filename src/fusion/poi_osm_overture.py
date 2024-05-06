@@ -86,7 +86,7 @@ class OSMOverturePOIFusion:
                     {config['radius']}, {config['threshold']},
                     '{config['matching_column_1']}', '{config['matching_column_2']}',
                     '{config['decision_table_1']}', '{config['decision_fusion']}',
-                    '{config['decision_table_2']}')
+                    '{config['decision_table_2']}', '{config['source_table_input_1']}')
                 """
                 try:
                     cur.execute(sql_poi_fusion)
