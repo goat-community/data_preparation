@@ -819,6 +819,8 @@ def prepare_poi(region: str):
     else:
         process_poi_preparation(db, region)
 
+    print_info(f'Preparation of region {region} is finished.')
+
     db.conn.close()
 
 def process_poi_preparation(db: Database, region: str):
@@ -839,7 +841,7 @@ def process_poi_preparation(db: Database, region: str):
         if_exists="replace",
         geom_column="geom",
         srid=4326,
-        create_geom_index=True,
+        create_geom_index=False,
         jsonb_column="tags",
     )
 
@@ -877,8 +879,6 @@ def process_poi_preparation(db: Database, region: str):
         FROM public.poi_osm_{region}_raw
     """
     db.perform(insert_poi_osm_sql)
-
-
 
 def export_poi(region: str):
     """Export POI data to remote database
