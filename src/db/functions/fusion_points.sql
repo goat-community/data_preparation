@@ -8,7 +8,8 @@ CREATE OR REPLACE FUNCTION fusion_points(
     comparison_column_table_2 text,
     decision_table_1 text,
     decision_fusion text,
-    decision_table_2 text
+    decision_table_2 text,
+    source_table_input_1 text
 )
 RETURNS void
 AS $function$
@@ -100,10 +101,17 @@ BEGIN
     IF decision_table_2 = 'add' THEN
         EXECUTE '
             INSERT INTO temporal.comparison_poi
-            SELECT *, matching_key_input_2, NULL as similarity ,''add''::varchar AS decision
-            FROM ' || name_table_2 || '
-            WHERE matching_key_input_2 NOT IN (SELECT DISTINCT matching_key_input_2 FROM temporal.comparison_poi WHERE matching_key_input_2 IS NOT NULL);
+            SELECT DISTINCT ON (a.id) a.*, matching_key_input_2, NULL AS similarity, ''add''::varchar AS decision
+            FROM ' || name_table_2 || ' a
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM ' || source_table_input_1 || ' s
+                WHERE ST_DWithin(a.geom, s.geom, ' || fusion_radius || ')
+                AND similarity(lower(s.' || comparison_column_table_1 || '), lower(a.' || comparison_column_table_2 || ')) >= ' || similarity_threshold || '
+            )
+            ORDER BY a.id
         ';
+
     ELSIF decision_table_2 = 'drop' THEN
         -- Do nothing or add any necessary logic
         NULL;

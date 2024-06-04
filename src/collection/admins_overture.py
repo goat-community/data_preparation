@@ -141,10 +141,10 @@ class OvertureAdminsCollection(OvertureCollection):
         )
 
         administrative_boundary = self.administrative_boundary_df.filter(
-            (administrative_boundary.bbox.minx > bbox_cords["xmin"]) &
-            (administrative_boundary.bbox.miny > bbox_cords["ymin"]) &
-            (administrative_boundary.bbox.maxx < bbox_cords["xmax"]) &
-            (administrative_boundary.bbox.maxy < bbox_cords["ymax"])
+            (administrative_boundary.bbox.xmin > bbox_cords["xmin"]) &
+            (administrative_boundary.bbox.ymin > bbox_cords["ymin"]) &
+            (administrative_boundary.bbox.xmax < bbox_cords["xmax"]) &
+            (administrative_boundary.bbox.ymax < bbox_cords["ymax"])
         )
         administrative_boundary = administrative_boundary.drop(administrative_boundary.bbox)
 
@@ -188,10 +188,10 @@ class OvertureAdminsCollection(OvertureCollection):
         )
 
         locality = self.locality_df.filter(
-            (locality.bbox.minx > bbox_cords["xmin"]) &
-            (locality.bbox.miny > bbox_cords["ymin"]) &
-            (locality.bbox.maxx < bbox_cords["xmax"]) &
-            (locality.bbox.maxy < bbox_cords["ymax"])
+            (locality.bbox.xmin > bbox_cords["xmin"]) &
+            (locality.bbox.ymin > bbox_cords["ymin"]) &
+            (locality.bbox.xmax < bbox_cords["xmax"]) &
+            (locality.bbox.ymax < bbox_cords["ymax"])
         )
         locality = locality.drop(locality.bbox)
 
@@ -234,10 +234,10 @@ class OvertureAdminsCollection(OvertureCollection):
         )
 
         locality_area = self.locality_area_df.filter(
-            (locality_area.bbox.minx > bbox_cords["xmin"]) &
-            (locality_area.bbox.miny > bbox_cords["ymin"]) &
-            (locality_area.bbox.maxx < bbox_cords["xmax"]) &
-            (locality_area.bbox.maxy < bbox_cords["ymax"])
+            (locality_area.bbox.xmin > bbox_cords["xmin"]) &
+            (locality_area.bbox.ymin > bbox_cords["ymin"]) &
+            (locality_area.bbox.xmax < bbox_cords["xmax"]) &
+            (locality_area.bbox.ymax < bbox_cords["ymax"])
         )
         locality_area = locality_area.drop(locality_area.bbox)
 

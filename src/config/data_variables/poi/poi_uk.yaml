@@ -50,11 +50,11 @@ region_pbf : [
 ]
 collection:
   osm_tags:
-    amenity: ["atm", "bank", "bar", "biergarten", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
+    amenity: ["atm", "bank", "bar", "biergarten", "bicycle_parking", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
               "cinema", "dentist", "doctors", "fast_food", "fuel", "ice_cream", "kneipp_water_cure", "library",
               "marketplace", "nightclub", "pharmacy", "place_of_worship", "planetarium", "post_box", "post_office", "parking", "pub",
               "recycling", "restaurant", "taxi", "theatre", "vending_machine"]
-    shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "farm", "fashion", "florist", "fuel", "general",
+    shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "deli", "farm", "fashion", "florist", "fuel", "general",
            "greengrocer", "grocery", "hairdresser", "health_food", "honey", "kiosk", "mall", "shoes", "sports",
            "supermarket", "wine"]
     tourism: ["alpine_hut", "apartment", "aquarium", "camp_site", "caravan_site", "chalet", "gallery", "guest_house",
@@ -76,6 +76,7 @@ collection:
   relations : True
   
 preparation:
+  #TODO: add config?
   supermarket:
     classify_by_name:
       supermarket: 

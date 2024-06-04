@@ -31,7 +31,7 @@ class OverturePOICollection(OvertureCollection):
         # get latest geofence active mobility
         create_table_dump(
             db_config=self.db_rd.db_config,
-            schema={'poi'},
+            schema='poi',
             table_name='geom_ref'
         )
 
@@ -39,7 +39,7 @@ class OverturePOICollection(OvertureCollection):
 
         restore_table_dump(
             db_config=self.db.db_config,
-            schema={'poi'},
+            schema='poi',
             table_name='geom_ref'
         )
         print_info("Migrated geom_ref")
@@ -49,7 +49,7 @@ class OverturePOICollection(OvertureCollection):
             CREATE TABLE temporal.places_{self.region}_raw_no_geom (
                 id TEXT PRIMARY KEY,
                 categories TEXT,
-                updatetime TIMESTAMPTZ,
+                update_time TIMESTAMPTZ,
                 version INT,
                 names TEXT,
                 confidence DOUBLE PRECISION,
@@ -72,7 +72,7 @@ class OverturePOICollection(OvertureCollection):
         # Select the necessary columns
         places = self.places_df.selectExpr(
             "id",
-            "updatetime",
+            "update_time",
             "version",
             "names",
             "categories",
@@ -84,21 +84,21 @@ class OverturePOICollection(OvertureCollection):
             "brand",
             "addresses",
             "sources",
-            "ST_AsText(geometry) AS geometry",
+            "geometry",
             "bbox"
         )
 
         places = self.places_df.filter(
-            (places.bbox.minx > bbox_coords["xmin"]) &
-            (places.bbox.miny > bbox_coords["ymin"]) &
-            (places.bbox.maxx < bbox_coords["xmax"]) &
-            (places.bbox.maxy < bbox_coords["ymax"])
+            (places.bbox.xmin > bbox_coords["xmin"]) &
+            (places.bbox.ymin > bbox_coords["ymin"]) &
+            (places.bbox.xmax < bbox_coords["xmax"]) &
+            (places.bbox.ymax < bbox_coords["ymax"])
         )
         places = places.drop(places.bbox)
 
         # Convert the complex types to JSON strings
         complex_columns = [
-            "updatetime",
+            "update_time",
             "names",
             "categories",
             "brand",
@@ -111,12 +111,12 @@ class OverturePOICollection(OvertureCollection):
         ]
 
         for column in complex_columns:
-            if column == "updatetime":
+            if column == "update_time":
                 places = places.withColumn(column, col(column).cast(TimestampType()))
             else:
                 places = places.withColumn(column, to_json(column))
 
-        places = places.withColumn("geometry", expr("ST_AsText(geometry)"))
+        places = places.withColumn("geometry", expr("ST_AsText(ST_GeomFromWKB(geometry))"))
 
         return places
 
@@ -133,7 +133,7 @@ class OverturePOICollection(OvertureCollection):
         create_table_with_geom_sql = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region}_raw;
             CREATE UNLOGGED TABLE temporal.places_{self.region}_raw AS
-            SELECT id, categories, updatetime, version, names, confidence, websites, socials, emails, phones, brand, addresses, sources, ST_SetSRID(ST_GeomFromText(geometry), 4326) AS geometry
+            SELECT id, categories, update_time, version, names, confidence, websites, socials, emails, phones, brand, addresses, sources, ST_SetSRID(ST_GeomFromText(geometry), 4326) AS geometry
             FROM temporal.places_{self.region}_raw_no_geom;
             CREATE INDEX ON temporal.places_{self.region}_raw USING GIST (geometry);
         """
@@ -164,7 +164,7 @@ class OverturePOICollection(OvertureCollection):
             start_time = time.time()
 
             clip_poi_overture = f"""
-                INSERT INTO temporal.places_{self.region} (id, names, other_categories, categories, street, housenumber, zipcode, brand, updatetime, version, confidence, websites, socials, emails, phones, addresses, sources, geometry)
+                INSERT INTO temporal.places_{self.region} (id, names, other_categories, categories, street, housenumber, zipcode, brand, update_time, version, confidence, websites, socials, emails, phones, addresses, sources, geometry)
                 WITH region AS (
                     SELECT ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326) AS geom
                 ),
@@ -175,7 +175,7 @@ class OverturePOICollection(OvertureCollection):
                 )
                 SELECT
                     np.id,
-                    TRIM(BOTH '"' FROM (np.names::jsonb->'common'->0->'value')::text) AS names,
+                    TRIM(BOTH '"' FROM (np.names::jsonb->>'primary')) AS names,
                     CASE
                         WHEN (np.categories::jsonb->'alternate'->>0) IS NOT NULL OR (np.categories::jsonb->'alternate'->>1) IS NOT NULL THEN
                             ARRAY_REMOVE(ARRAY_REMOVE(ARRAY[(np.categories::jsonb->'alternate'->>0)::varchar, (np.categories::jsonb->'alternate'->>1)::varchar], NULL), '')
@@ -187,7 +187,7 @@ class OverturePOICollection(OvertureCollection):
                     TRIM(substring((np.addresses::jsonb->0->>'freeform')::varchar from '(\s\d.*)$')) AS housenumber,
                     (np.addresses::jsonb->0->>'postcode')::varchar AS zipcode,
                     np.brand::jsonb->'names'->'common'->0->>'value' AS brand,
-                    np.updatetime,
+                    np.update_time,
                     np.version,
                     np.confidence,
                     np.websites,

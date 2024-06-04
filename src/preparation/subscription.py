@@ -356,14 +356,79 @@ class Subscription:
             self.db_rd.perform(insert_restored_data_into_geonode_poi_table_sql)
 
     @timing
+    def insert_gtfs_pt_stops(self, category):
+        # read data
+        #TODO: harmonize filter of insert_gtfs_pt_stops and read_poi
+        try:
+            # get the area where source is GTFS
+            geom_ref_ids_gtfs_sql = f"""
+                SELECT geom_ref_id
+                FROM {self.geonode_schema_name}.data_subscription
+                WHERE source = 'GTFS'
+                AND category = '{category}'
+            """
+            geom_ref_ids_gtfs = self.db_rd.select(geom_ref_ids_gtfs_sql)
+
+            if geom_ref_ids_gtfs == []:
+                print_info("No geom for GTFS pt stops.")
+            else:
+                # Join all returned values into a comma-separated string with quotes around each value
+                geom_ref_ids_gtfs = "', '".join([str(row[0]) for row in geom_ref_ids_gtfs])
+
+                geom_filter_sql = f"""
+                    DROP TABLE IF EXISTS geom_filter_gtfs;
+                    CREATE TEMP TABLE geom_filter_gtfs AS
+                    WITH geom_refs_gtfs_areas AS (
+                        SELECT geom_ref_id
+                        FROM {self.geonode_schema_name}.data_subscription
+                        WHERE source = 'GTFS'
+                        AND category = '{category}'
+                    )
+                    SELECT ST_Union(n.geom) AS geom
+                    FROM {self.geonode_schema_name}.geom_ref n
+                    WHERE n.id IN (SELECT geom_ref_id FROM geom_refs_gtfs_areas)
+                """
+                self.db_rd.perform(geom_filter_sql)
+
+            insert_gtfs_sql = f"""
+                INSERT INTO {self.geonode_schema_name}.{self.get_kart_poi_table_name(category)}(category, other_categories, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+                SELECT
+                    category,
+                    other_categories,
+                    CASE WHEN TRIM(name) = '' THEN NULL ELSE TRIM(name) END,
+                    CASE WHEN TRIM(operator) = '' THEN NULL ELSE TRIM(operator) END,
+                    CASE WHEN TRIM(street) = '' THEN NULL ELSE TRIM(street) END,
+                    CASE WHEN TRIM(housenumber) = '' THEN NULL ELSE TRIM(housenumber) END,
+                    CASE WHEN TRIM(zipcode) = '' THEN NULL ELSE TRIM(zipcode) END,
+                    CASE WHEN TRIM(phone) = '' THEN NULL ELSE TRIM(phone) END,
+                    CASE WHEN octet_length(TRIM(email)) BETWEEN 6 AND 320 AND TRIM(email) LIKE '_%@_%.__%' THEN TRIM(email) ELSE NULL END,
+                    CASE WHEN TRIM(website) ~* '^[a-z](?:[-a-z0-9\+\.])*:(?:\/\/(?:(?:%[0-9a-f][0-9a-f]|[-a-z0-9\._~!\$&''\(\)\*\+,;=:@])|[\/\?])*)?' :: TEXT THEN TRIM(website) ELSE NULL END,
+                    CASE WHEN TRIM(capacity) ~ '^[0-9]+$' THEN CAST(TRIM(capacity) AS INTEGER) ELSE NULL END,
+                    CASE WHEN TRIM(opening_hours) = '' THEN NULL ELSE TRIM(opening_hours) END,
+                    CASE WHEN TRIM(wheelchair) IN ('yes', 'no', 'limited') THEN TRIM(wheelchair) ELSE NULL END,
+                    source,
+                    tags,
+                    p.geom
+                FROM {self.source_to_table['GTFS']} p, geom_filter_gtfs f
+                WHERE ST_Intersects(p.geom, f.geom)
+                AND p.category = '{category}';
+            """
+            self.db_rd.perform(insert_gtfs_sql)
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+
+    @timing
     def read_poi(self, category: str):
         """Method to read the relevant POIs from one category into a temporary table based on the subscription criteria.
 
         Args:
             category (str): Category of POIs to read
         """
+        #TODO: harmonize filter of insert_gtfs_pt_stops and read_poi
         try:
-            # get the area where where the category is subscribed to either OSM, Overture or OSM_Overture
+            # get the area where the category is subscribed to either OSM, Overture or OSM_Overture
             geom_ref_ids_subscribe_sql = f"""
                 SELECT geom_ref_id
                 FROM {self.geonode_schema_name}.data_subscription
@@ -441,7 +506,7 @@ class Subscription:
                     p.geom
                 FROM {self.get_source_table(category)} p, geom_filter_subscribe f
                 WHERE ST_Intersects(p.geom, f.geom)
-                AND p.source in ('OSM', 'Overture', 'OSM_Overture', 'Overture_OSM', 'GTFS')
+                AND p.source in ('OSM', 'Overture', 'OSM_Overture', 'Overture_OSM')
                 AND p.category = '{category}';
             """
             self.db_rd.perform(create_poi_to_integrate_sql)
@@ -490,9 +555,9 @@ class Subscription:
 
             source_to_date = {
                 'OSM': self.osm_data_date.replace(tzinfo=None),
-                'Overture': self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None),
-                'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT updatetime FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None)),
-                'GTFS': datetime(2024, 2, 20) #TODO: find better solution
+                'Overture': self.db.select(f"SELECT update_time FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None),
+                'OSM_Overture': min(self.osm_data_date.replace(tzinfo=None), self.db.select(f"SELECT update_time FROM temporal.places_{self.region} LIMIT 1")[0][0].replace(tzinfo=None)),
+                'GTFS': datetime(2024, 6, 9) #TODO: find better solution
             }
 
             #TODO: add date for GTFS
@@ -559,6 +624,10 @@ class Subscription:
 
                 for category in categories:
 
+                    data_sources = self.db_rd.select(f"""SELECT DISTINCT source FROM {self.geonode_schema_name}.data_subscription WHERE category = '{category}'""")
+                    if any('GTFS' in data_source for data_source in data_sources):
+                        self.insert_gtfs_pt_stops(category=category)
+
                     self.read_poi(category)
                     self.insert_poi(category)
                     self.update_date_subscription(category)
@@ -570,10 +639,10 @@ class Subscription:
                 """
                 self.db_rd.perform(addtional_indices_sql)
 
-                # add comment with creation date
-                comment_sql = f"""
-                    COMMENT ON TABLE {self.geonode_schema_name}.poi_{poi_category} IS 'Created on {datetime.datetime.now().strftime("%Y%m%d")}';
-                """
-                self.db_rd.perform(comment_sql)
+            # add comment with creation date
+            comment_sql = f"""
+                COMMENT ON TABLE {self.geonode_schema_name}.poi_{poi_category} IS 'Created on {datetime.datetime.now().strftime("%Y%m%d")}';
+            """
+            self.db_rd.perform(comment_sql)
 
 

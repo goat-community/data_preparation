@@ -14,11 +14,11 @@ region_pbf : [
 ]
 collection:
   osm_tags:
-    amenity: ["atm", "bank", "bar", "biergarten", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
+    amenity: ["atm", "bank", "bar", "biergarten", "bicycle_parking", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
               "cinema", "dentist", "doctors", "fast_food", "fuel", "ice_cream", "kneipp_water_cure", "library",
               "marketplace", "nightclub", "pharmacy", "place_of_worship", "planetarium", "post_box", "post_office", "parking", "pub",
               "recycling", "restaurant", "taxi", "theatre", "vending_machine"]
-    shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "farm", "fashion", "florist", "fuel", "general",
+    shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "deli", "farm", "fashion", "florist", "fuel", "general",
            "greengrocer", "grocery", "hairdresser", "health_food", "honey", "kiosk", "mall", "shoes", "sports",
            "supermarket", "wine"]
     tourism: ["alpine_hut", "apartment", "aquarium", "camp_site", "caravan_site", "chalet", "gallery", "guest_house",
@@ -39,83 +39,20 @@ collection:
   ways : True
   relations : True
   
-preparation:
-  supermarket:
-    classify_by_name:
-      supermarket: 
-        children:
-          albert heijn     : ["albert heijn"]
-          aldi  : ["aldi"]
-          lidl  : ["lidl"]
-          boni  : ["boni"]
-          boon's markt  : ["boon's markt", "boon's"]
-          dagwinkel  : ["dagwinkel"]
-          dekamarkt  : ["dekamarkt", "deka markt"]
-          dirk  : ["dirk"]
-          hoogvliet  : ["hoogvliet"]
-          jumbo: ["jumbo"]
-          makro: ["makro"]
-          marqt: ["marqt"]
-          plus: ["plus"]
-          spar: ["spar"]
-          poiesz: ["poiesz"]
-          nettorama: ["nettorama"]
-          vormar: ["vormar"]
-          coop: ["coop"]
-
-        threshold: 0.9
-      
-      organic_supermarket:
-        children:
-          ekoplaza : ["ekoplaza"]
-          holland & barrett : ["holland & barrett"]
-          little plant pantry : ["little plant pantry"]
-          odin : ["odin"]
-        threshold: 0.7
-      
-      chemist: 
-        children:
-          kruidvat : ["kruidvat"]
-          etos : ["etos"]
-          trekpleister : ["trekpleister"]
-          drogisterij: ["drogisterij"]
-        threshold: 0.7
-      
-      # This should be international_supermarket, but it is merged with convenience
-      convenience:
-        children:
-          # in dutch 
-          turkse : ["turkse", "turks"]
-          asia : ["asia", "asian", "aziatisch"]
-          other : ["italiaanse", "polish", "spaans", "poolse"]
-        threshold: 0.7
-
+  convenience:
     classify_by_tag:
-      # This should be international_supermarket, but it is merged with convenience
-      international_supermarket:
-        origin: [True] 
-      organic_supermarket:
-        organic: ["only"]
-      chemist:
-        name: ["da"]
-    unmatched: "convenience"
+      other_grocery:
+        shop: ["convenience"]
 
-  health_food: 
+  deli:
     classify_by_tag:
-      organic_supermarket:
-        shop: ["health_food"]
-
-  chemist:
+      other_grocery:
+        shop: ["deli"]
+      
+  greengrocer:
     classify_by_tag:
-      chemist:
-        shop: ["chemist"]
-
-  convenience: 
-    inherit: "supermarket"
-  grocery: 
-    inherit: "supermarket"
-  deli: 
-    inherit: "supermarket"
+      other_grocery: 
+        shop: ["greengrocer"]
   
         
 subscription:

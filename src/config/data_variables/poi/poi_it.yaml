@@ -7,11 +7,11 @@ region_pbf : [
 ]
 collection:
   osm_tags:
-    amenity: ["atm", "bank", "bar", "biergarten", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
+    amenity: ["atm", "bank", "bar", "biergarten", "bicycle_parking", "bicycle_rental", "bus_station", "cafe", "car_sharing", "charging_station",
               "cinema", "dentist", "doctors", "fast_food", "fuel", "ice_cream", "kneipp_water_cure", "library",
               "marketplace", "nightclub", "pharmacy", "place_of_worship", "planetarium", "post_box", "post_office", "parking", "pub",
               "recycling", "restaurant", "taxi", "theatre", "vending_machine"]
-    shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "farm", "fashion", "florist", "fuel", "general",
+    shop: ["bakery", "butcher", "chemist", "clothes", "convenience", "deli", "farm", "fashion", "florist", "fuel", "general",
            "greengrocer", "grocery", "hairdresser", "health_food", "honey", "kiosk", "mall", "shoes", "sports",
            "supermarket", "wine"]
     tourism: ["alpine_hut", "apartment", "aquarium", "camp_site", "caravan_site", "chalet", "gallery", "guest_house",
@@ -98,11 +98,9 @@ preparation:
           tigotà: ["tigotà"]
           promotre : ["promotre"]
           dm : ["dm"]
-
         threshold: 0.7
 
-      # This should be international_supermarket, but it is merged with convenience
-      convenience:
+      other_grocery:
         children:
           turco : ["turco", "turkish", "turk"]
           asia : ["asia", "asiatico", "asian"]
@@ -110,8 +108,7 @@ preparation:
         threshold: 0.7
 
     classify_by_tag:
-      # This should be international_supermarket, but it is merged with convenience
-      international_supermarket:
+      other_grocery:
         origin: [True] 
       organic_supermarket:
         organic: ["only"]
@@ -121,7 +118,22 @@ preparation:
         name: ["combi"]
       chemist:
         name: ["dm"]
-    unmatched: "convenience"
+    unmatched: "other_grocery"
+
+  convenience:
+    classify_by_tag:
+      other_grocery:
+        shop: ["convenience"]
+
+  deli:
+    classify_by_tag:
+      other_grocery:
+        shop: ["deli"]
+      
+  greengrocer:
+    classify_by_tag:
+      other_grocery: 
+        shop: ["greengrocer"]
 
   health_food: 
     classify_by_tag:

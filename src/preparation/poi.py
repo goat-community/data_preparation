@@ -567,6 +567,7 @@ class PoiPreparation:
         )
         return df
 
+    @timing
     def classify_poi(self, df):
         # Create dictionary with empty lists to track classified tags
         classified_tags = {
@@ -785,37 +786,40 @@ def prepare_poi(region: str):
 
     db = Database(settings.LOCAL_DATABASE_URI)
 
-    regions = Config("poi", region).regions
+    if region == 'europe':
 
-    if 'europe' in regions:
-        process_poi_preparation(db, 'europe')
-        regions.remove('europe')
+        create_table_sql = POITable(data_set_type='poi', schema_name = 'poi', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
+        db.perform(create_table_sql)
 
-    for loop_region in regions:
-        process_poi_preparation(db, loop_region)
+        for loop_region in Config("poi", region).regions:
+            process_poi_preparation(db, loop_region)
 
-        # Insert data from regional table into 'europe' table
-        insert_poi_osm_sql = f"""
-            INSERT INTO public.poi_osm_europe(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
-            SELECT
-                category,
-                name,
-                operator,
-                street,
-                housenumber,
-                zipcode,
-                phone,
-                email,
-                website,
-                capacity,
-                opening_hours,
-                wheelchair,
-                source,
-                tags,
-                geom
-            FROM public.poi_osm_{loop_region}
-        """
-        db.perform(insert_poi_osm_sql)
+            # Insert data from regional table into 'europe' table
+            insert_poi_osm_sql = f"""
+                INSERT INTO poi.poi_osm_europe(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+                SELECT
+                    category,
+                    name,
+                    operator,
+                    street,
+                    housenumber,
+                    zipcode,
+                    phone,
+                    email,
+                    website,
+                    capacity,
+                    opening_hours,
+                    wheelchair,
+                    source,
+                    tags,
+                    geom
+                FROM public.poi_osm_{loop_region}
+            """
+            db.perform(insert_poi_osm_sql)
+    else:
+        process_poi_preparation(db, region)
+
+    print_info(f'Preparation of region {region} is finished.')
 
     db.conn.close()
 
@@ -837,7 +841,7 @@ def process_poi_preparation(db: Database, region: str):
         if_exists="replace",
         geom_column="geom",
         srid=4326,
-        create_geom_index=True,
+        create_geom_index=False,
         jsonb_column="tags",
     )
 
@@ -845,11 +849,11 @@ def process_poi_preparation(db: Database, region: str):
     db.perform("""CREATE SCHEMA IF NOT EXISTS poi;""")
 
     # insert into our POI schema
-    create_table_sql = POITable(data_set_type='poi', schema_name = 'poi', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
+    create_table_sql = POITable(data_set_type='poi', schema_name = 'public', data_set_name =f'osm_{region}').create_poi_table(table_type='standard')
     db.perform(create_table_sql)
 
     insert_poi_osm_sql = f"""
-        INSERT INTO poi.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
+        INSERT INTO public.poi_osm_{region}(category, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
         SELECT
             category,
             TRIM(name),
@@ -875,8 +879,6 @@ def process_poi_preparation(db: Database, region: str):
         FROM public.poi_osm_{region}_raw
     """
     db.perform(insert_poi_osm_sql)
-
-
 
 def export_poi(region: str):
     """Export POI data to remote database

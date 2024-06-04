@@ -32,17 +32,16 @@ class Config:
             self.analysis = self.config.get("analysis")
             self.pbf_data = self.config.get("region_pbf")
 
-            if region == 'europe' and name == 'poi':
-                # get the Geofabrik download links that are not in other config files
-                folder_path = os.path.join(settings.CONFIG_DIR, "data_variables", name)
-                self.regions = [file.split("_")[1].split(".")[0] for file in os.listdir(folder_path) if file.endswith(".yaml")]
-                for file in os.listdir(folder_path):
-                    if file.endswith(".yaml") and file != f"{name}_{region}.yaml":
-                        other_config = self.read_config(os.path.join("data_variables", name, file))
-                        self.pbf_data = [item for item in self.pbf_data if item not in other_config.get("region_pbf", [])]
-            else:
-                self.regions = [region]
-
+        if region == 'europe' and name == 'poi':
+            # get the Geofabrik download links that are not in other config files
+            folder_path = os.path.join(settings.CONFIG_DIR, "data_variables", name)
+            self.regions = list({file.split("_")[1].split(".")[0] for file in os.listdir(folder_path) if file.endswith(".yaml")})
+            for file in os.listdir(folder_path):
+                if file.endswith(".yaml") and file != f"{name}_{region}.yaml" and file != f"{name}_{region}_all.yaml":
+                    other_config = self.read_config(os.path.join("data_variables", name, file))
+                    self.pbf_data = [item for item in self.pbf_data if item not in other_config.get("region_pbf", [])]
+        else:
+            self.regions = [region]
 
     def read_config(self, config_file_path):
         """Reads a YAML config file and returns the configuration."""

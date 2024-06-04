@@ -108,10 +108,10 @@ class OvertureBaseCollection(OvertureCollection):
         )
 
         land = land.filter(
-            (land.bbox.minx > bbox_coords["xmin"]) &
-            (land.bbox.miny > bbox_coords["ymin"]) &
-            (land.bbox.maxx < bbox_coords["xmax"]) &
-            (land.bbox.maxy < bbox_coords["ymax"])
+            (land.bbox.xmin > bbox_coords["xmin"]) &
+            (land.bbox.ymin > bbox_coords["ymin"]) &
+            (land.bbox.xmax < bbox_coords["xmax"]) &
+            (land.bbox.ymax < bbox_coords["ymax"])
         )
         land = land.drop("bbox")
 
@@ -150,10 +150,10 @@ class OvertureBaseCollection(OvertureCollection):
         )
 
         land_use = land_use.filter(
-            (land_use.bbox.minx > bbox_coords["xmin"]) &
-            (land_use.bbox.miny > bbox_coords["ymin"]) &
-            (land_use.bbox.maxx < bbox_coords["xmax"]) &
-            (land_use.bbox.maxy < bbox_coords["ymax"])
+            (land_use.bbox.xmin > bbox_coords["xmin"]) &
+            (land_use.bbox.ymin > bbox_coords["ymin"]) &
+            (land_use.bbox.xmax < bbox_coords["xmax"]) &
+            (land_use.bbox.ymax < bbox_coords["ymax"])
         )
         land_use = land_use.drop("bbox")
 
@@ -190,10 +190,10 @@ class OvertureBaseCollection(OvertureCollection):
         )
 
         water = water.filter(
-            (water.bbox.minx > bbox_coords["xmin"]) &
-            (water.bbox.miny > bbox_coords["ymin"]) &
-            (water.bbox.maxx < bbox_coords["xmax"]) &
-            (water.bbox.maxy < bbox_coords["ymax"])
+            (water.bbox.xmin > bbox_coords["xmin"]) &
+            (water.bbox.ymin > bbox_coords["ymin"]) &
+            (water.bbox.xmax < bbox_coords["xmax"]) &
+            (water.bbox.ymax < bbox_coords["ymax"])
         )
         water = water.drop("bbox")
 

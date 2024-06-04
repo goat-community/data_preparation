@@ -109,10 +109,10 @@ class OvertureBuildingCollection(OvertureCollection):
         )
 
         building = building.filter(
-            (building.bbox.minx > bbox_coords["xmin"]) &
-            (building.bbox.miny > bbox_coords["ymin"]) &
-            (building.bbox.maxx < bbox_coords["xmax"]) &
-            (building.bbox.maxy < bbox_coords["ymax"])
+            (building.bbox.xmin > bbox_coords["xmin"]) &
+            (building.bbox.ymin > bbox_coords["ymin"]) &
+            (building.bbox.xmax < bbox_coords["xmax"]) &
+            (building.bbox.ymax < bbox_coords["ymax"])
         )
         building = building.drop("bbox")
 
@@ -156,10 +156,10 @@ class OvertureBuildingCollection(OvertureCollection):
 
         # filter by bounding box
         part = part.filter(
-            (part.bbox.minx > bbox_coords["xmin"]) &
-            (part.bbox.miny > bbox_coords["ymin"]) &
-            (part.bbox.maxx < bbox_coords["xmax"]) &
-            (part.bbox.maxy < bbox_coords["ymax"])
+            (part.bbox.xmin > bbox_coords["xmin"]) &
+            (part.bbox.ymin > bbox_coords["ymin"]) &
+            (part.bbox.xmax < bbox_coords["xmax"]) &
+            (part.bbox.ymax < bbox_coords["ymax"])
         )
         part = part.drop("bbox")
 

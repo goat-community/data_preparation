@@ -21,10 +21,10 @@ class PublicTransportStopPreparation:
         # get the geometires of the study area based on the query defined in the config
         region_geoms = self.db.select(self.data_config_preparation['region'])
 
-        print_info(f"Started to create table poi.poi_public_transport_stop_{self.region}.")
+        print_info(f"Started to create table temporal.poi_public_transport_stop_{self.region}_multi.")
         # Create table for public transport stops
-        self.db.perform(POITable(data_set_type="poi", schema_name="poi", data_set_name=f"public_transport_stop_{self.region}").create_poi_table(table_type='standard'))
-        print_info(f"Created table poi.poi_public_transport_stop_{self.region}.")
+        self.db.perform(POITable(data_set_type="poi", schema_name="temporal", data_set_name=f"public_transport_stop_{self.region}_multi").create_poi_table(table_type='standard'))
+        print_info(f"Created table temporal.poi_public_transport_stop_{self.region}_multi.")
 
         # loops through the geometries of the study area and classifies the public transport stops based on GTFS
         # loops through the gtfs stops and classifies them based on the route type in the stop_times table
@@ -32,7 +32,7 @@ class PublicTransportStopPreparation:
             ts = time.time()
 
             classify_gtfs_stop_sql = f"""
-                INSERT INTO poi.poi_public_transport_stop_{self.region}(
+                INSERT INTO temporal.poi_public_transport_stop_{self.region}_multi(
                     category,
                     name,
                     source,
@@ -43,13 +43,13 @@ class PublicTransportStopPreparation:
                     SELECT s.stop_name AS name, s.stop_id
                     FROM basic.stops s
                     WHERE ST_Intersects(s.geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
-                    AND parent_station IS NULL
+                    AND parent_station = ''
                 ),
                 clipped_gfts_stops AS (
                     SELECT p.name, s.geom, json_build_object('stop_id', s.stop_id, 'parent_station', s.parent_station, 'h3_3', s.h3_3) AS tags
                     FROM basic.stops s, parent_station_name p
                     WHERE ST_Intersects(s.geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
-                    AND parent_station IS NOT NULL
+                    AND parent_station != ''
                     AND s.parent_station = p.stop_id
                 ),
                 categorized_gtfs_stops AS (
@@ -91,11 +91,11 @@ class PublicTransportStopPreparation:
             WITH processed_staions AS (
                 SELECT
                     unnest(string_to_array(ppts.tags ->> 'parent_station', ',')) AS stop_id
-                FROM poi.poi_public_transport_stop_{self.region} ppts
+                FROM temporal.poi_public_transport_stop_{self.region}_multi ppts
                 UNION
                 SELECT
                     jsonb_array_elements_text(ppts.tags -> 'extended_source' -> 'stop_id') AS stop_id
-                FROM poi.poi_public_transport_stop_{self.region} ppts
+                FROM temporal.poi_public_transport_stop_{self.region}_multi ppts
             )
             SELECT s.*
             FROM basic.stops s
@@ -113,7 +113,7 @@ class PublicTransportStopPreparation:
             ts = time.time()
 
             classify_gtfs_stop_sql = f"""
-                INSERT INTO poi.poi_public_transport_stop_{self.region}(
+                INSERT INTO temporal.poi_public_transport_stop_{self.region}_multi(
                     category,
                     name,
                     source,
@@ -143,7 +143,7 @@ class PublicTransportStopPreparation:
                         ORDER BY r.route_type
                     ) j
                 )
-                SELECT route_type AS category, stop_name AS name, NULL AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id'))) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
+                SELECT route_type AS category, stop_name AS name, NULL AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')), 'parent_station', NULL) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
                 FROM categorized_gtfs_stops
                 GROUP BY route_type, stop_name
                 ;
@@ -161,18 +161,67 @@ class PublicTransportStopPreparation:
                 continue
 
             add_source_sql = f"""
-                UPDATE poi.poi_public_transport_stop_{self.region}
+                UPDATE temporal.poi_public_transport_stop_{self.region}_multi
                 SET "source" = '{source}'
                 WHERE tags::jsonb->'extended_source'->>'stop_id' LIKE '%{identifier}%'
             """
             self.db.perform(add_source_sql)
 
         add_source_sql = f"""
-            UPDATE poi.poi_public_transport_stop_{self.region}
+            UPDATE temporal.poi_public_transport_stop_{self.region}_multi
             SET "source" = '{self.data_config_preparation['sources']['others']}'
             WHERE "source" IS NULL
         """
         self.db.perform(add_source_sql)
+
+        # dissovle multipoint
+
+        print_info(f"Started to create table poi.poi_public_transport_stop_{self.region}.")
+        # Create table for public transport stops
+        self.db.perform(POITable(data_set_type="poi", schema_name="poi", data_set_name=f"public_transport_stop_{self.region}").create_poi_table(table_type='standard'))
+        print_info(f"Created table poi.poi_public_transport_stop_{self.region}.")
+
+        dissovle_multipoint_sql = f"""
+            INSERT INTO poi.poi_public_transport_stop_{self.region} (
+                category,
+                other_categories,
+                "operator",
+                name,
+                street,
+                housenumber,
+                zipcode,
+                phone,
+                email,
+                website,
+                capacity,
+                opening_hours,
+                wheelchair,
+                "source",
+                tags,
+                geom
+            )
+            SELECT
+                category,
+                other_categories,
+                "operator",
+                name,
+                street,
+                housenumber,
+                zipcode,
+                phone,
+                email,
+                website,
+                capacity,
+                opening_hours,
+                wheelchair,
+                "source",
+                tags,
+                (ST_DumpPoints(geom)).geom
+            FROM temporal.poi_public_transport_stop_{self.region}_multi;
+        """
+        self.db.perform(dissovle_multipoint_sql)
+
+        print_info("Preparatrion of the GTFS PT stops is done.")
 
 def prepare_public_transport_stop(region: str):
 

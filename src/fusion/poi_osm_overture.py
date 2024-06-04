@@ -86,7 +86,7 @@ class OSMOverturePOIFusion:
                     {config['radius']}, {config['threshold']},
                     '{config['matching_column_1']}', '{config['matching_column_2']}',
                     '{config['decision_table_1']}', '{config['decision_fusion']}',
-                    '{config['decision_table_2']}')
+                    '{config['decision_table_2']}', '{config['source_table_input_1']}')
                 """
                 try:
                     cur.execute(sql_poi_fusion)
@@ -113,7 +113,7 @@ class OSMOverturePOIFusion:
                 # insert data into the final table
                 sql_concat_resulting_tables = f"""
                     INSERT INTO poi.poi_{result_table_name}(
-                        category, other_categories ,name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
+                        category, other_categories, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours,
                         wheelchair, source, tags, geom
                         )
                     SELECT category, other_categories, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom
