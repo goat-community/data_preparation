@@ -31,7 +31,7 @@ class PublicTransportStopPreparation:
         for i, geom in enumerate(region_geoms):
             ts = time.time()
 
-            classify_gtfs_stop_sql = f"""
+            sql_classify_gtfs_stop = f"""
                 INSERT INTO temporal.poi_public_transport_stop_{self.region}_multi(
                     category,
                     name,
@@ -76,7 +76,7 @@ class PublicTransportStopPreparation:
                 ;
             """
 
-            self.db.perform(classify_gtfs_stop_sql)
+            self.db.perform(sql_classify_gtfs_stop)
 
             te = time.time()  # End time of the iteration
             iteration_time = te - ts  # Time taken by the iteration
@@ -85,7 +85,7 @@ class PublicTransportStopPreparation:
         print_info("Stops with parent station have been classified")
         print_info("Creating temporal.remaining_stops")
 
-        remaining_stops_sql = f"""
+        sql_remaining_stops = f"""
             DROP TABLE IF EXISTS temporal.remaining_stations;
             CREATE TABLE temporal.remaining_stations AS
             WITH processed_staions AS (
@@ -103,7 +103,7 @@ class PublicTransportStopPreparation:
             ON s.stop_id = ps.stop_id
             WHERE ps.stop_id IS NULL;
         """
-        self.db.perform(remaining_stops_sql)
+        self.db.perform(sql_remaining_stops)
 
         print_info("temporal.remaining_stops has been created")
 
@@ -112,7 +112,7 @@ class PublicTransportStopPreparation:
         for i, geom in enumerate(region_geoms):
             ts = time.time()
 
-            classify_gtfs_stop_sql = f"""
+            sql_classify_gtfs_stop = f"""
                 INSERT INTO temporal.poi_public_transport_stop_{self.region}_multi(
                     category,
                     name,
@@ -149,7 +149,7 @@ class PublicTransportStopPreparation:
                 ;
             """
 
-            self.db.perform(classify_gtfs_stop_sql)
+            self.db.perform(sql_classify_gtfs_stop)
 
             te = time.time()  # End time of the iteration
             iteration_time = te - ts  # Time taken by the iteration
@@ -160,19 +160,19 @@ class PublicTransportStopPreparation:
             if identifier == 'others':
                 continue
 
-            add_source_sql = f"""
+            sql_add_source = f"""
                 UPDATE temporal.poi_public_transport_stop_{self.region}_multi
                 SET "source" = '{source}'
                 WHERE tags::jsonb->'extended_source'->>'stop_id' LIKE '%{identifier}%'
             """
-            self.db.perform(add_source_sql)
+            self.db.perform(sql_add_source)
 
-        add_source_sql = f"""
+        sql_add_source = f"""
             UPDATE temporal.poi_public_transport_stop_{self.region}_multi
             SET "source" = '{self.data_config_preparation['sources']['others']}'
             WHERE "source" IS NULL
         """
-        self.db.perform(add_source_sql)
+        self.db.perform(sql_add_source)
 
         # dissovle multipoint
 
@@ -181,7 +181,7 @@ class PublicTransportStopPreparation:
         self.db.perform(POITable(data_set_type="poi", schema_name="poi", data_set_name=f"public_transport_stop_{self.region}").create_poi_table(table_type='standard'))
         print_info(f"Created table poi.poi_public_transport_stop_{self.region}.")
 
-        dissovle_multipoint_sql = f"""
+        sql_dissovle_multipoint = f"""
             INSERT INTO poi.poi_public_transport_stop_{self.region} (
                 category,
                 other_categories,
@@ -219,7 +219,7 @@ class PublicTransportStopPreparation:
                 (ST_DumpPoints(geom)).geom
             FROM temporal.poi_public_transport_stop_{self.region}_multi;
         """
-        self.db.perform(dissovle_multipoint_sql)
+        self.db.perform(sql_dissovle_multipoint)
 
         print_info("Preparatrion of the GTFS PT stops is done.")
 

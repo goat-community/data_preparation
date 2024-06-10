@@ -130,18 +130,18 @@ class OverturePOICollection(OvertureCollection):
         region_geoms = self.db.select(self.data_config_collection['region'])
 
         # create index on places raw
-        create_table_with_geom_sql = f"""
+        sql_create_table_with_geom = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region}_raw;
             CREATE UNLOGGED TABLE temporal.places_{self.region}_raw AS
             SELECT id, categories, update_time, version, names, confidence, websites, socials, emails, phones, brand, addresses, sources, ST_SetSRID(ST_GeomFromText(geometry), 4326) AS geometry
             FROM temporal.places_{self.region}_raw_no_geom;
             CREATE INDEX ON temporal.places_{self.region}_raw USING GIST (geometry);
         """
-        self.db.perform(create_table_with_geom_sql)
+        self.db.perform(sql_create_table_with_geom)
         print_info(f"Created new unlogged table temporal.places_{self.region}_raw with converted geometry")
 
         # create table for the Overture places
-        create_place_table_sql = f"""
+        sql_create_place_table = f"""
             DROP TABLE IF EXISTS temporal.places_{self.region};
             CREATE TABLE temporal.places_{self.region} AS (
                 SELECT *
@@ -154,7 +154,7 @@ class OverturePOICollection(OvertureCollection):
             ADD COLUMN IF NOT EXISTS housenumber varchar,
             ADD COLUMN IF NOT EXISTS zipcode varchar;
         """
-        self.db.perform(create_place_table_sql)
+        self.db.perform(sql_create_place_table)
 
         print_info(f"created table temporal.places_{self.region} including geometry index and pkey")
 
@@ -214,12 +214,12 @@ class OverturePOICollection(OvertureCollection):
         cur.close()
 
         # Convert unlogged table to regular table
-        convert_to_regular_table_sql = f"""
+        sql_convert_to_regular_table = f"""
             ALTER TABLE temporal.places_{self.region}_raw SET LOGGED;
             ALTER TABLE temporal.places_{self.region} ADD PRIMARY KEY (id);
             CREATE INDEX ON temporal.places_{self.region} USING GIST (geometry);
         """
-        self.db.perform(convert_to_regular_table_sql)
+        self.db.perform(sql_convert_to_regular_table)
         print_info(f"Converted temporal.places_{self.region}_raw to a regular table")
 
 
