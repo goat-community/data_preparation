@@ -35,7 +35,7 @@ class PopulationPreparation:
             return
 
         sql_disaggregate_population = f"""
-            INSERT INTO {self.schema}.population (population, building_id, geom, sub_study_area_id)
+            INSERT INTO temporal.population (population, building_id, geom, sub_study_area_id)
             SELECT CASE WHEN {sum_gross_floor_area}::float * s.population != 0 
             THEN gross_floor_area_residential::float / {sum_gross_floor_area}::float * s.population::float 
             ELSE 0 END AS population, 
@@ -59,22 +59,55 @@ class PopulationPreparation:
 
         # Create temporal population table
         sql_create_population_table = f"""
-            DROP TABLE IF EXISTS {self.schema}.population;
-            CREATE TABLE {self.schema}.population AS
+            DROP TABLE IF EXISTS temporal.population;
+            CREATE TABLE temporal.population AS
             SELECT * 
-            FROM basic.population
+            FROM {self.schema}.population
             LIMIT 0;
         """
         self.db.perform(sql_create_population_table)
 
+        # Disaggregate population for each sub study area
+        print_info("Disaggregating population for each sub study area.")
+
         for sub_study_area_id in sub_study_area_ids:
             self.disaggregate_population(sub_study_area_id)
+
+        # Create spatial index on temporary population table
+        sql_create_spatial_index = "CREATE INDEX ON temporal.population USING GIST (geom);"
+        self.db.perform(sql_create_spatial_index)
+
+        # Drop existing population table
+        print_info("Dropping original population table.")
+
+        sql_drop_population_table = f"DROP TABLE IF EXISTS {self.schema}.population;"
+        self.db.perform(sql_drop_population_table)
+
+        # Create final population table after joining with muncipality and county data
+        print_info("Creating final population table after joining with municipality and county data.")
+
+        sql_join_and_create_final_population_table = f"""
+            CREATE TABLE {self.schema}.population AS
+            SELECT p.population, c.gemeindeschlüssel_ags AS ags_gemeinde,
+                LEFT(c.gemeindeschlüssel_ags, 5) AS ags_landkreis, building_id,
+                sub_study_area_id, p.geom
+            FROM temporal.population p,
+                germany_municipalities c
+            WHERE ST_intersects(p.geom, c.geom);
+        """
+        self.db.perform(sql_join_and_create_final_population_table)
+
+        sql_create_final_indexes = f"""
+            ALTER TABLE {self.schema}.population ADD PRIMARY KEY (building_id);
+            CREATE INDEX ON {self.schema}.population USING GIST (geom);
+        """
+        self.db.perform(sql_create_final_indexes)
 
 
 def prepare_population(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)
     PopulationPreparation(db=db_rd, region=region).run()
-    print_info("Finished population preparation. Check the results in the database inside temporal.population and do the final migration manually.")
+    print_info("Finished population preparation.")
 
 
 if __name__ == "__main__":
