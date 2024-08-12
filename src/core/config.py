@@ -113,10 +113,12 @@ class Settings(BaseSettings):
     def assemble_s3_client(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
+        # Key, secret and token must be set manually if using short-term credentials
         return boto3.client(
             's3',
             aws_access_key_id=values.get("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=values.get("AWS_SECRET_ACCESS_KEY"),
+            aws_secret_access_key=values.get("AWS_ACCESS_KEY_ID"),
+            # aws_session_token="",
             region_name=values.get("AWS_DEFAULT_REGION")
         )
     GITHUB_ACCESS_TOKEN: str = None

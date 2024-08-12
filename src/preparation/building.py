@@ -1,11 +1,12 @@
-from src.db.db import Database
+from src.config.config import Config
 from src.core.config import settings
 from src.core.enums import (
     BuildingClassificationColumnTypes,
     BuildingClassificationTypes,
 )
-from src.config.config import Config
+from src.db.db import Database
 from src.utils.utils import print_info
+
 
 #TODO: Add logic to substract one residential level based on POI intersection
 class BuildingPreparation:
@@ -15,6 +16,7 @@ class BuildingPreparation:
         self.region = region
         # Get config for buildings
         self.config = Config("building", region)
+        self.schema = self.config.preparation["schema"]
 
         # Get variables for the classification
         self.config_classification = self.config.preparation["classification"]
@@ -38,7 +40,14 @@ class BuildingPreparation:
         """
 
         # Insert buildings query
-        sql_insert = """INSERT INTO temporal.building_%s(id, building_levels, building_levels_residential, residential_status, table_name_classified, geom)"""
+        sql_create = """
+            DROP TABLE IF EXISTS temp_output_%s;
+            CREATE TEMPORARY TABLE temp_output_%s AS
+        """
+        sql_insert = """
+            INSERT INTO temporal.building_%s
+            SELECT * FROM temp_output_%s;
+        """
 
         # Read buildings for the mask. Make sure that only buildings are read that have their centroid in the mask.
         sql_read_buildings = f"""WITH building_to_check AS
@@ -47,7 +56,7 @@ class BuildingPreparation:
             FROM
             (
                 SELECT b.*
-                FROM basic.building b
+                FROM {self.schema}.building b
                 WHERE ST_Intersects(b.geom, ST_SETSRID(ST_GEOMFROMTEXT('{mask_geom}'), 4326))
                 AND ST_Intersects(ST_CENTROID(b.geom), ST_SETSRID(ST_GEOMFROMTEXT('{mask_geom}'), 4326))
                 AND ST_IsValid(b.geom)
@@ -65,11 +74,12 @@ class BuildingPreparation:
                     classification_type
                 ][classification_data].items():
                     sql_classify = f"""
-                        {sql_insert % column_name}
+                        {sql_create % (column_name, column_name)}
                         {sql_read_buildings % column_name}
-                        SELECT id, building_levels, building_levels_residential, '{key}', '{classification_data}', geom
+                        SELECT id, building_levels, building_levels_residential, '{key}' AS residential_status, '{classification_data}' AS table_name_classified, geom
                         FROM building_to_check
-                        WHERE {classification_data} IN ({str(value)[1:-1]})
+                        WHERE {classification_data} IN ({str(value)[1:-1]});
+                        {sql_insert % (column_name, column_name)}
                         """
                     self.db.perform(sql_classify)
 
@@ -92,7 +102,7 @@ class BuildingPreparation:
 
                 # Check the number of points in the mask that are within each building
                 sql_classify = f"""
-                    {sql_insert % column_name}
+                    {sql_create % (column_name, column_name)}
                     {sql_read_buildings % column_name}
                     ,classified_buildings AS
                     (
@@ -107,16 +117,17 @@ class BuildingPreparation:
                             {where_clause} ST_Intersects(b.geom, p.geom)
                         ) j
                     )
-                    SELECT id, building_levels, building_levels_residential, {column_name}, '{classification_data}', geom
+                    SELECT id, building_levels, building_levels_residential, {column_name} AS residential_status, '{classification_data}' AS table_name_classified, geom
                     FROM classified_buildings
-                    WHERE {column_name} IS NOT NULL
+                    WHERE {column_name} IS NOT NULL;
+                    {sql_insert % (column_name, column_name)}
                 """
                 self.db.perform(sql_classify)
 
             elif classification_type == BuildingClassificationTypes.polygon:
                 # Check share of intersection between each building and the mask data
                 sql_classify = f"""
-                    {sql_insert % column_name}
+                    {sql_create % (column_name, column_name)}
                     {sql_read_buildings % column_name}
                     , classified_buildings AS
                     (
@@ -140,9 +151,10 @@ class BuildingPreparation:
                             ) s
                         )  j
                     )
-                    SELECT id, building_levels, building_levels_residential, {column_name}, '{classification_data}', geom
+                    SELECT id, building_levels, building_levels_residential, {column_name} AS residential_status, '{classification_data}' AS table_name_classified, geom
                     FROM classified_buildings
-                    WHERE {column_name} IS NOT NULL
+                    WHERE {column_name} IS NOT NULL;
+                    {sql_insert % (column_name, column_name)}
                 """
                 self.db.perform(sql_classify)
 
@@ -153,7 +165,7 @@ class BuildingPreparation:
             if classification_type == BuildingClassificationTypes.point:
 
                 sql_classify = f"""
-                    {sql_insert % column_name}
+                    {sql_create % (column_name, column_name)}
                     {sql_read_buildings % column_name}
                     , classified_buildings AS
                        (
@@ -165,9 +177,10 @@ class BuildingPreparation:
                             {self.config_classification[column_name][classification_type][classification_data]["query"]}
                         ) j
                     )
-                    SELECT id, building_levels, {column_name}, residential_status, '{classification_data}', geom
+                    SELECT id, building_levels, {column_name} AS building_levels_residential, residential_status, '{classification_data}' AS table_name_classified, geom
                     FROM classified_buildings
-                    WHERE {column_name} IS NOT NULL
+                    WHERE {column_name} IS NOT NULL;
+                    {sql_insert % (column_name, column_name)}
                 """
                 self.db.perform(sql_classify)
 
@@ -230,8 +243,9 @@ class BuildingPreparation:
         processing_units = self.get_processing_units(study_area_ids=self.config.preparation["study_area_ids"])
 
         # Classify buildings using the config file
-        for processing_unit in processing_units:
-            print_info(f"Calculationg for Processing unit: {processing_unit}")
+        for i in range(len(processing_units)):
+            processing_unit = processing_units[i]
+            print_info(f"Calculating for processing unit: {i} of {len(processing_units)}")
             for column_name in self.config_classification:
                 for classification_type in self.config_classification[column_name]:
 
@@ -251,7 +265,8 @@ class BuildingPreparation:
                 f"""
                 ALTER TABLE temporal.building_{column_name}  ADD PRIMARY KEY (id);
                 CREATE INDEX ON temporal.building_{column_name}  USING GIST (geom);
-                ALTER TABLE temporal.building_{column_name}  ADD id_loop serial;"""
+                ALTER TABLE temporal.building_{column_name}  ADD id_loop serial;
+                CREATE INDEX ON temporal.building_{column_name}  (id_loop);"""
             )
 
             get_max_id_classified = self.db.select(
@@ -264,7 +279,7 @@ class BuildingPreparation:
                     f"Updating building table {i} to {i+self.bulk_size} that are classified"
                 )
                 sql_update_building_table = f"""
-                    UPDATE basic.building b
+                    UPDATE {self.schema}.building b
                     SET {column_name} = t.{column_name}
                     FROM temporal.building_{column_name} t
                     WHERE b.id = t.id
@@ -274,36 +289,36 @@ class BuildingPreparation:
 
 
         get_max_id_building = self.db.select(
-            "SELECT last_value FROM basic.building_id_seq;"
+            f"SELECT MAX(id) FROM {self.schema}.building;"
         )
-        # for i in range(0, get_max_id_building[0][0], self.bulk_size):
-        #     print_info(
-        #         f"Updating building table {i} to {i+self.bulk_size} that are not classified"
-        #     )
-        #     # Update remaining buildings as with residents
-        #     sql_update_remaining_buildings = f"""
-        #         UPDATE basic.building b
-        #         SET residential_status = 'with_residents'
-        #         WHERE b.residential_status IS NULL
-        #         AND b.id BETWEEN {i} AND {i+self.bulk_size};
-        #     """
-        #     self.db.perform(sql_update_remaining_buildings)
+        for i in range(0, get_max_id_building[0][0], self.bulk_size):
+            print_info(
+                f"Updating building table {i} to {i+self.bulk_size} that are not classified"
+            )
+            # Update remaining buildings as with residents
+            sql_update_remaining_buildings = f"""
+                UPDATE {self.schema}.building b
+                SET residential_status = 'with_residents'
+                WHERE b.residential_status IS NULL
+                AND b.id BETWEEN {i} AND {i+self.bulk_size};
+            """
+            self.db.perform(sql_update_remaining_buildings)
 
-        # # Update building_levels_residential in bulks of self.bulk_size
-        # for i in range(0, get_max_id_building[0][0], self.bulk_size):
-        #     print_info(
-        #         f"Updating building_levels_residential {i} to {i+self.bulk_size}"
-        #     )
-        #     sql_update_building_levels_residential = f"""
-        #         UPDATE basic.building b
-        #         SET building_levels_residential = b.building_levels,
-        #         area = ST_Area(b.geom::geography),
-        #         gross_floor_area_residential = ST_Area(b.geom::geography) * b.building_levels
-        #         WHERE b.id BETWEEN {i} AND {i+self.bulk_size}
-        #     """
-        #     self.db.perform(sql_update_building_levels_residential)
+        # Update building_levels_residential in bulks of self.bulk_size
+        for i in range(0, get_max_id_building[0][0], self.bulk_size):
+            print_info(
+                f"Updating building_levels_residential {i} to {i+self.bulk_size}"
+            )
+            sql_update_building_levels_residential = f"""
+                UPDATE {self.schema}.building b
+                SET building_levels_residential = b.building_levels,
+                area = ST_Area(b.geom::geography),
+                gross_floor_area_residential = ST_Area(b.geom::geography) * b.building_levels
+                WHERE b.id BETWEEN {i} AND {i+self.bulk_size}
+            """
+            self.db.perform(sql_update_building_levels_residential)
 
-        # self.db.conn.close()
+        self.db.conn.close()
 
 
 def prepare_building(region: str):
@@ -313,5 +328,5 @@ def prepare_building(region: str):
     building_preparation.run()
 
 
-# if __name__ == "__main__":
-#     prepare_building()
+if __name__ == "__main__":
+    prepare_building("de")

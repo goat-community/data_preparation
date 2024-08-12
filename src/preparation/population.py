@@ -1,6 +1,6 @@
-from src.db.db import Database
 from src.config.config import Config
 from src.core.config import settings
+from src.db.db import Database
 from src.utils.utils import print_info
 
 
@@ -10,6 +10,7 @@ class PopulationPreparation:
         self.region = region
         # Get config for population
         self.config = Config("population", region)
+        self.schema = self.config.preparation['schema']
 
     def disaggregate_population(self, sub_study_area_id: int):
         """Disaggregate population for sub study area
@@ -22,7 +23,7 @@ class PopulationPreparation:
         # Get sum of gross floor area of buildings in sub study area
         sql_sum_gross_floor_area = f"""
             SELECT SUM(gross_floor_area_residential) AS sum_gross_floor_area
-            FROM basic.building b, basic.sub_study_area s
+            FROM {self.schema}.building b, {self.schema}.sub_study_area s
             WHERE s.id = {sub_study_area_id}
             AND ST_Intersects(b.geom, s.geom)
             AND ST_Intersects(ST_CENTROID(b.geom), s.geom)
@@ -34,12 +35,12 @@ class PopulationPreparation:
             return
 
         sql_disaggregate_population = f"""
-            INSERT INTO temporal.population (population, building_id, geom, sub_study_area_id)
+            INSERT INTO {self.schema}.population (population, building_id, geom, sub_study_area_id)
             SELECT CASE WHEN {sum_gross_floor_area}::float * s.population != 0 
             THEN gross_floor_area_residential::float / {sum_gross_floor_area}::float * s.population::float 
             ELSE 0 END AS population, 
             b.id, ST_CENTROID(b.geom), s.id 
-            FROM basic.building b, basic.sub_study_area s
+            FROM {self.schema}.building b, {self.schema}.sub_study_area s
             WHERE s.id = {sub_study_area_id}
             AND ST_Intersects(b.geom, s.geom)
             AND ST_Intersects(ST_CENTROID(b.geom), s.geom)
@@ -52,14 +53,14 @@ class PopulationPreparation:
         """Run the population preparation."""
 
         study_area_ids = self.config.preparation['study_area_ids']
-        sql_sub_study_area_ids = f"SELECT id FROM basic.sub_study_area WHERE study_area_id IN ({str(study_area_ids)[1:-1]});"
+        sql_sub_study_area_ids = f"SELECT id FROM {self.schema}.sub_study_area WHERE study_area_id IN ({str(study_area_ids)[1:-1]});"
         sub_study_area_ids = self.db.select(sql_sub_study_area_ids)
         sub_study_area_ids = [id for id, in sub_study_area_ids]
 
         # Create temporal population table
-        sql_create_population_table = """
-            DROP TABLE IF EXISTS temporal.population;
-            CREATE TABLE temporal.population AS
+        sql_create_population_table = f"""
+            DROP TABLE IF EXISTS {self.schema}.population;
+            CREATE TABLE {self.schema}.population AS
             SELECT * 
             FROM basic.population
             LIMIT 0;
@@ -74,3 +75,7 @@ def prepare_population(region: str):
     db_rd = Database(settings.RAW_DATABASE_URI)
     PopulationPreparation(db=db_rd, region=region).run()
     print_info("Finished population preparation. Check the results in the database inside temporal.population and do the final migration manually.")
+
+
+if __name__ == "__main__":
+    prepare_population("de")
