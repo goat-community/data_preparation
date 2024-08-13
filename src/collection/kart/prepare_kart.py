@@ -313,16 +313,54 @@ class PrepareKart:
             # Add additional constraints for poi_childcare
             if table_name in ("poi_childcare"):
                 sql_addition_constraints_childcare = f"""
-                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS min_age_check, ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
-                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS max_age_check, ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
-                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
-                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
-                    ALTER TABLE {self.schema_name}.{table_name}  DROP CONSTRAINT IF EXISTS min_max_check, ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
-                    ALTER TABLE {self.schema_name}.{table_name}  OWNER TO {self.maintainer};
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        DROP CONSTRAINT IF EXISTS min_age_check,
+                        ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        DROP CONSTRAINT IF EXISTS max_age_check,
+                        ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check,
+                        ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check,
+                        ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        DROP CONSTRAINT IF EXISTS min_max_check,
+                        ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        ALTER COLUMN nursery SET DATA TYPE BOOLEAN,
+                        ALTER COLUMN nursery SET NOT NULL,
+                        ALTER COLUMN nursery SET DEFAULT FALSE,
+                        ALTER COLUMN kindergarten SET DATA TYPE BOOLEAN,
+                        ALTER COLUMN kindergarten SET NOT NULL,
+                        ALTER COLUMN kindergarten SET DEFAULT FALSE,
+                        ALTER COLUMN after_school SET DATA TYPE BOOLEAN,
+                        ALTER COLUMN after_school SET NOT NULL,
+                        ALTER COLUMN after_school SET DEFAULT FALSE;
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        OWNER TO {self.maintainer};
                 """
                 print(f"Executing SQL: {sql_addition_constraints_childcare}")
 
                 self.db.perform(sql_addition_constraints_childcare)
+
+            if table_name == "poi_school":
+                sql_addition_constraints_school = f"""
+                    ALTER TABLE {self.schema_name}.{table_name}
+                        ALTER COLUMN school_isced_level_1 SET DATA TYPE BOOLEAN,
+                        ALTER COLUMN school_isced_level_1 SET NOT NULL,
+                        ALTER COLUMN school_isced_level_1 SET DEFAULT FALSE,
+                        ALTER COLUMN school_isced_level_2 SET DATA TYPE BOOLEAN,
+                        ALTER COLUMN school_isced_level_2 SET NOT NULL,
+                        ALTER COLUMN school_isced_level_2 SET DEFAULT FALSE,
+                        ALTER COLUMN school_isced_level_3 SET DATA TYPE BOOLEAN,
+                        ALTER COLUMN school_isced_level_3 SET NOT NULL,
+                        ALTER COLUMN school_isced_level_3 SET DEFAULT FALSE;
+                        OWNER TO {self.maintainer};
+                """
+                print(f"Executing SQL: {sql_addition_constraints_school}")
+                self.db.perform(sql_addition_constraints_school)
 
     def prepare_kart(self):
         """Run all functions to prepare Kart for POI data"""

@@ -217,16 +217,51 @@ class Subscription:
         # Add additional constraints for poi_childcare
         if poi_table_name in ("poi_childcare"):
             sql_addition_constraints_childcare = f"""
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS min_age_check, ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS max_age_check, ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS min_max_check, ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS min_age_check, 
+                    ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS max_age_check, 
+                    ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, 
+                    ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, 
+                    ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS min_max_check, 
+                    ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    ALTER COLUMN nursery SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN nursery SET NOT NULL,
+                    ALTER COLUMN nursery SET DEFAULT FALSE,
+                    ALTER COLUMN kindergarten SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN kindergarten SET NOT NULL,
+                    ALTER COLUMN kindergarten SET DEFAULT FALSE,
+                    ALTER COLUMN after_school SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN after_school SET NOT NULL,
+                    ALTER COLUMN after_school SET DEFAULT FALSE;
             """
             print(f"Executing SQL: {sql_addition_constraints_childcare}")
-            #TODO: not needed anymore?
-            # ALTER TABLE {self.geonode_schema_name}.{table_name}  OWNER TO {self.maintainer};
             self.db_rd.perform(sql_addition_constraints_childcare)
+
+        # Add additional constraints for poi_school
+        if poi_table_name == "poi_school":
+            sql_addition_constraints_school = f"""
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}
+                    ALTER COLUMN school_isced_level_1 SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN school_isced_level_1 SET NOT NULL,
+                    ALTER COLUMN school_isced_level_1 SET DEFAULT FALSE,
+                    ALTER COLUMN school_isced_level_2 SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN school_isced_level_2 SET NOT NULL,
+                    ALTER COLUMN school_isced_level_2 SET DEFAULT FALSE,
+                    ALTER COLUMN school_isced_level_3 SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN school_isced_level_3 SET NOT NULL,
+                    ALTER COLUMN school_isced_level_3 SET DEFAULT FALSE;
+            """
+            print(f"Executing SQL: {sql_addition_constraints_school}")
+            self.db.perform(sql_addition_constraints_school)
 
     def migrate_kart_tables(self, poi_category):
         poi_table_name = f"poi_{poi_category}"
@@ -328,6 +363,10 @@ class Subscription:
                     tags::jsonb,
                     geom
                 FROM {self.kart_schema}.{poi_table_name}
+                WHERE
+                    school_isced_level_1 = TRUE OR
+                    school_isced_level_2 = TRUE OR
+                    school_isced_level_3 = TRUE
             """
             self.db_rd.perform(sql_insert_restored_data_into_geonode_poi_table)
 

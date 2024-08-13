@@ -46,7 +46,7 @@ class PublicTransportStopPreparation:
                     AND parent_station = ''
                 ),
                 clipped_gfts_stops AS (
-                    SELECT p.name, s.geom, json_build_object('stop_id', s.stop_id, 'parent_station', s.parent_station, 'h3_3', s.h3_3) AS tags
+                    SELECT p.name, s.geom, jsonb_build_object('stop_id', s.stop_id, 'parent_station', s.parent_station, 'h3_3', s.h3_3) AS tags
                     FROM basic.stops s, parent_station_name p
                     WHERE ST_Intersects(s.geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
                     AND parent_station != ''
@@ -70,7 +70,7 @@ class PublicTransportStopPreparation:
                         ORDER BY r.route_type
                     ) j
                 )
-                SELECT route_type AS category, name, NULL AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')), 'parent_station', tags ->> 'parent_station') AS tags, ST_MULTI(ST_UNION(geom)) AS geom
+                SELECT route_type AS category, name, NULL AS source, jsonb_build_object('extended_source', jsonb_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')), 'parent_station', tags ->> 'parent_station') AS tags, ST_MULTI(ST_UNION(geom)) AS geom
                 FROM categorized_gtfs_stops
                 GROUP BY route_type, tags ->> 'parent_station', name
                 ;
@@ -121,7 +121,7 @@ class PublicTransportStopPreparation:
                     geom
                 )
                 WITH clipped_gfts_stops AS (
-                    SELECT s.stop_name, s.geom, json_build_object('stop_id', s.stop_id, 'h3_3', s.h3_3) AS tags
+                    SELECT s.stop_name, s.geom, jsonb_build_object('stop_id', s.stop_id, 'h3_3', s.h3_3) AS tags
                     FROM temporal.remaining_stations s
                     WHERE ST_Intersects(s.geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
                 ),
@@ -143,7 +143,7 @@ class PublicTransportStopPreparation:
                         ORDER BY r.route_type
                     ) j
                 )
-                SELECT route_type AS category, stop_name AS name, NULL AS source, json_build_object('extended_source', json_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')), 'parent_station', NULL) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
+                SELECT route_type AS category, stop_name AS name, NULL AS source, jsonb_build_object('extended_source', jsonb_build_object('stop_id', ARRAY_AGG(tags ->> 'stop_id')), 'parent_station', NULL) AS tags, ST_MULTI(ST_UNION(geom)) AS geom
                 FROM categorized_gtfs_stops
                 GROUP BY route_type, stop_name
                 ;
