@@ -1,11 +1,11 @@
 FROM goatcommunity/data-preparation-base:0.04
 
 # Install GTFSTIDY 
-RUN bash -c "cd /home && wget https://go.dev/dl/go1.19.2.linux-amd64.tar.gz && rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.2.linux-amd64.tar.gz"
-ENV PATH="${PATH}:/usr/local/go/bin" 
-ENV GOPATH="/root/go"
-ENV PATH="${GOPATH}/bin:${PATH}"
-RUN bash -c "go install github.com/patrickbr/gtfstidy@latest"
+# RUN bash -c "cd /home && wget https://go.dev/dl/go1.19.2.linux-amd64.tar.gz && rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.2.linux-amd64.tar.gz"
+# ENV PATH="${PATH}:/usr/local/go/bin" 
+# ENV GOPATH="/root/go"
+# ENV PATH="${GOPATH}/bin:${PATH}"
+# RUN bash -c "go install github.com/patrickbr/gtfstidy@latest"
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml ./poetry.lock* /app/

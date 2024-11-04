@@ -1,0 +1,16 @@
+collection:
+  # Overture release version
+  version: 2024-09-18.0
+
+  # Overture data theme
+  theme: base
+
+  # Overture type
+  type: land
+
+  # Table in local database where data will be written
+  local_result_table: temporal.land_europe
+
+  # A SQL query which returns the region's bounding geometry (omit terminating semicolon)
+  # Leave this empty if global data is to be fetched
+  region: "SELECT ST_Union(geom) AS geom FROM poi.geom_ref WHERE id = 'geofence_active_mobility'"
