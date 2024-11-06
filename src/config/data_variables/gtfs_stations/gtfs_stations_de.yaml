@@ -1,13 +1,13 @@
-preparation:
+preparation: 
   region: | 
     WITH 
     bounds AS (
-        SELECT ST_Extent(geom) AS geom FROM poi.geom_ref WHERE id = 'geofence_active_mobility'
+        SELECT ST_Extent(geom) AS geom FROM public.nuts WHERE nuts_id = 'DE'
     ),
     merged_geometries AS (
         SELECT ST_Union(geom) AS geom
-        FROM poi.geom_ref
-        WHERE id = 'geofence_active_mobility'
+        FROM public.nuts 
+        WHERE nuts_id = 'DE'
     ),
     grid AS (
         SELECT ST_MakeEnvelope(
@@ -29,29 +29,9 @@ preparation:
     SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon'
 
   classification:
-    gtfs_route_types: 
-      "0": "tram_stop"
-      "1": "subway_entrance"
-      "2": "rail_station"
-      "3": "bus_stop"
-      "100": "rail_station"
-      "101": "rail_station"
-      "102": "rail_station"
-      "103": "rail_station"
-      "105": "rail_station"
-      "106": "rail_station"
-      "109": "rail_station"
-      "402": "subway_entrance"
-      "700": "bus_stop"
-      "704": "bus_stop"
-      "715": "bus_stop"
-      "900": "tram_stop"
-
-  sources:
-    "be:sn:": "gtfs.de"
-    "be:dw:": "gtfs.be"
-    "be:st:": "gtfs.be"
-    "be:dl:": "gtfs.be"
-    "be:te:": "transportdata.be"
-    "others": "gtfs.de"
-    
+    station_categories:
+        "bus": "bus_stop"
+        "tram": "tram_stop"
+        "metro": "subway_station"
+        "rail": "rail_station"
+        "other": "other"
