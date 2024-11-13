@@ -148,10 +148,10 @@ class Subscription:
 
         # rename outdated tables -> add creation date
         if poi_table_name in geonode_poi_table_names:
-            comment_sql = f"""
+            sql_comment = f"""
             SELECT obj_description('{self.geonode_schema_name}.{poi_table_name}'::regclass);
             """
-            comment = self.db_rd.select(comment_sql)[0][0]
+            comment = self.db_rd.select(sql_comment)[0][0]
 
             # Assuming the comment is in the format 'Created on YYYYMMDD'
             date_str = comment.split(' ')[-1]
@@ -164,11 +164,11 @@ class Subscription:
 
         # create fresh poi table
         if poi_category in ['childcare', 'school']:
-            create_table_sql = POITable(data_set_type='poi', schema_name = self.geonode_schema_name, data_set_name = poi_category).create_poi_table(table_type=poi_category, create_index=False, temporary=False)
-            self.db_rd.perform(create_table_sql)
+            sql_create_table = POITable(data_set_type='poi', schema_name = self.geonode_schema_name, data_set_name = poi_category).create_poi_table(table_type=poi_category, create_index=False, temporary=False)
+            self.db_rd.perform(sql_create_table)
         else:
-            create_table_sql = POITable(data_set_type='poi', schema_name = self.geonode_schema_name, data_set_name = poi_category).create_poi_table(table_type='standard', create_index=False, temporary=False)
-            self.db_rd.perform(create_table_sql)
+            sql_create_table = POITable(data_set_type='poi', schema_name = self.geonode_schema_name, data_set_name = poi_category).create_poi_table(table_type='standard', create_index=False, temporary=False)
+            self.db_rd.perform(sql_create_table)
 
         #apply constraints to POI tables
         sql_common_poi = f"""
@@ -217,16 +217,51 @@ class Subscription:
         # Add additional constraints for poi_childcare
         if poi_table_name in ("poi_childcare"):
             sql_addition_constraints_childcare = f"""
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS min_age_check, ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS max_age_check, ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
-                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  DROP CONSTRAINT IF EXISTS min_max_check, ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS min_age_check, 
+                    ADD CONSTRAINT min_age_check CHECK (min_age IS NULL OR (min_age >= 0 AND min_age <= 16));
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS max_age_check, 
+                    ADD CONSTRAINT max_age_check CHECK (max_age IS NULL OR (max_age >= 0 AND max_age <= 16));
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS carrier_not_empty_string_check, 
+                    ADD CONSTRAINT carrier_not_empty_string_check CHECK (carrier != '');
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS carrier_type_not_empty_string_check, 
+                    ADD CONSTRAINT carrier_type_not_empty_string_check CHECK (carrier_type != '');
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    DROP CONSTRAINT IF EXISTS min_max_check, 
+                    ADD CONSTRAINT min_max_check CHECK (min_age <= max_age);
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}  
+                    ALTER COLUMN nursery SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN nursery SET NOT NULL,
+                    ALTER COLUMN nursery SET DEFAULT FALSE,
+                    ALTER COLUMN kindergarten SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN kindergarten SET NOT NULL,
+                    ALTER COLUMN kindergarten SET DEFAULT FALSE,
+                    ALTER COLUMN after_school SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN after_school SET NOT NULL,
+                    ALTER COLUMN after_school SET DEFAULT FALSE;
             """
             print(f"Executing SQL: {sql_addition_constraints_childcare}")
-            #TODO: not needed anymore?
-            # ALTER TABLE {self.geonode_schema_name}.{table_name}  OWNER TO {self.maintainer};
             self.db_rd.perform(sql_addition_constraints_childcare)
+
+        # Add additional constraints for poi_school
+        if poi_table_name == "poi_school":
+            sql_addition_constraints_school = f"""
+                ALTER TABLE {self.geonode_schema_name}.{poi_table_name}
+                    ALTER COLUMN school_isced_level_1 SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN school_isced_level_1 SET NOT NULL,
+                    ALTER COLUMN school_isced_level_1 SET DEFAULT FALSE,
+                    ALTER COLUMN school_isced_level_2 SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN school_isced_level_2 SET NOT NULL,
+                    ALTER COLUMN school_isced_level_2 SET DEFAULT FALSE,
+                    ALTER COLUMN school_isced_level_3 SET DATA TYPE BOOLEAN,
+                    ALTER COLUMN school_isced_level_3 SET NOT NULL,
+                    ALTER COLUMN school_isced_level_3 SET DEFAULT FALSE;
+            """
+            print(f"Executing SQL: {sql_addition_constraints_school}")
+            self.db.perform(sql_addition_constraints_school)
 
     def migrate_kart_tables(self, poi_category):
         poi_table_name = f"poi_{poi_category}"
@@ -247,7 +282,7 @@ class Subscription:
             dump_type=DumpType.schema
         )
 
-        remove_constraints_sql = f"""
+        sql_remove_constraints = f"""
         DO $$
         DECLARE
             constraint_name varchar;
@@ -263,7 +298,7 @@ class Subscription:
             END LOOP;
         END $$;
         """
-        self.db_rd.perform(remove_constraints_sql)
+        self.db_rd.perform(sql_remove_constraints)
 
         create_table_dump(
             db_config=self.db.db_config,
@@ -281,7 +316,7 @@ class Subscription:
 
         if poi_category == 'childcare':
             #TODO: in Kart the childcare table does not have a tags column
-            insert_restored_data_into_geonode_poi_table_sql = f"""
+            sql_insert_restored_data_into_geonode_poi_table = f"""
                 INSERT INTO {self.geonode_schema_name}.{poi_table_name}(nursery, kindergarten, after_school, min_age, max_age, carrier, carrier_type, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, geom)
                 SELECT
                     nursery,
@@ -304,10 +339,10 @@ class Subscription:
                     geom
                 FROM {self.kart_schema}.{poi_table_name}
             """
-            self.db_rd.perform(insert_restored_data_into_geonode_poi_table_sql)
+            self.db_rd.perform(sql_insert_restored_data_into_geonode_poi_table)
 
         elif poi_category == 'school':
-            insert_restored_data_into_geonode_poi_table_sql = f"""
+            sql_insert_restored_data_into_geonode_poi_table = f"""
                 INSERT INTO {self.geonode_schema_name}.{poi_table_name}(school_isced_level_1, school_isced_level_2, school_isced_level_3, operator, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
                 SELECT
                     school_isced_level_1,
@@ -328,11 +363,15 @@ class Subscription:
                     tags::jsonb,
                     geom
                 FROM {self.kart_schema}.{poi_table_name}
+                WHERE
+                    school_isced_level_1 = TRUE OR
+                    school_isced_level_2 = TRUE OR
+                    school_isced_level_3 = TRUE
             """
-            self.db_rd.perform(insert_restored_data_into_geonode_poi_table_sql)
+            self.db_rd.perform(sql_insert_restored_data_into_geonode_poi_table)
 
         else:
-            insert_restored_data_into_geonode_poi_table_sql = f"""
+            sql_insert_restored_data_into_geonode_poi_table = f"""
                 INSERT INTO {self.geonode_schema_name}.{poi_table_name}(category, other_categories, operator, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
                 SELECT
                     category,
@@ -353,7 +392,7 @@ class Subscription:
                     geom
                 FROM {self.kart_schema}.{poi_table_name}
             """
-            self.db_rd.perform(insert_restored_data_into_geonode_poi_table_sql)
+            self.db_rd.perform(sql_insert_restored_data_into_geonode_poi_table)
 
     @timing
     def insert_gtfs_pt_stops(self, category):
@@ -361,13 +400,13 @@ class Subscription:
         #TODO: harmonize filter of insert_gtfs_pt_stops and read_poi
         try:
             # get the area where source is GTFS
-            geom_ref_ids_gtfs_sql = f"""
+            sql_geom_ref_ids_gtfs = f"""
                 SELECT geom_ref_id
                 FROM {self.geonode_schema_name}.data_subscription
                 WHERE source = 'GTFS'
                 AND category = '{category}'
             """
-            geom_ref_ids_gtfs = self.db_rd.select(geom_ref_ids_gtfs_sql)
+            geom_ref_ids_gtfs = self.db_rd.select(sql_geom_ref_ids_gtfs)
 
             if geom_ref_ids_gtfs == []:
                 print_info("No geom for GTFS pt stops.")
@@ -375,7 +414,7 @@ class Subscription:
                 # Join all returned values into a comma-separated string with quotes around each value
                 geom_ref_ids_gtfs = "', '".join([str(row[0]) for row in geom_ref_ids_gtfs])
 
-                geom_filter_sql = f"""
+                sql_geom_filter = f"""
                     DROP TABLE IF EXISTS geom_filter_gtfs;
                     CREATE TEMP TABLE geom_filter_gtfs AS
                     WITH geom_refs_gtfs_areas AS (
@@ -388,9 +427,9 @@ class Subscription:
                     FROM {self.geonode_schema_name}.geom_ref n
                     WHERE n.id IN (SELECT geom_ref_id FROM geom_refs_gtfs_areas)
                 """
-                self.db_rd.perform(geom_filter_sql)
+                self.db_rd.perform(sql_geom_filter)
 
-            insert_gtfs_sql = f"""
+            sql_insert_gtfs = f"""
                 INSERT INTO {self.geonode_schema_name}.{self.get_kart_poi_table_name(category)}(category, other_categories, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
                 SELECT
                     category,
@@ -413,7 +452,7 @@ class Subscription:
                 WHERE ST_Intersects(p.geom, f.geom)
                 AND p.category = '{category}';
             """
-            self.db_rd.perform(insert_gtfs_sql)
+            self.db_rd.perform(sql_insert_gtfs)
 
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -429,13 +468,13 @@ class Subscription:
         #TODO: harmonize filter of insert_gtfs_pt_stops and read_poi
         try:
             # get the area where the category is subscribed to either OSM, Overture or OSM_Overture
-            geom_ref_ids_subscribe_sql = f"""
+            sql_geom_ref_ids_subscribe = f"""
                 SELECT geom_ref_id
                 FROM {self.geonode_schema_name}.data_subscription
                 WHERE category = '{category}'
                 AND rule = 'subscribe'
             """
-            geom_ref_ids_subscribe = self.db_rd.select(geom_ref_ids_subscribe_sql)
+            geom_ref_ids_subscribe = self.db_rd.select(sql_geom_ref_ids_subscribe)
 
             if geom_ref_ids_subscribe == []:
                 print_info(f"No geom for subscription of category {category}.")
@@ -443,7 +482,7 @@ class Subscription:
                 # Join all returned values into a comma-separated string with quotes around each value
                 geom_ref_ids_subscribe = "', '".join([str(row[0]) for row in geom_ref_ids_subscribe])
 
-                geom_filter_sql = f"""
+                sql_geom_filter = f"""
                     DROP TABLE IF EXISTS geom_filter_subscribe;
                     CREATE TEMP TABLE geom_filter_subscribe AS
                     WITH geom_refs_excluded_areas AS (
@@ -471,13 +510,13 @@ class Subscription:
                         END AS geom
                     FROM geom_union_subscribe s, geom_individual_source i;
                 """
-                self.db_rd.perform(geom_filter_sql)
+                self.db_rd.perform(sql_geom_filter)
 
             # Get the pois to integrate and check if they fit the geometry filter and validation rules
             # TODO: validation here or at the end of poi preparation or both?
 
-            create_table_sql = POITable(data_set_type=f'{self.table_name}', schema_name = '', data_set_name ='to_seed').create_poi_table(table_type='standard', create_index=False, temporary=True)
-            self.db_rd.perform(create_table_sql)
+            sql_create_table = POITable(data_set_type=f'{self.table_name}', schema_name = '', data_set_name ='to_seed').create_poi_table(table_type='standard', create_index=False, temporary=True)
+            self.db_rd.perform(sql_create_table)
 
             sql_add_loop_id = f"""
                 ALTER TABLE {self.table_name}_to_seed ADD COLUMN IF NOT EXISTS loop_id SERIAL;
@@ -485,7 +524,7 @@ class Subscription:
             """
             self.db_rd.perform(sql_add_loop_id)
 
-            create_poi_to_integrate_sql = f"""
+            sql_create_poi_to_integrate = f"""
                 INSERT INTO {self.table_name}_to_seed(category, other_categories, name, operator, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
                 SELECT
                     category,
@@ -509,7 +548,7 @@ class Subscription:
                 AND p.source in ('OSM', 'Overture', 'OSM_Overture', 'Overture_OSM')
                 AND p.category = '{category}';
             """
-            self.db_rd.perform(create_poi_to_integrate_sql)
+            self.db_rd.perform(sql_create_poi_to_integrate)
         except IndexError:
             print(f"No data found for category '{category}'")
         except Exception as e:
@@ -524,7 +563,7 @@ class Subscription:
             category (str): Category of POIs to read
         """
 
-        insert_into_poi_table_sql = f"""
+        sql_insert_into_poi_table = f"""
             INSERT INTO {self.geonode_schema_name}.{self.get_kart_poi_table_name(category)}(category, other_categories, operator, name, street, housenumber, zipcode, phone, email, website, capacity, opening_hours, wheelchair, source, tags, geom)
             SELECT
                 category,
@@ -545,7 +584,7 @@ class Subscription:
                 geom
             FROM {self.table_name}_to_seed;
         """
-        self.db_rd.perform(insert_into_poi_table_sql)
+        self.db_rd.perform(sql_insert_into_poi_table)
 
     def update_date_subscription(self, category: str):
         """Updates the date of the data subscription table for the given category. """
@@ -592,12 +631,12 @@ class Subscription:
 
         # 2. if poi tables in Geonode exist -> rename tables (add date (probably date of running/ "putting date out of order")) + create fresh poi tables + apply constraints
         #TODO: do i need to worry about index names?
-        geonode_poi_table_names_sql = f"""
+        sql_geonode_poi_table_names = f"""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = '{self.geonode_schema_name}';
         """
-        geonode_poi_table_names = self.db_rd.select(geonode_poi_table_names_sql)
+        geonode_poi_table_names = self.db_rd.select(sql_geonode_poi_table_names)
         geonode_poi_table_names = [table[0] for table in geonode_poi_table_names]
 
         #TODO: technicall not the poi_categories, but the poi top level categories
@@ -633,16 +672,16 @@ class Subscription:
                     self.update_date_subscription(category)
 
                 # additional indices: gist on geom and btree on category
-                addtional_indices_sql = f"""
+                sql_addtional_indices = f"""
                     CREATE INDEX ON {self.geonode_schema_name}.poi_{poi_category} USING GIST (geom);
                     CREATE INDEX ON {self.geonode_schema_name}.poi_{poi_category} (category);
                 """
-                self.db_rd.perform(addtional_indices_sql)
+                self.db_rd.perform(sql_addtional_indices)
 
             # add comment with creation date
-            comment_sql = f"""
+            sql_comment = f"""
                 COMMENT ON TABLE {self.geonode_schema_name}.poi_{poi_category} IS 'Created on {datetime.datetime.now().strftime("%Y%m%d")}';
             """
-            self.db_rd.perform(comment_sql)
+            self.db_rd.perform(sql_comment)
 
 
