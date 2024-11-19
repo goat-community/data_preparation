@@ -1,22 +1,24 @@
-import xml.etree.ElementTree as ET
-from src.db.db import Database
-from src.core.config import settings
 import os
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+from zipfile import ZipFile
+
 from src.config.config import Config
+from src.core.config import settings
+from src.core.enums import DumpType
+from src.db.db import Database
 from src.utils.utils import (
-    print_info,
-    replace_dir,
-    delete_file,
-    create_table_schema,
-    print_hashtags,
-    print_separator_message,
-    create_table_dump,
     check_table_exists,
+    create_table_dump,
+    create_table_schema,
+    delete_file,
+    print_hashtags,
+    print_info,
+    print_separator_message,
+    replace_dir,
     restore_table_dump,
 )
-from zipfile import ZipFile
-import subprocess
-import shutil
 
 
 class CityGMLCollection:
@@ -48,6 +50,7 @@ class CityGMLCollection:
         # Set other variables
         self.s3_client = settings.S3_CLIENT
         config = Config("building", region)
+        config.download_db_schema()
         self.path_s3_citygml = config.collection["city_gml"]["path_s3"]
         self.relevant_s3_citygml_files = config.collection["city_gml"][
             "relevant_s3_files"
@@ -97,7 +100,7 @@ class CityGMLCollection:
                 )
 
         # Get citygml data
-        if download == True:
+        if download is True:
             # Replace directory if exists
             replace_dir(self.path_local_citygml)
             # Download files from S3 bucket
@@ -286,8 +289,7 @@ class CityGMLCollection:
 
             # Check if table exists in the local database
             if (
-                check_table_exists(db=self.db, schema="basic", table_name=table)
-                == False
+                check_table_exists(db=self.db, schema="basic", table_name=table) is False
             ):
                 continue
 
@@ -298,7 +300,7 @@ class CityGMLCollection:
             )
             self.db.perform(
                 f"""
-                ALTER TABLE basic.{table} SET SCHEMA {self.remote_target_schema};    
+                ALTER TABLE basic.{table} SET SCHEMA {self.remote_target_schema};
                 ALTER TABLE {self.remote_target_schema}.{table} RENAME TO {self.remote_target_table};
             """
             )
@@ -326,7 +328,7 @@ class CityGMLCollection:
                 db_config=db_rd.db_config,
                 schema=self.remote_target_schema,
                 table_name=self.remote_target_table,
-                data_only=data_only,
+                dump_type=DumpType.data if data_only else DumpType.all,
             )
 
     def replace_building(self, db_rd):
@@ -404,7 +406,6 @@ class CityGMLCollection:
             ALTER TABLE basic.building ADD PRIMARY KEY (id);
             """
         )
-        
 
 
 db = Database(settings.CITYGML_DATABASE_URI)
@@ -412,4 +413,4 @@ city_gml_collection = CityGMLCollection(db, region="de")
 # city_gml_collection.building_citygml_collection(download=True)
 db_rd = Database(settings.RAW_DATABASE_URI)
 # city_gml_collection.export_to_remote_db(db_rd=db_rd, on_exists_drop=False)
-city_gml_collection.replace_building(db_rd=db_rd)
+# city_gml_collection.replace_building(db_rd=db_rd)

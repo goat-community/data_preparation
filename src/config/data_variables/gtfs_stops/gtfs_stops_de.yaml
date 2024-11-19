@@ -1,13 +1,13 @@
-collection:
-  region: |
+preparation: 
+  region: | 
     WITH 
     bounds AS (
-        SELECT ST_Extent(geom) AS geom FROM poi.geom_ref WHERE id = 'geofence_active_mobility'
+        SELECT ST_Extent(geom) AS geom FROM public.nuts WHERE nuts_id = 'DE'
     ),
     merged_geometries AS (
         SELECT ST_Union(geom) AS geom
-        FROM poi.geom_ref
-        WHERE id = 'geofence_active_mobility'
+        FROM public.nuts 
+        WHERE nuts_id = 'DE'
     ),
     grid AS (
         SELECT ST_MakeEnvelope(
@@ -28,8 +28,10 @@ collection:
     )
     SELECT geom FROM intersections WHERE ST_GeometryType(geom) = 'ST_Polygon'
 
-  source: s3a://overturemaps-us-west-2/release/2024-04-16-beta.0/theme=places
-
-preparation:
-
-subscription:
+  classification:
+    station_categories:
+        "bus": "bus_stop"
+        "tram": "tram_stop"
+        "metro": "subway_station"
+        "rail": "rail_station"
+        "other": "other"
