@@ -733,6 +733,9 @@ def osm_generate_polygon(db_rd, geom_query: str, dest_file_path: str):
 def get_region_bbox_coords(db: Database, geom_query: str):
     """Get the bounding coordinates of a specified geometry."""
 
+    if not geom_query:
+        return None
+
     sql_get_region_bbox_coords = f"""
         SELECT
             ST_XMin(ST_Envelope(geom)) AS xmin,

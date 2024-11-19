@@ -1,7 +1,0 @@
-collection:
-  region: "SELECT ST_Union(geom) AS geom FROM poi.geom_ref WHERE id = 'geofence_active_mobility'"
-  source: s3a://overturemaps-us-west-2/release/2024-04-16-beta.0/theme=buildings
-
-preparation:
-
-subscription:
