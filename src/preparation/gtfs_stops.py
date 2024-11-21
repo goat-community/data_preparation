@@ -158,6 +158,5 @@ def prepare_gtfs_stops(region: str):
         db_rd = Database(settings.RAW_DATABASE_URI)
         public_transport_stop_preparation = GTFSStopsPreparation(db=db_rd, region=region)
         public_transport_stop_preparation.run()
-        db_rd.conn.close()
     finally:
         db_rd.conn.close()
