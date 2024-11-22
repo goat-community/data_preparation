@@ -4,6 +4,7 @@ import time
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
+from src.db.tables.poi import POITable
 from src.utils.utils import print_info
 
 
@@ -71,21 +72,14 @@ class GTFSStationsPreparation:
 
         # Get the geometires of the study area based on the query defined in the config
         region_geoms = self.db.select(self.data_config_preparation['region'])
+        data_set_name=f"public_transport_station_{self.region}"
+        data_set_type='poi'
+        schema_name='temporal'
 
         # Create table for public transport stations
-        result_table = f"temporal.poi_public_transport_station_{self.region}"
-        sql_create_table = f"""
-            DROP TABLE IF EXISTS {result_table};
-            CREATE TABLE {result_table}(
-                station_id TEXT,
-                category TEXT,
-                name TEXT,
-                modes TEXT[],
-                source TEXT,
-                geom GEOMETRY(POINT, 4326)
-            );
-        """
-        self.db.perform(sql_create_table)
+        self.db.perform(POITable(data_set_type=data_set_type, schema_name=schema_name, data_set_name=data_set_name).create_poi_table(table_type='transport'))
+        result_table = f"{schema_name}.{data_set_type}_{data_set_name}"
+        print_info(f"Created table {result_table}.")
 
         # Flatten the public transport types dictionary for easy classification
         flat_mode_mapping = {}
@@ -99,7 +93,7 @@ class GTFSStationsPreparation:
             ts = time.time()
 
             classify_gtfs_stop_sql = f"""
-                INSERT INTO {result_table} (station_id, category, name, modes, source, geom)
+                INSERT INTO {result_table} (stop_id, category, name, modes, source, geom)
                 WITH parent_stations AS (
                     SELECT s.stop_id AS station_id, s.stop_name AS station_name, s.geom AS station_geom
                     FROM basic.stops s
@@ -124,7 +118,7 @@ class GTFSStationsPreparation:
                     ) j
                 )
                 SELECT
-                    station_id,
+                    station_id as stop_id,
                     '{json.dumps(self.data_config_preparation['classification']['station_categories'])}'::jsonb ->> basic.identify_dominant_mode(
                         ARRAY_AGG(DISTINCT route_type),
                         '{json.dumps(flat_mode_mapping)}'::JSONB
@@ -149,7 +143,7 @@ class GTFSStationsPreparation:
             ts = time.time()
 
             classify_gtfs_stop_sql = f"""
-                INSERT INTO {result_table} (station_id, category, name, modes, source, geom)
+                INSERT INTO {result_table} (stop_id, category, name, modes, source, geom)
                 WITH clipped_gfts_stops AS (
                     SELECT stop_id, stop_name, geom, h3_3
                     FROM basic.stops
@@ -169,7 +163,7 @@ class GTFSStationsPreparation:
                     ) j
                 )
                 SELECT
-                    'new_station' AS station_id,
+                    'new_station' AS stop_id,
                     '{json.dumps(self.data_config_preparation['classification']['station_categories'])}'::jsonb ->> basic.identify_dominant_mode(
                         ARRAY_AGG(DISTINCT route_type),
                         '{json.dumps(flat_mode_mapping)}'::JSONB
@@ -191,8 +185,9 @@ class GTFSStationsPreparation:
         print_info("Preparation of GTFS stations is complete.")
 
 def prepare_gtfs_stations(region: str):
-
-    db_rd = Database(settings.RAW_DATABASE_URI)
-    public_transport_stop_preparation = GTFSStationsPreparation(db=db_rd, region=region)
-    public_transport_stop_preparation.run()
-    db_rd.conn.close()
+    try:
+        db_rd = Database(settings.RAW_DATABASE_URI)
+        public_transport_stop_preparation = GTFSStationsPreparation(db=db_rd, region=region)
+        public_transport_stop_preparation.run()
+    finally:
+        db_rd.conn.close()
