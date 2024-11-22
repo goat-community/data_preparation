@@ -76,6 +76,6 @@ class POITable:
                 "modes text[] NULL"
             ]
         else:
-            raise ValueError("Invalid table_type. Supported values are 'standard', 'school', or 'childcare'.")
+            raise ValueError("Invalid table_type. Supported values are 'standard', 'school', 'childcare', or 'transport.")
 
         return self.create_table(table_name, category_columns, temporary, create_index)
