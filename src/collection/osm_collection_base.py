@@ -1,24 +1,28 @@
-import subprocess
 import os
-import sys
-import psutil
-import geopandas as gpd
 import re
-from src.utils.utils import (
-    print_info,
-    download_link,
-    delete_dir,
-    print_hashtags,
-    delete_file,
-    print_warning,
-    timing
-)
-from src.utils.utils import create_pgpass, parse_poly
+import subprocess
+import sys
 from functools import partial
 from multiprocessing.pool import Pool
+
+import geopandas as gpd
+import psutil
+
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
+from src.utils.utils import (
+    create_pgpass,
+    delete_dir,
+    delete_file,
+    download_link,
+    parse_poly,
+    print_hashtags,
+    print_info,
+    print_warning,
+    timing,
+)
+
 
 class OSMCollection:
     def __init__(self, db_config: str, dataset_type: str, region: str = "de"):
@@ -64,13 +68,13 @@ class OSMCollection:
         only_name = full_name.split(".")[0]
         print_info(f"Preparing file {full_name}")
         subprocess.run(
-            f"osmconvert {full_name} --drop-author --drop-version --out-osm -o={only_name}.o5m",
+            f"osmconvert {full_name} --drop-author --drop-version --out-o5m -o={only_name}.o5m",
             shell=True,
             check=True,
         )
         if osm_filter is not None and osm_filter != '':
             subprocess.run(
-                f'osmfilter {only_name}.o5m -o={only_name + "_" + self.dataset_type}.o5m --keep="{osm_filter}"',
+                f'osmfilter {only_name}.o5m -o={only_name + "_" + self.dataset_type}.o5m {osm_filter}',
                 shell=True,
                 check=True,
             )
@@ -307,7 +311,7 @@ class OSMCollection:
         subprocess.run(
             f"PGPASSFILE=~/.pgpass_{self.dbname} osm2pgsql -d {self.dbname} -H {self.host} -U {self.username} --port {self.port} --hstore -E 4326 -r .osm -c "
             + file_name
-            + f" -s --drop -C {self.cache} --style {path_style_file} --prefix osm_{self.data_config.name}_{self.region}",
+            + f" -s -C {self.cache} --style {path_style_file} --prefix osm_{self.data_config.name}_{self.region}",
             shell=True,
             check=True,
         )
@@ -323,9 +327,11 @@ class OSMCollection:
             f.split("/")[-1].split(".")[0] + f"_{self.data_config.name}.osm" for f in self.region_links
         ]
 
-        # Create custom osm2pgsql style
-        self.data_config.osm2pgsql_create_style()
-        path_style_file = os.path.join(self.dataset_dir, "osm2pgsql.style")
+        # Create custom osm2pgsql style if required
+        path_style_file = self.data_config.collection.get("osm2pgsql_style")
+        if not path_style_file:
+            self.data_config.osm2pgsql_create_style()
+            path_style_file = os.path.join(self.dataset_dir, "osm2pgsql.style")
 
         if self.region == "europe_all": #TODO: find better way then hard coding europe_all
             # Import each osm file using custom osm2pgsql style

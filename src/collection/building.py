@@ -3,6 +3,7 @@ from src.collection.osm_collection_base import OSMCollection
 from src.core.config import settings
 from src.db.db import Database
 
+
 class OSMBuildingCollection(OSMCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config, region):
@@ -18,7 +19,7 @@ class OSMBuildingCollection(OSMCollection):
     def building_collection(self, db: Database):
         """Collects all building from OSM"""
 
-        osm_filter = "building= --drop-nodes --drop-relations"
+        osm_filter = '--keep="building=" --drop-nodes --drop-relations'
         self.download_bulk_osm()
         self.prepare_bulk_osm(osm_filter=osm_filter)
         self.merge_osm_and_import()

@@ -3,6 +3,7 @@ from src.collection.osm_collection_base import OSMCollection
 from src.core.config import settings
 from src.db.db import Database
 
+
 class OSMLanduseCollection(OSMCollection):
     """Collects all POIs from OSM."""
     def __init__(self, db_config, region):
@@ -17,8 +18,8 @@ class OSMLanduseCollection(OSMCollection):
 
     def Landuse_collection(self, db: Database):
         """Collects all landuse from OSM"""
-    
-        osm_filter = "landuse= amenity= leisure= tourism= --drop-nodes --drop-relations"
+
+        osm_filter = '--keep="landuse= amenity= leisure= tourism=" --drop-nodes --drop-relations'
         self.download_bulk_osm()
         self.prepare_bulk_osm(osm_filter=osm_filter)
         self.merge_osm_and_import()
