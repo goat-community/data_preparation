@@ -1,8 +1,9 @@
 from src.collection.osm_collection_base import OSMCollection
+from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
-from src.config.config import Config
 from src.utils.utils import timing
+
 
 class OSMPOICollection(OSMCollection):
     """Collects all POIs from OSM."""
@@ -21,6 +22,9 @@ class OSMPOICollection(OSMCollection):
                         osm_filter += tag + "=" + tag_value + " "
                 else:
                     osm_filter += tag + " "
+
+        if osm_filter:
+            '--keep="' + osm_filter + '"'
 
         # Remove not needed osm feature categories
         if self.data_config.collection["nodes"] == False:

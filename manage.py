@@ -7,6 +7,7 @@ from src.collection.gtfs import collect_gtfs
 from src.collection.landuse import collect_landuse
 from src.collection.network import collect_network
 from src.collection.network_pt import collect_network_pt
+from src.collection.osm_pt_lines import collect_osm_pt_lines
 from src.collection.overture import collect_overture
 from src.collection.poi import collect_poi
 from src.core.config import settings
@@ -20,6 +21,7 @@ from src.preparation.gtfs_stops import prepare_gtfs_stops
 from src.preparation.network import export_network, prepare_network
 from src.preparation.network_overture import prepare_overture_network
 from src.preparation.network_pt import prepare_network_pt
+from src.preparation.osm_pt_lines import prepare_osm_pt_lines
 from src.preparation.overture_division_area import prepare_overture_division_area
 from src.preparation.poi import export_poi, prepare_poi
 from src.preparation.poi_overture import prepare_poi_overture
@@ -41,6 +43,7 @@ action_dict = {
         "network_pt": collect_network_pt,
         "gtfs": collect_gtfs,
         "overture": collect_overture,
+        "osm_pt_lines": collect_osm_pt_lines,
     },
     "preparation": {
         "poi": prepare_poi,
@@ -54,6 +57,7 @@ action_dict = {
         "overture": prepare_overture_division_area,
         "gtfs_stops": prepare_gtfs_stops,
         "gtfs_stations": prepare_gtfs_stations,
+        "osm_pt_lines": prepare_osm_pt_lines,
     },
     "fusion":{
         "poi_osm_overture": fusion_poi_osm_overture,

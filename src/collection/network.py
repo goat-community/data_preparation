@@ -1,10 +1,11 @@
+import subprocess
+
 from src.collection.osm_collection_base import OSMCollection
+from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
-from src.config.config import Config
-import subprocess
 from src.utils.utils import print_info
-from src.core.config import settings
+
 
 class OSMNetworkCollection(OSMCollection):
     """Collects all POIs from OSM."""
@@ -24,7 +25,7 @@ class OSMNetworkCollection(OSMCollection):
 
         self.download_bulk_osm()
         self.prepare_bulk_osm(
-            osm_filter="highway= cycleway= junction=",
+            osm_filter='--keep="highway= cycleway= junction="',
         )
 
         # Merge all osm files
