@@ -4,6 +4,7 @@ import time
 from src.config.config import Config
 from src.core.config import settings
 from src.db.db import Database
+from src.db.tables.poi import POITable
 from src.utils.utils import print_info
 
 
@@ -60,6 +61,13 @@ class GTFSStopsPreparation:
         },
     }
 
+    wheelchair_boarding_dic = {
+            '0': 'no data',
+            '1': 'yes',
+            '2': 'no',
+    }
+
+
     def __init__(self, db: Database, region: str):
         self.db = db
         self.region = region
@@ -71,21 +79,14 @@ class GTFSStopsPreparation:
 
         # Get the geometires of the study area based on the query defined in the config
         region_geoms = self.db.select(self.data_config_preparation['region'])
+        data_set_name=f"public_transport_stop_{self.region}"
+        data_set_type='poi'
+        schema_name='temporal'
 
         # Create table for public transport stops
-        result_table = f"temporal.poi_public_transport_stop_{self.region}"
-        sql_create_table = f"""
-            DROP TABLE IF EXISTS {result_table};
-            CREATE TABLE {result_table}(
-                stop_id TEXT,
-                category TEXT,
-                name TEXT,
-                modes TEXT[],
-                source TEXT,
-                geom GEOMETRY(POINT, 4326)
-            );
-        """
-        self.db.perform(sql_create_table)
+        self.db.perform(POITable(data_set_type=data_set_type, schema_name=schema_name, data_set_name=data_set_name).create_poi_table(table_type='transport'))
+        result_table = f"{schema_name}.{data_set_type}_{data_set_name}"
+        print_info(f"Created table {result_table}.")
 
         # Flatten the public transport types dictionary for easy classification
         flat_mode_mapping = {}
@@ -98,10 +99,11 @@ class GTFSStopsPreparation:
         for i, geom in enumerate(region_geoms):
             ts = time.time()
 
+            # Identify wheelchair accessibility based on GTFS classification rules
             classify_gtfs_stop_sql = f"""
-                INSERT INTO {result_table} (stop_id, category, name, modes, source, geom)
+                INSERT INTO {result_table} (stop_id, category, name, modes, source, wheelchair, geom)
                 WITH clipped_gfts_stops AS (
-                    SELECT stop_id, stop_name, geom, h3_3
+                    SELECT stop_id, stop_name, geom, h3_3, wheelchair_boarding, parent_station
                     FROM basic.stops
                     WHERE location_type != '1'
                     AND ST_Intersects(geom, ST_SetSRID(ST_GeomFromText(ST_AsText('{geom[0]}')), 4326))
@@ -117,9 +119,19 @@ class GTFSStopsPreparation:
                         AND o.h3_3 = c.h3_3
                         AND o.route_type IN {tuple(int(key) for key in flat_mode_mapping.keys())}
                     ) j
+                ),
+                updated_wheelchair_info AS (
+                    SELECT child.*, COALESCE(NULLIF(child.wheelchair_boarding, '0'), parent.parent_wheelchair_boarding, '0') AS updated_wheelchair_boarding
+                    FROM categorized_gtfs_stops child
+                    LEFT JOIN (
+                        SELECT stop_id AS parent_stop_id,wheelchair_boarding AS parent_wheelchair_boarding
+                        FROM basic.stops
+                        WHERE location_type = '1'
+                    ) parent
+                    ON child.parent_station = parent.parent_stop_id
                 )
                 SELECT
-                    stop_id,
+                stop_id,
                     '{json.dumps(self.data_config_preparation['classification']['station_categories'])}'::jsonb ->> basic.identify_dominant_mode(
                         ARRAY_AGG(DISTINCT route_type),
                         '{json.dumps(flat_mode_mapping)}'::JSONB
@@ -127,9 +139,10 @@ class GTFSStopsPreparation:
                     stop_name AS name,
                     ARRAY_AGG(DISTINCT '{json.dumps(flat_mode_mapping)}'::JSONB ->> route_type) AS modes,
                     'DELFI' AS source,
+                    '{json.dumps(self.wheelchair_boarding_dic)}'::JSONB ->> updated_wheelchair_boarding AS wheelchair,
                     geom
-                FROM categorized_gtfs_stops
-                GROUP BY stop_id, stop_name, geom;
+                FROM updated_wheelchair_info
+                GROUP BY stop_id, stop_name, geom, updated_wheelchair_boarding;
             """
 
             self.db.perform(classify_gtfs_stop_sql)
@@ -141,8 +154,9 @@ class GTFSStopsPreparation:
         print_info("Preparation of GTFS stops is complete.")
 
 def prepare_gtfs_stops(region: str):
-
-    db_rd = Database(settings.RAW_DATABASE_URI)
-    public_transport_stop_preparation = GTFSStopsPreparation(db=db_rd, region=region)
-    public_transport_stop_preparation.run()
-    db_rd.conn.close()
+    try:
+        db_rd = Database(settings.RAW_DATABASE_URI)
+        public_transport_stop_preparation = GTFSStopsPreparation(db=db_rd, region=region)
+        public_transport_stop_preparation.run()
+    finally:
+        db_rd.conn.close()
