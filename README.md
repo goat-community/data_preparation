@@ -39,7 +39,7 @@ Action:Export --> RemoteDatabase
 Execute `manage.py` at the root of this repository along with the following options to run the pipeline.
 
 `--action` or `-a`
-`--data-set` or `d`
+`--data-set` or `-d`
 `--region` or `-r`
 
 The different actions can be executed by the `--action` or `-a` argument. Each action can be used individually or in combination. Each action will be performed on one or more datasets. The supported datasets are currently:
