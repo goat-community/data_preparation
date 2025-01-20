@@ -66,6 +66,7 @@ pydantic = "^2.5.3"
 keplergl = "^0.3.2"
 geoalchemy2 = "^0.14.3"
 numpy = "1.25.2"
+polars-lts-cpu = "^1.17.1"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.4.1"

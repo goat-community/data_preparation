@@ -1,28 +1,6 @@
 preparation:
-  start_date: "2022-12-12" # Must be a Monday for stop_times_optimized to be correct!
-  num_weeks: 52
+  start_date: "2025-02-04" # Must be a Tuesday for stop_times_optimized to be correct!
+  num_weeks: 26
   network_dir: "eu"
-  network_corrections: {
-    "TABLE_NAME": "CORRECTIONS_FILE.txt"
-  }
-  target_schema: "gtfs"
+  target_schema: "gtfs_eu"
   regions_query: "SELECT nuts_id, nuts_name FROM public.nuts WHERE cntr_code IN ('DE', 'DK', 'LU', 'NL', 'CH', 'AT', 'BE') AND levl_code = '3';"
-
-analysis:
-  data_schema: "gtfs"
-  start_time: "00:00"
-  end_time: "24:00"
-  weekdays: [
-    "mon",
-    "sat",
-    "sun"
-  ]
-  sub_regions: [
-    "DE", # Germany
-    "DK", # Denmark
-    "LU", # Luxembourg
-    "NL", # Netherlands
-    "CH", # Switzerland
-    "AT", # Austria
-    "BE", # Belgium
-  ]

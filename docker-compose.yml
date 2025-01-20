@@ -43,6 +43,7 @@ services:
 
 
   db-vol-ownership:
+    platform: linux/amd64
     image: ubuntu
     user: "root"
     group_add:
@@ -52,9 +53,11 @@ services:
     command: chown -R 10000:10000 /storage
 
   db:
+    platform: linux/amd64
     image: goatcommunity/postgres-data-preparation:latest
     container_name: ${COMPOSE_PROJECT_NAME}_db
     hostname: ${COMPOSE_PROJECT_NAME}_db
+    shm_size: '1gb'
     environment:
       # DB_ADMIN IS "rds" (!cannot be changed!)
       - DB_INSTANCE_NAME=${COMPOSE_PROJECT_NAME}_db
