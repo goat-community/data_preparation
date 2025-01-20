@@ -1,5 +1,5 @@
 # Data Preparation
-A collection of scripts that fetch, process and export various geospacial datasets for GOAT.
+A collection of scripts that fetch, process and export geospatial datasets for GOAT.
 
 # Overview
 
@@ -28,23 +28,33 @@ Action:Export --> RemoteDatabase
 
 # Setup
 
-1. Create your personal .env from .env.template
-2. Create your personal id.rsa and id.rsa.pub from the templates
-3. Run `docker-compose up -d`
-4. Work inside the docker container
-5. Init the database with `python initdb.py`
+1. Create your personal `.env` environment file from `.env.template`
+2. Run `docker-compose up -d`
+3. Work inside the docker container
+4. Initialise a local database by running `python initdb.py`
+5. Orchestrate the data preparation pipeline via the `manage.py` CLI
 
 # Using the CLI
 
-Execute `manage.py` at the root of this repository along with the following options to run the pipeline.
+Execute `manage.py` at the root of this repository along with the following options to run the pipeline. Multiple actions and datasets may be strung together to be run sequentially. It is however important that the pipeline is executed in the order: collection, preparation and export.
 
-`--action` or `-a`
-`--data-set` or `-d`
+`--actions` or `-a`
+
+`--datasets` or `-d`
+
 `--region` or `-r`
 
-The different actions can be executed by the `--action` or `-a` argument. Each action can be used individually or in combination. Each action will be performed on one or more datasets. The supported datasets are currently:
+### Supported actions
+Actions may be performed individually or strung together to be run sequentially.
 
-Collection:
+- collection
+- preparation
+- export
+
+### Supported datasets
+Datasets may be processed individually or strung together to be run sequentially.
+
+#### Collection
 - building
 - poi
 - landuse
@@ -54,7 +64,7 @@ Collection:
 - overture
 - osm_pt_lines
 
-Preparation:
+#### Preparation
 - building
 - population
 - poi
@@ -68,8 +78,6 @@ Preparation:
 - overture
 - osm_pt_lines
 
-The data sets can be defined by the `--data-set` or by `-d` argument.
+### Supported regions
 
-A region can be defined by `--region` or `-r`. A region can be understood as geographical area such as a country or state. The CLI will use the region and data-set tag to find the associated configuration file inside the `config/data_variables` folder. There should be a check whether the configuration file exists. If not, the CLI should exit with an error message. 
-
-It should be possible to chain the different process. So it should be possible to execute the collection, preparation and export action in one command. It is important that the processes are executed in the order: collection, preparation and export. Furthermore it should be possible to execute the command for multiple datasets at once.
+Regions typically refer to geographical areas such as countries or states. The CLI will use the region and dataset tag to find the associated configuration file within the `config/data_variables` folder. If an appropriate region configuration file does not exist, the CLI will exit with an error message. Only one region may be specified at a time.
