@@ -54,7 +54,7 @@ Actions may be performed individually or strung together to be run sequentially.
 ### Supported datasets
 Datasets may be processed individually or strung together to be run sequentially.
 
-#### Collection
+Collection
 - building
 - poi
 - landuse
@@ -64,7 +64,7 @@ Datasets may be processed individually or strung together to be run sequentially
 - overture
 - osm_pt_lines
 
-#### Preparation
+Preparation
 - building
 - population
 - poi
