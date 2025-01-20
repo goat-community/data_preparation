@@ -62,7 +62,7 @@ class GTFSCollection:
 
         # Read header to define column order and remove header afterwards from file
         with open(input_file, "r") as f:
-            header = f.readline().strip().split(",")
+            header = f.readline().strip().replace('"', '').split(",")
 
         # Check if header is same as column of table
         columns = self.db.select(
@@ -185,9 +185,24 @@ class GTFSCollection:
                 """
             elif table == "stops":
                 sql_copy = f"""
+                    ALTER TABLE {self.schema}.{table}_temp ADD COLUMN h3_3 int;
+
+                    UPDATE {self.schema}.{table}_temp
+                    SET h3_3 = grid.h3_3
+                    FROM basic.h3_3_grid grid
+                    WHERE ST_Intersects(
+                        ST_SetSRID(ST_MakePoint(stop_lon, stop_lat), 4326),
+                        grid.geom
+                    );
+
+                    UPDATE {self.schema}.{table}_temp
+                    SET h3_3 = to_short_h3_3(
+                        h3_lat_lng_to_cell(ST_SetSRID(ST_MakePoint(stop_lon, stop_lat), 4326)::point, 3)::bigint
+                    )
+                    WHERE h3_3 IS NULL;
+
                     INSERT INTO {self.schema}.{table} ({output_cols_formatted}, geom, h3_3)
-                    SELECT {output_cols_formatted}, ST_SetSRID(ST_MakePoint(stop_lon::float4, stop_lat::float4), 4326) AS geom,
-                    public.to_short_h3_3(h3_lat_lng_to_cell(ST_SetSRID(ST_MakePoint(stop_lon::float4, stop_lat::float4), 4326)::point, 3)::bigint) AS h3_3
+                    SELECT {output_cols_formatted}, ST_SetSRID(ST_MakePoint(stop_lon::float4, stop_lat::float4), 4326) AS geom, h3_3
                     FROM {self.schema}.{table}_temp;
                 """
             elif table == "stop_times":
@@ -296,14 +311,9 @@ def collect_gtfs(region: str):
     try:
         GTFSCollection(db=db, region=region).run()
         db.close()
-        print_info("Finished GTFS preparation.")
+        print_info("Finished GTFS collection.")
     except Exception as e:
         print(e)
         raise e
     finally:
         db.close()
-
-
-# Run as main
-if __name__ == "__main__":
-    collect_gtfs("eu")

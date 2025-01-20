@@ -140,9 +140,9 @@ class GTFS:
                 DROP TABLE IF EXISTS {self.schema}.dates_max_trips;
                 CREATE TABLE {self.schema}.dates_max_trips AS
                 WITH date_series AS (
-                    SELECT generate_series::date AS check_date_mon,
-                        (generate_series + INTERVAL '5 days')::date AS check_date_sat,
-                        (generate_series + INTERVAL '6 days')::date AS check_date_sun
+                    SELECT generate_series::date AS check_date_tue,
+                        (generate_series + INTERVAL '4 days')::date AS check_date_sat,
+                        (generate_series + INTERVAL '5 days')::date AS check_date_sun
                     FROM generate_series(DATE '{self.config.preparation["start_date"]}',
                                             DATE '{self.config.preparation["start_date"]}' +
                                             INTERVAL '{self.config.preparation["num_weeks"]} weeks',
@@ -152,7 +152,7 @@ class GTFS:
                 (
                     SELECT
                         j.route_id,
-                        s.check_date_mon, j.cnt_trips_mon,
+                        s.check_date_tue, j.cnt_trips_tue,
                         s.check_date_sat, j.cnt_trips_sat,
                         s.check_date_sun, j.cnt_trips_sun
                     FROM date_series s
@@ -167,13 +167,13 @@ class GTFS:
                         CROSS JOIN LATERAL
                         (
                             select route_id,
-                                sum(cnt_trips_mon) cnt_trips_mon,
+                                sum(cnt_trips_tue) cnt_trips_tue,
                                 sum(cnt_trips_sat) cnt_trips_sat,
                                 sum(cnt_trips_sun) cnt_trips_sun
                             from
                             (
                                     select
-                                        sum(c.monday::integer) as cnt_trips_mon,
+                                        sum(c.tuesday::integer) as cnt_trips_tue,
                                         0 as cnt_trips_sat,
                                         0 as cnt_trips_sun,
                                         t.route_id
@@ -184,17 +184,17 @@ class GTFS:
                                             left outer join
                                                 {self.schema}.calendar_dates cd
                                             on cd.service_id = c.service_id
-                                                and cd.date = s.check_date_mon
+                                                and cd.date = s.check_date_tue
                                         ) c
                                     WHERE t.route_id = r.route_id
                                     AND t.service_id = c.service_id
                                     and (c.exception_type is null or c.exception_type != 2)
-                                    AND s.check_date_mon >= start_date
-                                    AND s.check_date_mon <= end_date
+                                    AND s.check_date_tue >= start_date
+                                    AND s.check_date_tue <= end_date
                                     GROUP BY t.route_id
                                 UNION ALL
                                     SELECT
-                                        0 as cnt_trips_mon,
+                                        0 as cnt_trips_tue,
                                         sum(c.saturday::integer) as cnt_trips_sat,
                                         0 as cnt_trips_sun,
                                         t.route_id
@@ -215,7 +215,7 @@ class GTFS:
                                     GROUP BY t.route_id
                                 union all
                                     select
-                                        0 as cnt_trips_mon,
+                                        0 as cnt_trips_tue,
                                         0 as cnt_trips_sat,
                                         sum(c.sunday::integer) as cnt_trips_sun,
                                         t.route_id
@@ -236,7 +236,7 @@ class GTFS:
                                     GROUP BY t.route_id
                                 UNION ALL
                                     SELECT
-                                        sum(cd.exception_type) cnt_trips_mon,
+                                        sum(cd.exception_type) cnt_trips_tue,
                                         0 as cnt_trips_sat,
                                         0 as cnt_trips_sun,
                                         t.route_id
@@ -244,11 +244,11 @@ class GTFS:
                                     WHERE t.route_id = r.route_id
                                     AND t.service_id = cd.service_id
                                     AND cd.exception_type = 1
-                                    AND cd.date = s.check_date_mon
+                                    AND cd.date = s.check_date_tue
                                     GROUP BY t.route_id
                                 UNION ALL
                                     SELECT
-                                        0 as cnt_trips_mon,
+                                        0 as cnt_trips_tue,
                                         sum(cd.exception_type) as cnt_trips_sat,
                                         0 as cnt_trips_sun,
                                         t.route_id
@@ -260,7 +260,7 @@ class GTFS:
                                     GROUP BY t.route_id
                                 UNION ALL
                                     SELECT
-                                        0 as cnt_trips_mon,
+                                        0 as cnt_trips_tue,
                                         0 as cnt_trips_sat,
                                         sum(cd.exception_type) cnt_trips_sun,
                                         t.route_id
@@ -273,13 +273,13 @@ class GTFS:
                             ) route_trips
                             group by route_id
                         ) sub
-                        where sub.cnt_trips_mon > 0 or sub.cnt_trips_sat > 0 or sub.cnt_trips_sun > 0
+                        where sub.cnt_trips_tue > 0 or sub.cnt_trips_sat > 0 or sub.cnt_trips_sun > 0
                     ) j
                 ),
                 route_mode_trips AS (
                     SELECT
                         r.route_id,
-                        MODE() WITHIN GROUP (ORDER BY cnt_trips_mon) AS mode_trips_mon,
+                        MODE() WITHIN GROUP (ORDER BY cnt_trips_tue) AS mode_trips_tue,
                         MODE() WITHIN GROUP (ORDER BY cnt_trips_sat) AS mode_trips_sat,
                         MODE() WITHIN GROUP (ORDER BY cnt_trips_sun) AS mode_trips_sun
                     FROM (
@@ -289,12 +289,12 @@ class GTFS:
                     LEFT JOIN trip_cnt t ON r.route_id = t.route_id
                     GROUP BY r.route_id
                 ),
-                date_mon_mode_trips AS (
-                    select rmt.route_id, rmt.mode_trips_mon, min(tc.check_date_mon) as mode_date_mon
+                date_tue_mode_trips AS (
+                    select rmt.route_id, rmt.mode_trips_tue, min(tc.check_date_tue) as mode_date_tue
                     from
                     route_mode_trips rmt join trip_cnt tc
-                    on tc.route_id = rmt.route_id and tc.cnt_trips_mon = rmt.mode_trips_mon
-                    group by rmt.route_id, rmt.mode_trips_mon
+                    on tc.route_id = rmt.route_id and tc.cnt_trips_tue = rmt.mode_trips_tue
+                    group by rmt.route_id, rmt.mode_trips_tue
 
                 ),
                 date_sat_mode_trips AS (
@@ -314,14 +314,14 @@ class GTFS:
 
                 )
                 SELECT r.*,
-                    d_mon.mode_trips_mon, d_mon.mode_date_mon as date_mon,
+                    d_tue.mode_trips_tue, d_tue.mode_date_tue as date_tue,
                     d_sat.mode_trips_sat, d_sat.mode_date_sat as date_sat,
                     d_sun.mode_trips_sun, d_sun.mode_date_sun as date_sun
-                FROM date_mon_mode_trips d_mon,
+                FROM date_tue_mode_trips d_tue,
                     date_sat_mode_trips d_sat,
                     date_sun_mode_trips d_sun,
                     {self.schema}.routes r
-                WHERE d_mon.route_id = r.route_id
+                WHERE d_tue.route_id = r.route_id
                     and d_sat.route_id = r.route_id
                     and d_sun.route_id = r.route_id;
             """
@@ -350,7 +350,7 @@ class GTFS:
                 ARRAY[CASE WHEN 'true' = ANY(array_agg(weekday)) THEN 'true'::boolean ELSE 'false'::boolean END,
                         CASE WHEN 'true' = ANY(array_agg(sat)) THEN 'true'::boolean ELSE 'false'::boolean END,
                         CASE WHEN 'true' = ANY(array_agg(sun)) THEN 'true'::boolean ELSE 'false'::boolean END] AS weekdays,
-                ARRAY[CASE WHEN 'true' = ANY(array_agg(weekday)) THEN (ARRAY_AGG(date_mon))[1]::date ELSE NULL END,
+                ARRAY[CASE WHEN 'true' = ANY(array_agg(weekday)) THEN (ARRAY_AGG(date_tue))[1]::date ELSE NULL END,
                         CASE WHEN 'true' = ANY(array_agg(sat)) THEN (ARRAY_AGG(date_sat))[1]::date ELSE NULL END,
                         CASE WHEN 'true' = ANY(array_agg(sun)) THEN (ARRAY_AGG(date_sun))[1]::date ELSE NULL END] AS weekday_dates
             FROM (
@@ -360,10 +360,10 @@ class GTFS:
                         'false' as sun
                     FROM t INNER JOIN cal
                     ON t.service_id = cal.service_id
-                        AND t.date_mon >= cal.start_date
-                        AND t.date_mon <= cal.end_date
-                        AND cal.monday = '1'
-                        AND (cal.inactive_dates is null or (NOT (t.date_mon = ANY (cal.inactive_dates))))
+                        AND t.date_tue >= cal.start_date
+                        AND t.date_tue <= cal.end_date
+                        AND cal.tuesday = '1'
+                        AND (cal.inactive_dates is null or (NOT (t.date_tue = ANY (cal.inactive_dates))))
                 UNION
                     SELECT t.*,
                         'true' as weekday,
@@ -371,7 +371,7 @@ class GTFS:
                         'false' as sun
                     FROM t INNER JOIN {self.schema}.calendar_dates cd
                     ON t.service_id = cd.service_id
-                        AND t.date_mon = cd.date
+                        AND t.date_tue = cd.date
                         AND cd.exception_type = 1
                 UNION
                     SELECT t.*,

@@ -1,0 +1,8 @@
+####################### OSM PT Lines ###########################
+node,way  route  text  linear
+node,way  ref  text  linear
+node,way  operator  text  linear
+node,way  network  text  linear
+node,way  from  text  linear
+node,way  to  text  linear
+node,way  via  text  linear
